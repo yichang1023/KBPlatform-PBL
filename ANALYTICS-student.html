@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的知識羅盤 | My KB Journey</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap');
+        body { font-family: 'Noto Sans TC', sans-serif; background-color: #f3f4f6; }
+        .card { background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); padding: 1.5rem; }
+        .kb-badge { font-size: 0.75rem; padding: 0.25rem 0.5rem; border-radius: 9999px; font-weight: 600; }
+        
+        /* 想法演化軌跡的連線樣式 */
+        .evolution-line {
+            position: absolute;
+            left: 20px;
+            top: 40px;
+            bottom: -20px;
+            width: 2px;
+            background-color: #e5e7eb;
+            z-index: 0;
+        }
+        .evolution-item:last-child .evolution-line { display: none; }
+        
+        /* 社群推動力的漣漪動畫效果 */
+        @keyframes ripple {
+            0% { box-shadow: 0 0 0 0 rgba(96, 165, 250, 0.4); }
+            100% { box-shadow: 0 0 0 20px rgba(96, 165, 250, 0); }
+        }
+        .ripple-effect {
+            animation: ripple 2s infinite;
+        }
+        
+        /* 網絡節點動畫 */
+        @keyframes pulse-node {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        .node-pulse { animation: pulse-node 2s infinite ease-in-out; }
+
+        /* 簡單的淡入動畫 */
+        .fade-in { animation: fadeIn 0.5s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* 說明文字區塊樣式 */
+        .insight-box {
+            background-color: #f8fafc;
+            border-left: 3px solid #cbd5e1;
+            padding: 0.75rem;
+            margin-top: 1rem;
+            font-size: 0.75rem; /* text-xs */
+            color: #64748b; /* text-slate-500 */
+            line-height: 1.4;
+        }
+        .insight-title {
+            font-weight: 700;
+            color: #475569;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+        }
+        .insight-title i { margin-right: 0.25rem; }
+
+        /* Modal Styles */
+        .modal {
+            display: none; 
+            position: fixed; 
+            z-index: 1000; 
+            left: 0;
+            top: 0;
+            width: 100%; 
+            height: 100%; 
+            overflow: auto; 
+            background-color: rgba(0,0,0,0.5); 
+            backdrop-filter: blur(2px);
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: auto;
+            padding: 0;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            animation: modalFadeIn 0.3s;
+        }
+        @keyframes modalFadeIn {
+            from {opacity: 0; transform: scale(0.95);}
+            to {opacity: 1; transform: scale(1);}
+        }
+        .modal-header {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: #f9fafb;
+            border-top-left-radius: 12px;
+            border-top-right-radius: 12px;
+        }
+        .close {
+            color: #aaa;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .close:hover,
+        .close:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        /* Ref Button Style */
+        .ref-btn {
+            color: #9ca3af; /* text-gray-400 */
+            background-color: #f3f4f6; /* bg-gray-100 */
+            padding: 0.25rem 0.5rem;
+            border-radius: 9999px;
+            font-size: 0.75rem; /* text-xs */
+            display: inline-flex;
+            align-items: center;
+            transition: all 0.2s;
+            margin-left: 0.5rem;
+            cursor: pointer;
+        }
+        .ref-btn:hover {
+            color: #4f46e5; /* text-indigo-600 */
+            background-color: #e0e7ff; /* bg-indigo-50 */
+        }
+        /* Dark mode compatible ref button for Community Impact card */
+        .ref-btn-dark {
+            color: #94a3b8; /* text-slate-400 */
+            background-color: rgba(255,255,255,0.1);
+        }
+        .ref-btn-dark:hover {
+            color: white;
+            background-color: rgba(255,255,255,0.2);
+        }
+    </style>
+</head>
+<body class="text-gray-800">
+
+    <!-- 頂部導航 -->
+    <nav class="bg-indigo-600 text-white shadow-lg sticky top-0 z-50">
+        <div class="container mx-auto px-6 py-4 flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <i class="fas fa-compass text-2xl"></i>
+                <div>
+                    <h1 class="text-xl font-bold">知識羅盤 Knowledge Compass</h1>
+                    <p class="text-xs text-indigo-200">後設認知與成長歷程 (Student Portfolio)</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-4">
+                <div class="text-right hidden md:block">
+                    <span class="block font-bold">張小明 (Student)</span>
+                    <span class="text-xs text-indigo-200">六年級科學探究</span>
+                </div>
+                <img src="https://ui-avatars.com/api/?name=Xiao+Ming&background=random" class="w-10 h-10 rounded-full border-2 border-white">
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主要內容區 -->
+    <main class="container mx-auto px-6 py-8 space-y-8 fade-in">
+
+        <!-- ========================================== -->
+        <!-- 模組 1: 使用者知識角色 -->
+        <!-- ========================================== -->
+        <section class="card bg-gradient-to-r from-white to-blue-50 border border-blue-100 relative overflow-hidden">
+             <!-- 背景裝飾 -->
+             <div class="absolute top-0 right-0 -mt-10 -mr-10 w-40 h-40 bg-blue-100 rounded-full opacity-50 blur-2xl"></div>
+
+             <div class="flex flex-col md:flex-row items-center gap-8 relative z-10">
+                 <!-- 左側：角色稱號 -->
+                 <div class="w-full md:w-1/3 text-center md:text-left md:border-r border-gray-200 md:pr-8">
+                     <div class="flex items-center justify-center md:justify-start mb-3">
+                        <h2 class="text-xs font-bold text-gray-500 uppercase tracking-widest">
+                            <i class="fas fa-user-tag mr-1"></i> 我的知識角色
+                        </h2>
+                        <button onclick="openRefModal('roles')" class="ref-btn" title="了解角色定義">
+                            <i class="fas fa-info-circle mr-1"></i> Ref.
+                        </button>
+                     </div>
+                     <div class="flex items-center justify-center md:justify-start gap-5">
+                         <div class="w-20 h-20 bg-indigo-600 rounded-full flex items-center justify-center text-white text-3xl shadow-xl ripple-effect">
+                             <i class="fas fa-network-wired"></i>
+                         </div>
+                         <div>
+                             <h3 class="text-2xl font-bold text-indigo-900">觀點橋樑者</h3>
+                             <p class="text-sm text-indigo-600 font-medium">The Idea Connector</p>
+                         </div>
+                     </div>
+                     <div class="mt-4 bg-white/60 p-3 rounded-lg text-sm text-gray-600 leading-relaxed border border-white">
+                         <i class="fas fa-quote-left text-indigo-300 mr-1"></i>
+                         你在社群中扮演了關鍵的連結角色！你擅長將不同同學的想法串聯起來（Build-on），並嘗試整合大家的觀點。你的發文經常能連結兩個不同的小組討論。
+                     </div>
+                 </div>
+                 
+                 <!-- 右側：四種能力指標 -->
+                 <div class="w-full md:w-2/3">
+                     <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                         <!-- 能力 1 -->
+                         <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 text-center hover:shadow-md transition">
+                             <div class="text-gray-400 text-xs mb-1">開創力 (Initiator)</div>
+                             <div class="text-lg font-bold text-gray-800">Top 20%</div>
+                             <div class="w-full bg-gray-100 rounded-full h-1.5 mt-2">
+                                 <div class="bg-blue-400 h-1.5 rounded-full" style="width: 80%"></div>
+                             </div>
+                         </div>
+                         <!-- 能力 2 -->
+                         <div class="bg-white p-4 rounded-xl shadow-md border-2 border-indigo-100 text-center transform scale-105">
+                             <div class="text-indigo-500 text-xs mb-1 font-bold"><i class="fas fa-crown text-yellow-400 mr-1"></i>連結力 (Builder)</div>
+                             <div class="text-lg font-bold text-indigo-700">Top 5%</div>
+                             <div class="w-full bg-gray-100 rounded-full h-1.5 mt-2">
+                                 <div class="bg-indigo-600 h-1.5 rounded-full" style="width: 95%"></div>
+                             </div>
+                         </div>
+                         <!-- 能力 3 -->
+                         <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 text-center hover:shadow-md transition">
+                             <div class="text-gray-400 text-xs mb-1">整合力 (Synthesizer)</div>
+                             <div class="text-lg font-bold text-gray-800">Top 15%</div>
+                             <div class="w-full bg-gray-100 rounded-full h-1.5 mt-2">
+                                 <div class="bg-purple-400 h-1.5 rounded-full" style="width: 85%"></div>
+                             </div>
+                         </div>
+                         <!-- 能力 4 -->
+                         <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 text-center hover:shadow-md transition">
+                             <div class="text-gray-400 text-xs mb-1">維護力 (Sustainer)</div>
+                             <div class="text-lg font-bold text-gray-800">Top 40%</div>
+                             <div class="w-full bg-gray-100 rounded-full h-1.5 mt-2">
+                                 <div class="bg-green-400 h-1.5 rounded-full" style="width: 60%"></div>
+                             </div>
+                         </div>
+                     </div>
+                     <!-- 說明 -->
+                     <div class="insight-box bg-white/50 border-blue-200 mt-4">
+                         <div class="insight-title text-blue-800"><i class="fas fa-info-circle"></i> 角色分析說明</div>
+                         此區塊分析你在討論區的發言屬性。每個人在團隊中都有獨特的貢獻方式，有人擅長開起話題（開創），有人擅長回應（連結），沒有好壞之分，了解自己的強項有助於團隊合作。
+                     </div>
+                 </div>
+             </div>
+        </section>
+
+        <!-- 2. 核心數據概覽 (Core Metrics) WITH REF BUTTONS -->
+        <section class="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <!-- Card 1 -->
+            <div class="card border-l-4 border-blue-500 py-4 group hover:shadow-lg transition relative">
+                <button onclick="openRefModal('created')" class="absolute top-2 right-2 text-gray-400 hover:text-blue-600 transition flex items-center text-xs bg-gray-100 px-2 py-1 rounded-full">
+                    <i class="fas fa-info-circle mr-1"></i> Ref.
+                </button>
+                <h3 class="text-gray-500 text-xs font-medium">我的貢獻 (Notes Created)</h3>
+                <div class="mt-1 flex items-baseline">
+                    <span class="text-2xl font-bold text-gray-900">24</span>
+                    <span class="ml-2 text-xs text-green-600"><i class="fas fa-arrow-up"></i> +3</span>
+                </div>
+                <div class="text-[10px] text-gray-400 mt-2 border-t pt-2">
+                    代表你的活躍程度。點擊 Ref. 了解詳情。
+                </div>
+            </div>
+            
+            <!-- Card 2 -->
+            <div class="card border-l-4 border-green-500 py-4 group hover:shadow-lg transition relative">
+                <button onclick="openRefModal('read')" class="absolute top-2 right-2 text-gray-400 hover:text-green-600 transition flex items-center text-xs bg-gray-100 px-2 py-1 rounded-full">
+                    <i class="fas fa-info-circle mr-1"></i> Ref.
+                </button>
+                <h3 class="text-gray-500 text-xs font-medium">閱讀他人 (Notes Read)</h3>
+                <div class="mt-1 flex items-baseline">
+                    <span class="text-2xl font-bold text-gray-900">142</span>
+                    <span class="ml-2 text-xs text-green-600">活躍</span>
+                </div>
+                <div class="text-[10px] text-gray-400 mt-2 border-t pt-2">
+                    代表你的閱讀廣度。點擊 Ref. 了解詳情。
+                </div>
+            </div>
+            
+            <!-- Card 3 -->
+            <div class="card border-l-4 border-purple-500 py-4 group hover:shadow-lg transition relative">
+                <button onclick="openRefModal('buildon')" class="absolute top-2 right-2 text-gray-400 hover:text-purple-600 transition flex items-center text-xs bg-gray-100 px-2 py-1 rounded-full">
+                    <i class="fas fa-info-circle mr-1"></i> Ref.
+                </button>
+                <h3 class="text-gray-500 text-xs font-medium">觀點連結 (Build-ons)</h3>
+                <div class="mt-1 flex items-baseline">
+                    <span class="text-2xl font-bold text-gray-900">18</span>
+                    <span class="ml-2 text-xs text-gray-500">連結 5 人</span>
+                </div>
+                <div class="text-[10px] text-gray-400 mt-2 border-t pt-2">
+                    代表你「回應」的次數。點擊 Ref. 了解詳情。
+                </div>
+            </div>
+            
+            <!-- Card 4 -->
+            <div class="card border-l-4 border-yellow-500 py-4 group hover:shadow-lg transition relative">
+                <button onclick="openRefModal('impact')" class="absolute top-2 right-2 text-gray-400 hover:text-yellow-600 transition flex items-center text-xs bg-gray-100 px-2 py-1 rounded-full">
+                    <i class="fas fa-info-circle mr-1"></i> Ref.
+                </button>
+                <h3 class="text-gray-500 text-xs font-medium">影響係數 (Impact)</h3>
+                <div class="mt-1 flex items-baseline">
+                    <span class="text-2xl font-bold text-gray-900">8.5</span>
+                    <span class="ml-2 text-xs text-green-600">High</span>
+                </div>
+                <div class="text-[10px] text-gray-400 mt-2 border-t pt-2">
+                    綜合影響力指標。點擊 Ref. 了解詳情。
+                </div>
+            </div>
+        </section>
+
+        <!-- 主要分析區：兩欄佈局 -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- 左欄 (佔 2/3) -->
+            <div class="lg:col-span-2 space-y-8">
+                <!-- 模組 2: 想法演化軌跡 -->
+                <section class="card">
+                    <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-8 pb-4 border-b border-gray-100">
+                        <div class="flex items-center">
+                            <div>
+                                <h2 class="text-lg font-bold text-gray-800 flex items-center">
+                                    <span class="bg-green-100 text-green-600 w-8 h-8 rounded-full flex items-center justify-center mr-2 text-sm">
+                                        <i class="fas fa-code-branch"></i>
+                                    </span>
+                                    想法演化軌跡 (Idea Evolution)
+                                </h2>
+                                <p class="text-sm text-gray-500 mt-1 ml-10">追蹤你的「突發奇想」如何透過挑戰與修正，進化成核心知識。</p>
+                            </div>
+                            <button onclick="openRefModal('evolution')" class="ref-btn ml-2" title="了解演化定義"><i class="fas fa-info-circle mr-1"></i> Ref.</button>
+                        </div>
+                        <div class="mt-4 sm:mt-0">
+                            <select id="topicSelect" onchange="renderTrajectory()" class="text-sm border-gray-300 border rounded-lg p-2 bg-gray-50 focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer">
+                                <option value="leaves">主題：葉子變色機制 (整合中)</option>
+                                <option value="photosynthesis">主題：光合作用能量 (理論修正)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div id="trajectoryContainer" class="relative pl-4 space-y-0"></div>
+
+                    <div class="insight-box bg-indigo-50/50 border-indigo-200">
+                        <div class="insight-title text-indigo-800">
+                            <i class="fas fa-search-plus"></i> 你的探究歷程深度解讀 (Deep Analysis)
+                        </div>
+                        <div id="trajectoryAnalysis" class="space-y-3 mt-2"></div>
+                    </div>
+                </section>
+
+                <!-- 思考鷹架圖表 -->
+                <section class="card">
+                    <div class="flex justify-between items-center mb-4">
+                        <div class="flex items-center">
+                            <h2 class="text-sm font-bold text-gray-500 uppercase tracking-widest">
+                                <i class="fas fa-layer-group mr-1"></i> 鷹架使用數據 (Scaffold Data)
+                            </h2>
+                            <button onclick="openRefModal('scaffold')" class="ref-btn"><i class="fas fa-info-circle mr-1"></i> Ref.</button>
+                        </div>
+                    </div>
+                    <div class="flex flex-col md:flex-row items-center gap-6">
+                        <div class="h-48 w-full md:w-1/2">
+                            <canvas id="scaffoldChart"></canvas>
+                        </div>
+                        <div class="w-full md:w-1/2">
+                            <div class="insight-box mt-0 border-l-4 border-blue-400 bg-blue-50">
+                                <div class="insight-title text-blue-700"><i class="fas fa-chart-pie"></i> 思考的均衡飲食</div>
+                                <p class="mb-2">此圖表分析你在發言時選用的「思考鷹架（句型）」。</p>
+                                <ul class="list-disc list-inside space-y-1 ml-1">
+                                    <li><strong>提問 (Question)</strong>：啟動探究的好奇心。</li>
+                                    <li><strong>理論 (Build on/Improve)</strong>：嘗試解釋與修正想法。</li>
+                                    <li><strong>整合 (Rise Above)</strong>：總結並提升層次。</li>
+                                </ul>
+                                <p class="mt-2 font-medium">意義：一個成熟的學習者，其圓餅圖應呈現「多彩且均衡」的分佈，而非單一顏色。</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- 右欄 (佔 1/3) -->
+            <div class="space-y-8">
+                <!-- 模組 3: 社群推動力 -->
+                <section class="card bg-slate-800 text-white relative overflow-hidden border-0">
+                    <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-blue-500 rounded-full opacity-10 blur-3xl"></div>
+                    <div class="relative z-10">
+                        <div class="flex items-center justify-between mb-6">
+                            <h2 class="text-lg font-bold flex items-center"><i class="fas fa-wind text-blue-400 mr-2"></i>社群推動力</h2>
+                            <div class="flex items-center">
+                                <span class="text-xs bg-blue-500/20 text-blue-300 px-2 py-1 rounded mr-2">Community Impact</span>
+                                <button onclick="openRefModal('community')" class="ref-btn ref-btn-dark"><i class="fas fa-info-circle mr-1"></i> Ref.</button>
+                            </div>
+                        </div>
+                        <div class="flex flex-col items-center justify-center py-6">
+                            <div class="relative w-24 h-24 flex items-center justify-center">
+                                <div class="absolute w-full h-full border border-blue-400/30 rounded-full animate-ping" style="animation-duration: 3s;"></div>
+                                <div class="absolute w-3/4 h-3/4 border border-blue-400/50 rounded-full animate-ping" style="animation-duration: 3s; animation-delay: 0.5s;"></div>
+                                <div class="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center shadow-lg shadow-blue-500/50 z-20">
+                                    <span class="text-xl font-bold text-white">High</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="space-y-3 mt-4">
+                            <div class="bg-slate-700/50 p-3 rounded-lg flex items-center justify-between border border-slate-600">
+                                <div class="flex items-center">
+                                    <div class="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400 mr-3"><i class="fas fa-comments"></i></div>
+                                    <div><div class="text-sm font-bold text-gray-200">引發討論</div></div>
+                                </div>
+                                <span class="text-lg font-bold text-white">15 篇</span>
+                            </div>
+                        </div>
+                        <div class="mt-4 text-[10px] text-gray-400 bg-slate-900/50 p-2 rounded border border-slate-700">
+                            <strong><i class="fas fa-info-circle"></i> 指標意義：</strong>
+                            這不僅是你的發文數，而是你的貼文「激發」了多少後續討論。漣漪越大，代表你的想法越能引起社群共鳴或辯論。
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 社群參與雷達 -->
+                <section class="card">
+                    <div class="flex justify-between items-center mb-4">
+                        <div class="flex items-center">
+                            <h2 class="text-sm font-bold text-gray-500 uppercase tracking-widest"><i class="fas fa-project-diagram mr-1"></i> 參與維度 (Radar)</h2>
+                            <button onclick="openRefModal('radar')" class="ref-btn"><i class="fas fa-info-circle mr-1"></i> Ref.</button>
+                        </div>
+                    </div>
+                    <div class="h-64"><canvas id="radarChart"></canvas></div>
+                    <div class="insight-box">
+                        <div class="insight-title"><i class="fas fa-crosshairs"></i> 圖表解讀</div>
+                        此圖比較你（藍色）與全班平均（灰色）的表現。
+                        <ul class="list-disc list-inside mt-1">
+                            <li><strong>向外擴張</strong>：代表該能力優於平均。</li>
+                            <li><strong>形狀圓潤</strong>：代表能力發展均衡。</li>
+                        </ul>
+                    </div>
+                </section>
+            </div>
+        </div>
+
+        <!-- 深度分析 -->
+        <section class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <!-- 詞彙演化 -->
+            <div class="card relative overflow-hidden">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-lg font-bold text-gray-800 flex items-center"><i class="fas fa-spell-check text-purple-600 mr-2"></i>語義與詞彙深度</h2>
+                    <div class="flex items-center">
+                         <span class="kb-badge bg-purple-100 text-purple-800 mr-2">成長顯著</span>
+                         <button onclick="openRefModal('lexical')" class="ref-btn"><i class="fas fa-info-circle mr-1"></i> Ref.</button>
+                    </div>
+                </div>
+                <div class="space-y-6">
+                    <div class="flex justify-between items-center relative">
+                        <div class="text-center w-1/3 opacity-60">
+                            <div class="text-xs text-gray-500 font-bold mb-2">Week 1 (日常語言)</div>
+                            <div class="space-y-1 text-sm text-gray-400 line-through"><div>變紅 (Red)</div><div>天氣冷 (Cold)</div></div>
+                        </div>
+                        <div class="text-center text-purple-300"><i class="fas fa-long-arrow-alt-right text-3xl"></i></div>
+                        <div class="text-center w-1/3">
+                            <div class="text-xs text-purple-600 font-bold mb-2">Week 8 (學術語言)</div>
+                            <div class="space-y-1 text-sm font-bold text-purple-800"><div>花青素 (Anthocyanin)</div><div>能量回收</div></div>
+                        </div>
+                    </div>
+                    <div class="insight-box bg-purple-50 border-purple-200 text-purple-900">
+                        <div class="insight-title text-purple-800"><i class="fas fa-book"></i> 這是什麼？</div>
+                        此分析追蹤你的用詞變化。從左側的直觀描述（日常用語）轉向右側的機制解釋（學術用語），顯示你的科學概念正在深化。
+                    </div>
+                </div>
+            </div>
+
+            <!-- 知識網絡 -->
+            <div class="card relative overflow-hidden bg-gray-900 text-white border-0">
+                <div class="absolute inset-0 opacity-10" style="background-image: radial-gradient(#ffffff 1px, transparent 1px); background-size: 20px 20px;"></div>
+                <div class="flex justify-between items-center mb-6 relative z-10">
+                    <h2 class="text-lg font-bold flex items-center"><i class="fas fa-project-diagram text-blue-400 mr-2"></i>知識網絡位置</h2>
+                    <div class="flex items-center">
+                        <span class="kb-badge bg-blue-900 text-blue-200 border border-blue-700 mr-2">Broker (仲介者)</span>
+                        <button onclick="openRefModal('network')" class="ref-btn ref-btn-dark"><i class="fas fa-info-circle mr-1"></i> Ref.</button>
+                    </div>
+                </div>
+                <div class="relative h-32 w-full flex items-center justify-center">
+                     <div class="absolute w-2/3 h-0.5 bg-gray-600"></div>
+                     <div class="absolute z-10 flex flex-col items-center node-pulse">
+                        <div class="w-12 h-12 rounded-full bg-blue-500 border-4 border-gray-900 flex items-center justify-center font-bold">You</div>
+                    </div>
+                </div>
+                <div class="mt-4 text-[10px] text-gray-300 bg-gray-800/80 p-3 rounded border border-gray-700 relative z-10">
+                    <strong><i class="fas fa-share-alt"></i> 網絡圖解讀：</strong>
+                    這張圖顯示你在班級討論網絡中的位置。你的「仲介中心性」很高，代表你像是不同小組間的橋樑（Broker）。
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Ref Modal Structure -->
+    <div id="refModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="font-bold text-lg text-gray-800" id="modalTitle">數據解析</h3>
+                <span class="close" onclick="closeRefModal()">&times;</span>
+            </div>
+            <div class="p-6">
+                <!-- Metric Definition -->
+                <div class="mb-4">
+                    <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">指標定義 (Definition)</h4>
+                    <div class="text-sm text-gray-700 bg-gray-50 p-3 rounded" id="modalDesc"></div>
+                </div>
+
+                <!-- Comparison Chart (Conditional Display) -->
+                <div class="mb-6" id="modalBenchmarkingSection" style="display: none;">
+                    <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">你的表現 vs. 班級平均 (Benchmarking)</h4>
+                    <div class="space-y-3">
+                        <div>
+                            <div class="flex justify-between text-sm mb-1">
+                                <span class="font-bold text-indigo-600">你 (You)</span>
+                                <span class="font-bold text-indigo-600" id="modalMyVal"></span>
+                            </div>
+                            <div class="w-full bg-gray-100 rounded-full h-2.5">
+                                <div id="modalMyBar" class="bg-indigo-600 h-2.5 rounded-full" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-sm mb-1">
+                                <span class="text-gray-500">班級平均 (Class Avg)</span>
+                                <span class="text-gray-500" id="modalAvgVal"></span>
+                            </div>
+                            <div class="w-full bg-gray-100 rounded-full h-2.5">
+                                <div id="modalAvgBar" class="bg-gray-400 h-2.5 rounded-full" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Interpretation & Advice -->
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <div class="flex items-start">
+                        <i class="fas fa-lightbulb text-yellow-500 mt-1 mr-3 text-lg"></i>
+                        <div>
+                            <h4 class="font-bold text-blue-900 text-sm mb-1">分析與建議 (Analysis & Action)</h4>
+                            <p class="text-xs text-blue-800 leading-relaxed" id="modalAdvice"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Reference Source (NEW) -->
+                <div class="mt-4 pt-3 border-t border-gray-100">
+                    <div class="flex items-start text-[10px] text-gray-400 italic">
+                        <i class="fas fa-book mr-2 mt-0.5"></i>
+                        <span id="modalRef"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Ref Data Definitions with References
+        const refData = {
+            'created': {
+                title: '我的貢獻 (Notes Created)',
+                desc: '計算你在本學期發佈的原創筆記數量（包含新觀點與回覆）。此指標反映你在社群中的「活躍度」與「投入程度」。',
+                myVal: 24,
+                avgVal: 15,
+                advice: '太棒了！你的發文量（24篇）遠高於班級平均（15篇），這顯示你是社群中的活躍貢獻者。建議下一步可以關注「筆記的品質」，嘗試將多篇短文整合成一篇深度論述（Rise-above）。',
+                source: 'Theoretical Basis: Scardamalia, M., & Bereiter, C. (2006). Knowledge building: Theory, pedagogy, and technology.'
+            },
+            'read': {
+                title: '閱讀他人 (Notes Read)',
+                desc: '計算你點擊並閱讀同學筆記的次數。知識建構不僅是「說」，更重要的是「聽」。此指標反映你的「廣度」與「傾聽意願」。',
+                myVal: 142,
+                avgVal: 80,
+                advice: '你的閱讀量非常驚人（142篇），是班級平均的近兩倍！這代表你非常關注他人的想法。建議你可以開始尋找那些「還沒有人回覆」的筆記進行回應，幫助邊緣的同學進入討論。',
+                source: 'Theoretical Basis: Scardamalia, M. (2002). Collective cognitive responsibility for the advancement of knowledge.'
+            },
+            'buildon': {
+                title: '觀點連結 (Build-ons)',
+                desc: '計算你使用「引用（Quote）」或「回覆」功能的次數。這代表你不是在自言自語，而是在與他人的想法進行對話與連結。',
+                myVal: 18,
+                avgVal: 12,
+                advice: '你的連結次數（18次）高於平均，顯示你善於延伸他人的想法。你可以嘗試挑戰更高難度的連結：試著將兩個「觀點衝突」的同學連結在一起，並提出解決方案。',
+                source: 'Theoretical Basis: Scardamalia, M., & Bereiter, C. (2003). Knowledge building environments: Extending the limits of the possible in education and knowledge work.'
+            },
+            'impact': {
+                title: '影響係數 (Impact Factor)',
+                desc: '這是一個綜合指標，計算你的筆記被「閱讀」、「引用」以及「引發後續討論長度」的加權分數。數值越高，代表你的發言越能引起社群的共鳴與討論。',
+                myVal: 8.5,
+                avgVal: 5.0,
+                advice: '你的影響力係數屬於 High Level (8.5)。這意味著當你發言時，大家都在聽。請善用這份影響力，引導討論走向更深入的科學機制探討，而非僅停留在表面現象。',
+                source: 'Theoretical Basis: Oshima, J., Oshima, R., & Matsuzawa, Y. (2012). Knowledge Building Discourse Explorer: A social network analysis tool for knowledge building discourse.'
+            },
+            'roles': {
+                title: '知識角色 (Knowledge Roles)',
+                descHTML: `
+                    <ul class="list-disc list-inside space-y-2">
+                        <li><strong>開創力 (Initiator)</strong>：是否經常提出新問題或開啟新話題。</li>
+                        <li><strong>連結力 (Builder)</strong>：是否擅長引用與延伸他人的想法。</li>
+                        <li><strong>整合力 (Synthesizer)</strong>：是否能歸納重點並提出昇華觀點。</li>
+                        <li><strong>維護力 (Sustainer)</strong>：是否持續參與討論，不輕易中斷。</li>
+                    </ul>
+                `,
+                advice: '你目前是「觀點橋樑者」，這意味著你的「連結力」特別突出 (Top 5%)。你在團隊中扮演膠水的角色。建議下一步可以嘗試提升「整合力」，將連結後的觀點進一步昇華成理論。',
+                source: 'Theoretical Basis: Zhang, J., Scardamalia, M., Lamon, M., Messina, R., & Reeve, R. (2007). Socio-cognitive dynamics of knowledge building in the work of 9-and 10-year-olds.'
+            },
+            'evolution': {
+                title: '想法演化軌跡 (Idea Evolution)',
+                desc: '此圖表追蹤你的核心概念如何隨時間改變。理想的知識建構軌跡應從「直覺臆測」走向「基於證據的解釋」，並經歷「社群挑戰」與「理論修正」。',
+                advice: '你的軌跡顯示出強烈的「修正」傾向，這非常好！這代表你不怕犯錯，且願意根據新證據調整想法。請注意是否在每個主題都能走到最後的「整合 (Rise-above)」階段，而不僅僅停留在修正。',
+                source: 'Theoretical Basis: Hakkarainen, K. (2003). Progressive inquiry in a computer‐supported science learning environment.'
+            },
+            'scaffold': {
+                title: '鷹架使用數據 (Scaffold Data)',
+                desc: '圓餅圖顯示你使用了哪些思考句型（如：我好奇、我的理論、我需要了解）。多樣化的句型使用，代表你的思考面向是全面且健康的。',
+                advice: '你的數據顯示「提問」與「延伸」很多，但「整合 (Rise above)」較少。建議在討論後期，刻意練習使用 "Rise above" 或 "Put it all together" 的鷹架來總結討論串。',
+                source: 'Theoretical Basis: Scardamalia, M. (2002). Collective cognitive responsibility for the advancement of knowledge. In Liberal education in a knowledge society.'
+            },
+            'community': {
+                title: '社群推動力 (Community Impact)',
+                desc: '衡量你的發言如何激發他人的後續討論。我們看的是「漣漪效應」——你的一顆石頭（筆記）丟下去，能激起多大的水花（後續回覆與討論）。',
+                advice: '你的推動力評級為 High，代表你是社群的話題中心之一。你的發言通常能引發至少 3 篇以上的後續回覆，這是非常優異的表現。',
+                source: 'Theoretical Basis: Zhang, J., Hong, H. Y., Scardamalia, M., Teo, C. L., & Morley, E. A. (2011). Sustaining knowledge building as a principle-based innovation at an elementary school.'
+            },
+            'radar': {
+                title: '參與維度 (Radar Chart)',
+                desc: '五維度雷達圖比較你與班級平均的各項指標。圖形越向外擴張，代表該能力越強；圖形越圓潤，代表能力發展越均衡。',
+                advice: '你的雷達圖形狀向「閱讀」與「連結」偏移，這符合你「觀點橋樑者」的角色。如果要讓圖形更圓潤，可以試著增加「被引用數」，這通常需要提出更具原創性的核心理論。',
+                source: 'Theoretical Basis: Park, Y., & Jo, I. H. (2015). Development of the learning analytics dashboard to support students\' learning performance.'
+            },
+            'lexical': {
+                title: '語義與詞彙深度 (Lexical Depth)',
+                desc: '分析筆記中的用詞，是否從「日常口語」轉向「學科專業語言」。這反映了你對學科知識掌握的精確度與深度。',
+                advice: '成長顯著！Week 1 的「變紅」到 Week 8 的「花青素」，顯示你已經掌握了單元核心詞彙。持續使用精準的科學術語有助於更清晰地表達複雜概念。',
+                source: 'Theoretical Basis: Sun, Y., Zhang, J., & Scardamalia, M. (2010). Knowledge building and vocabulary growth over two years.'
+            },
+            'network': {
+                title: '知識網絡位置 (Network Position)',
+                desc: '使用社會網絡分析 (SNA) 技術，找出你在班級討論網絡中的位置。Broker (仲介者) 代表你是不同小圈子間的橋樑，掌握著資訊流通的關鍵位置。',
+                advice: '作為 Broker，你有能力將邊緣的同學拉進核心討論圈。下次發現有同學落單（沒有人回覆他）時，你的主動回覆將對整個社群網絡結構產生巨大的幫助。',
+                source: 'Theoretical Basis: Freeman, L. C. (1977). A set of measures of centrality based on betweenness. Sociometry.'
+            }
+        };
+
+        function openRefModal(type) {
+            const modal = document.getElementById('refModal');
+            const data = refData[type];
+            
+            // Populate Data
+            document.getElementById('modalTitle').innerText = data.title;
+            
+            // Handle HTML description or Text description
+            const descEl = document.getElementById('modalDesc');
+            if (data.descHTML) {
+                descEl.innerHTML = data.descHTML;
+            } else {
+                descEl.innerText = data.desc;
+            }
+            
+            document.getElementById('modalAdvice').innerText = data.advice;
+            
+            // Populate Source (NEW)
+            document.getElementById('modalRef').innerText = data.source;
+
+            // Conditional Benchmarking Section
+            const benchSection = document.getElementById('modalBenchmarkingSection');
+            if (data.myVal !== undefined && data.avgVal !== undefined) {
+                benchSection.style.display = 'block';
+                document.getElementById('modalMyVal').innerText = data.myVal;
+                document.getElementById('modalAvgVal').innerText = data.avgVal;
+                
+                const max = Math.max(data.myVal, data.avgVal) * 1.2;
+                document.getElementById('modalMyBar').style.width = (data.myVal / max * 100) + '%';
+                document.getElementById('modalAvgBar').style.width = (data.avgVal / max * 100) + '%';
+            } else {
+                benchSection.style.display = 'none';
+            }
+
+            modal.style.display = "flex";
+        }
+
+        function closeRefModal() {
+            document.getElementById('refModal').style.display = "none";
+        }
+
+        // Close when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('refModal');
+            if (event.target == modal) {
+                modal.style.display = "none";
+            }
+        }
+
+        // ... existing chart and trajectory logic ...
+        // Trajectory Logic (Previous)
+        const trajectoryData = {
+            'leaves': `
+                <!-- Step 1 -->
+                <div class="evolution-item relative pl-10 pb-10 fade-in">
+                    <div class="evolution-line"></div>
+                    <div class="absolute left-0 top-0 w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center border-4 border-white z-10 shadow-sm text-blue-600 text-lg"><i class="far fa-lightbulb"></i></div>
+                    <div class="bg-white border border-gray-200 p-5 rounded-xl shadow-sm hover:shadow-md transition group">
+                        <div class="flex justify-between mb-2"><span class="kb-badge bg-blue-100 text-blue-800">My Theory</span><span class="text-xs text-gray-400">Week 1</span></div>
+                        <h4 class="text-base font-bold text-gray-800">觀點：我覺得葉子變紅是因為天氣冷</h4>
+                        <p class="text-sm text-gray-600 mt-2 bg-gray-50 p-3 rounded italic">"這是我最初的直覺，認為溫度降低凍傷了葉子。"</p>
+                    </div>
+                </div>
+                <!-- Step 2 -->
+                <div class="evolution-item relative pl-10 pb-10 fade-in">
+                    <div class="evolution-line"></div>
+                    <div class="absolute left-0 top-0 w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center border-4 border-white z-10 shadow-sm text-yellow-600 text-lg"><i class="fas fa-question"></i></div>
+                    <div class="bg-yellow-50 border border-yellow-200 p-4 rounded-xl shadow-inner">
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0 mt-1"><i class="fas fa-user-friends text-yellow-600 mr-2"></i></div>
+                            <div><span class="font-bold text-yellow-800 text-sm">社群挑戰：</span><p class="text-sm text-gray-700 mt-1">同學 @MeiLi 提問：「那為什麼有些樹四季都是綠的？」</p></div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Step 3 -->
+                <div class="evolution-item relative pl-10 pb-10 fade-in">
+                    <div class="evolution-line"></div>
+                    <div class="absolute left-0 top-0 w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center border-4 border-white z-10 shadow-sm text-purple-600 text-lg"><i class="fas fa-tools"></i></div>
+                    <div class="bg-white border-2 border-purple-100 p-5 rounded-xl shadow-sm hover:shadow-md transition">
+                        <div class="flex justify-between mb-2"><span class="kb-badge bg-purple-100 text-purple-800">Better Theory</span><span class="text-xs text-gray-400">Week 3</span></div>
+                        <h4 class="text-base font-bold text-gray-800">觀點：葉綠素分解顯色理論</h4>
+                        <p class="text-sm text-gray-600 mt-2">回應挑戰：關鍵是「葉綠素消失」讓底色顯現出來。</p>
+                    </div>
+                </div>
+                <!-- Step 4 -->
+                <div class="evolution-item relative pl-10 fade-in">
+                    <div class="absolute left-0 top-0 w-12 h-12 bg-green-500 rounded-full flex items-center justify-center border-4 border-white z-10 shadow-lg text-white text-lg"><i class="fas fa-mountain"></i></div>
+                    <div class="bg-gradient-to-br from-green-50 to-white border border-green-200 p-6 rounded-xl shadow-md relative overflow-hidden">
+                        <div class="absolute right-0 top-0 w-20 h-20 bg-green-100 rounded-bl-full opacity-50"></div>
+                        <div class="flex justify-between mb-3 relative z-10"><span class="kb-badge bg-green-600 text-white shadow-sm px-3 py-1">Rise-above</span><span class="text-xs text-gray-400">Week 5</span></div>
+                        <h4 class="text-lg font-bold text-gray-900 relative z-10">整合結論：植物的能量回收與適應機制</h4>
+                        <p class="text-sm text-gray-700 mt-2 leading-relaxed relative z-10">這不僅是顏色的變化，而是植物為了過冬正在「回收養分」。</p>
+                    </div>
+                </div>
+            `,
+            'photosynthesis': `
+                 <!-- Step 1 -->
+                <div class="evolution-item relative pl-10 pb-10 fade-in">
+                    <div class="evolution-line"></div>
+                    <div class="absolute left-0 top-0 w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center border-4 border-white z-10 shadow-sm text-blue-600 text-lg"><i class="far fa-lightbulb"></i></div>
+                    <div class="bg-white border border-gray-200 p-5 rounded-xl shadow-sm hover:shadow-md transition group">
+                        <div class="flex justify-between mb-2"><span class="kb-badge bg-blue-100 text-blue-800">My Theory</span><span class="text-xs text-gray-400">Week 6</span></div>
+                        <h4 class="text-base font-bold text-gray-800">觀點：植物是吃土長大的</h4>
+                        <p class="text-sm text-gray-600 mt-2 bg-gray-50 p-3 rounded italic">"就像我們吃飯一樣，植物根在土裡就是吸取土壤的養分。"</p>
+                    </div>
+                </div>
+                <!-- Step 2 -->
+                <div class="evolution-item relative pl-10 pb-10 fade-in">
+                    <div class="evolution-line"></div>
+                    <div class="absolute left-0 top-0 w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center border-4 border-white z-10 shadow-sm text-yellow-600 text-lg"><i class="fas fa-question"></i></div>
+                    <div class="bg-yellow-50 border border-yellow-200 p-4 rounded-xl shadow-inner">
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0 mt-1"><i class="fas fa-user-friends text-yellow-600 mr-2"></i></div>
+                            <div><span class="font-bold text-yellow-800 text-sm">社群挑戰：</span><p class="text-sm text-gray-700 mt-1">同學 @XiaoHua 提問：「那為什麼給它土關在黑盒子裡還是會死？」</p></div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Step 3 -->
+                <div class="evolution-item relative pl-10 pb-10 fade-in">
+                    <div class="evolution-line"></div>
+                    <div class="absolute left-0 top-0 w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center border-4 border-white z-10 shadow-sm text-purple-600 text-lg"><i class="fas fa-tools"></i></div>
+                    <div class="bg-white border-2 border-purple-100 p-5 rounded-xl shadow-sm hover:shadow-md transition">
+                        <div class="flex justify-between mb-2"><span class="kb-badge bg-purple-100 text-purple-800">Better Theory</span><span class="text-xs text-gray-400">Week 8</span></div>
+                        <h4 class="text-base font-bold text-gray-800">觀點：光才是能量，土是維他命</h4>
+                        <p class="text-sm text-gray-600 mt-2">回應挑戰：光合作用才是製造糖（能量）的過程。</p>
+                    </div>
+                </div>
+                <!-- Step 4 -->
+                <div class="evolution-item relative pl-10 fade-in">
+                    <div class="absolute left-0 top-0 w-12 h-12 bg-green-500 rounded-full flex items-center justify-center border-4 border-white z-10 shadow-lg text-white text-lg"><i class="fas fa-mountain"></i></div>
+                    <div class="bg-gradient-to-br from-green-50 to-white border border-green-200 p-6 rounded-xl shadow-md relative overflow-hidden">
+                        <div class="absolute right-0 top-0 w-20 h-20 bg-green-100 rounded-bl-full opacity-50"></div>
+                        <div class="flex justify-between mb-3 relative z-10"><span class="kb-badge bg-green-600 text-white shadow-sm px-3 py-1">Rise-above</span><span class="text-xs text-gray-400">Week 9</span></div>
+                        <h4 class="text-lg font-bold text-gray-900 relative z-10">整合結論：能量轉換系統</h4>
+                        <p class="text-sm text-gray-700 mt-2 leading-relaxed relative z-10">植物利用光能將水和二氧化碳組合成化學能（葡萄糖）。</p>
+                    </div>
+                </div>
+            `
+        };
+
+        const analysisData = {
+            'leaves': {
+                change: "從直覺的「溫度凍傷」轉變為微觀的「色素分解與能量回收」，展現了顯著的概念重組。",
+                response: "在 Week 3 明確引用 @MeiLi 的反例來修正理論，顯示你具備極佳的對話回應性。",
+                persistence: "歷經 5 週的持續修正，堅持尋找更完美的解釋，展現了科學探究的毅力。"
+            },
+            'photosynthesis': {
+                change: "成功跨越了常見的「植物吃土」迷思，建立了正確的「光能轉換」系統觀。",
+                response: "面對 @XiaoHua 的「黑盒實驗」挑戰，你沒有防衛，而是去尋找證據並修正觀點。",
+                persistence: "能在一個月內從錯誤概念走到全班核心結論，最終產出的筆記被廣泛引用。"
+            }
+        };
+
+        function renderTrajectory() {
+            const select = document.getElementById('topicSelect');
+            const container = document.getElementById('trajectoryContainer');
+            const analysisContainer = document.getElementById('trajectoryAnalysis');
+            const selectedTopic = select.value;
+            
+            if (trajectoryData[selectedTopic]) container.innerHTML = trajectoryData[selectedTopic];
+            if (analysisData[selectedTopic]) {
+                const data = analysisData[selectedTopic];
+                analysisContainer.innerHTML = `
+                    <div class="text-xs"><span class="font-bold text-indigo-700 block mb-1">1. 概念轉變 (Conceptual Change)</span><p class="text-gray-600 pl-2 border-l-2 border-indigo-200">${data.change}</p></div>
+                    <div class="text-xs"><span class="font-bold text-indigo-700 block mb-1">2. 社群互動 (Responsiveness)</span><p class="text-gray-600 pl-2 border-l-2 border-indigo-200">${data.response}</p></div>
+                    <div class="text-xs"><span class="font-bold text-indigo-700 block mb-1">3. 持續探究 (Persistence)</span><p class="text-gray-600 pl-2 border-l-2 border-indigo-200">${data.persistence}</p></div>
+                `;
+            }
+        }
+
+        // Initialize
+        window.onload = function() {
+            renderTrajectory();
+            
+            // Charts
+            new Chart(document.getElementById('scaffoldChart').getContext('2d'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['提問 (Question)', '延伸 (Build on)', '改進 (Improve)', '反駁 (Counter)', '整合 (Rise Above)'],
+                    datasets: [{
+                        data: [8, 6, 5, 4, 2], 
+                        backgroundColor: ['#93C5FD', '#818CF8', '#34D399', '#FCD34D', '#F87171'],
+                        borderWidth: 0,
+                        hoverOffset: 4
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { boxWidth: 10, font: { size: 10, family: "'Noto Sans TC', sans-serif" } } }, cutout: '70%' } }
+            });
+
+            new Chart(document.getElementById('radarChart').getContext('2d'), {
+                type: 'radar',
+                data: {
+                    labels: ['發文數量', '回覆 (Build-on)', '閱讀廣度', '詞彙深度', '被引用數'],
+                    datasets: [{
+                        label: '我的表現',
+                        data: [65, 85, 90, 70, 80],
+                        fill: true,
+                        backgroundColor: 'rgba(79, 70, 229, 0.2)',
+                        borderColor: 'rgb(79, 70, 229)',
+                        pointBackgroundColor: 'rgb(79, 70, 229)',
+                        pointBorderColor: '#fff'
+                    }, {
+                        label: '班級平均',
+                        data: [50, 48, 60, 55, 40],
+                        fill: true,
+                        backgroundColor: 'rgba(209, 213, 219, 0.2)',
+                        borderColor: 'rgb(209, 213, 219)',
+                        pointBackgroundColor: 'rgb(209, 213, 219)',
+                        pointBorderColor: '#fff',
+                        borderDash: [5, 5]
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, scales: { r: { ticks: { display: false }, pointLabels: { font: { size: 11, family: "'Noto Sans TC', sans-serif" } }, suggestedMin: 0, suggestedMax: 100 } }, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } } }
+            });
+        };
+    </script>
+</body>
+</html>

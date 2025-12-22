@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KB 分析中樞 (旗艦學術版) | Teacher Dashboard v20.1</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap');
+        body { font-family: 'Noto Sans TC', sans-serif; background-color: #f1f5f9; color: #1e293b; }
+        
+        /* Card & Layout */
+        .card { background: white; border-radius: 12px; border: 1px solid #e2e8f0; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05); transition: all 0.2s; position: relative; display: flex; flex-direction: column; }
+        .card:hover { box-shadow: 0 4px 6px rgba(0,0,0,0.05); transform: translateY(-1px); }
+        
+        /* Navigation */
+        .nav-item.active { background-color: #0f172a; color: white; border-left: 4px solid #3b82f6; }
+        .kb-badge { font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 4px; font-weight: 600; }
+        .section-view { display: none; opacity: 0; transition: opacity 0.3s ease-in; }
+        .section-view.active { display: block; opacity: 1; }
+        .student-item.active-student { background-color: #e0e7ff; border-color: #818cf8; }
+
+        /* Ref Button Style */
+        .ref-btn {
+            font-size: 0.75rem; color: #64748b; cursor: pointer; display: inline-flex; align-items: center;
+            background: #f8fafc; padding: 4px 10px; border-radius: 9999px; border: 1px solid #cbd5e1;
+            transition: all 0.2s;
+        }
+        .ref-btn:hover { background: #e0f2fe; color: #0284c7; border-color: #7dd3fc; }
+        .ref-btn i { margin-right: 4px; font-size: 0.7rem; }
+
+        /* Modal Styles - Enhanced for Longer Content */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6);
+            display: flex; justify-content: center; align-items: center; z-index: 100;
+            opacity: 0; visibility: hidden; transition: all 0.3s; backdrop-filter: blur(2px);
+        }
+        .modal-overlay.open { opacity: 1; visibility: visible; }
+        .modal-content {
+            background: white; width: 95%; max-width: 700px; border-radius: 16px; padding: 0;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            transform: translateY(20px); transition: all 0.3s; overflow: hidden; max-height: 85vh; display: flex; flex-direction: column;
+        }
+        .modal-overlay.open .modal-content { transform: translateY(0); }
+        .modal-header { background: #f8fafc; padding: 20px 24px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; }
+        .modal-body { padding: 24px; font-size: 0.95rem; line-height: 1.7; color: #334155; overflow-y: auto; flex-grow: 1; }
+        .modal-cite { margin-top: 24px; padding: 16px; border-top: 1px solid #e2e8f0; font-size: 0.8rem; color: #64748b; background: #f1f5f9; border-radius: 8px; }
+        .result-box { background-color: #f0fdf4; border-left: 4px solid #22c55e; padding: 16px; margin: 16px 0; border-radius: 4px; }
+        .result-title { font-weight: 700; color: #166534; margin-bottom: 8px; display: flex; align-items: center; font-size: 0.9rem; }
+        
+        /* Timeline & Hotspot */
+        .timeline-line { position: absolute; left: 28px; top: 10px; bottom: 10px; width: 2px; background: #cbd5e1; z-index: 0; }
+        @keyframes pulse-dot { 
+            0% { transform: scale(1); opacity: 1; box-shadow: 0 0 0 0px rgba(255, 255, 255, 0.7); } 
+            50% { transform: scale(1.3); opacity: 0.8; box-shadow: 0 0 0 4px rgba(255, 255, 255, 0); } 
+            100% { transform: scale(1); opacity: 1; box-shadow: 0 0 0 0px rgba(255, 255, 255, 0); } 
+        }
+        .hotspot-dot { animation: pulse-dot 2s infinite ease-in-out; }
+
+        /* Lens & Legend */
+        .legend-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 4px; }
+        .dot-fact { background-color: #cbd5e1; } .dot-theory { background-color: #3b82f6; }
+        .dot-challenge { background-color: #eab308; } .dot-synthesis { background-color: #22c55e; }
+        .lens-detail-box { background: #f8fafc; border-left: 4px solid #94a3b8; padding: 16px; border-radius: 0 8px 8px 0; min-height: 120px; font-size: 0.9rem; transition: all 0.3s; }
+        .lens-detail-title { font-weight: 700; margin-bottom: 8px; display: flex; align-items: center; font-size: 1rem; }
+        .example-quote { background: rgba(255,255,255,0.6); padding: 8px; border-radius: 6px; margin-top: 8px; font-size: 0.85rem; font-style: italic; border: 1px dashed rgba(0,0,0,0.1); }
+        .example-author { font-weight: bold; font-style: normal; color: #475569; font-size: 0.75rem; }
+    </style>
+</head>
+<body class="h-screen overflow-hidden flex">
+
+    <!-- Ref Modal -->
+    <div id="ref-modal" class="modal-overlay" onclick="closeModal(event)">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h3 id="modal-title" class="text-lg font-bold text-slate-800 flex items-center"><i class="fas fa-microscope text-blue-500 mr-2"></i> 分析詳解</h3>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 transition"><i class="fas fa-times text-xl"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-4">
+                    <h4 class="font-bold text-xs text-blue-600 uppercase mb-3 tracking-widest"><i class="fas fa-graduation-cap mr-2"></i> 知識建構理論背景 (KB Theoretical Framework)</h4>
+                    <div id="modal-desc" class="text-slate-700 leading-relaxed text-sm">...</div>
+                </div>
+                <div class="result-box">
+                    <div class="result-title"><i class="fas fa-chart-line mr-2"></i> 💡 數據診斷與教學導引 (Data-Driven Insight)</div>
+                    <div id="modal-analysis" class="text-sm text-slate-700 space-y-2">...</div>
+                </div>
+                <div class="modal-cite">
+                    <strong class="block text-[10px] font-bold text-slate-500 uppercase mb-2 tracking-tighter">📚 學術參考來源 (Academic References)</strong>
+                    <span id="modal-ref" class="block leading-snug">...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar (Same as before) -->
+    <aside class="w-64 bg-slate-900 text-slate-400 flex flex-col shadow-2xl z-20 flex-shrink-0">
+        <div class="p-6 border-b border-slate-800">
+            <h1 class="text-xl font-bold tracking-wider text-white flex items-center"><i class="fas fa-network-wired mr-2 text-blue-500"></i> KB ANALYTICS</h1>
+            <p class="text-xs text-slate-500 mt-1 ml-6">v20.1 Fixed</p>
+        </div>
+        <nav class="mt-6 flex-1 px-2 space-y-1">
+            <button onclick="switchView('overview')" id="nav-overview" class="nav-item w-full flex items-center space-x-3 px-4 py-3 rounded-r-lg hover:bg-slate-800 transition text-left"><i class="fas fa-tachometer-alt w-5"></i><span>總體概況 (Overview)</span></button>
+            <button onclick="switchView('students')" id="nav-students" class="nav-item w-full flex items-center space-x-3 px-4 py-3 rounded-r-lg hover:bg-slate-800 transition text-left"><i class="fas fa-users w-5"></i><span>個別學生 (Students)</span></button>
+            <button onclick="switchView('topics')" id="nav-topics" class="nav-item active w-full flex items-center space-x-3 px-4 py-3 rounded-r-lg hover:bg-slate-800 transition text-left"><i class="fas fa-lightbulb w-5"></i><span>主題與觀點 (Ideas)</span></button>
+            <button onclick="switchView('quality')" id="nav-quality" class="nav-item w-full flex items-center space-x-3 px-4 py-3 rounded-r-lg hover:bg-slate-800 transition text-left"><i class="fas fa-microscope w-5"></i><span>言談品質 (Quality)</span></button>
+        </nav>
+        <div class="p-4 bg-slate-950 border-t border-slate-800 text-xs text-slate-500">System Status: <span class="text-green-500">All Modules Active</span></div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 bg-slate-50 p-8 overflow-y-auto relative">
+
+        <!-- ========================================= -->
+        <!-- VIEW 1: 總體概況 (Overview) -->
+        <!-- ========================================= -->
+        <div id="view-overview" class="section-view space-y-6">
+            <header class="flex justify-between items-center">
+                <div><h2 class="text-2xl font-bold text-slate-800">班級社群脈動</h2><p class="text-sm text-slate-500">全班知識建構狀態與集體責任指標</p></div>
+                <div class="flex gap-3"><span class="bg-white px-3 py-1 rounded-full text-xs border border-slate-200 shadow-sm flex items-center"><i class="fas fa-calendar-alt mr-2 text-slate-400"></i> Week 5</span></div>
+            </header>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div class="card border-l-4 border-green-500">
+                    <div class="flex justify-between items-start"><div><div class="text-xs text-slate-500 font-bold uppercase">知識民主化 (Gini)</div><div class="text-3xl font-bold text-slate-800 mt-1">0.21</div></div><i class="fas fa-balance-scale text-green-200 text-3xl"></i></div>
+                    <div class="mt-2 text-xs text-green-600 bg-green-50 inline-block px-2 py-1 rounded"><i class="fas fa-check-circle mr-1"></i> 高度平衡</div>
+                    <div class="mt-auto text-right pt-2"><button class="ref-btn" onclick="openRef('gini')"><i class="fas fa-book"></i> Ref:</button></div>
+                </div>
+                <div class="card border-l-4 border-blue-500">
+                    <div class="flex justify-between items-start"><div><div class="text-xs text-slate-500 font-bold uppercase">社群密度 (Density)</div><div class="text-3xl font-bold text-slate-800 mt-1">0.45</div></div><i class="fas fa-project-diagram text-blue-200 text-3xl"></i></div>
+                    <div class="mt-2 text-xs text-slate-500">目標 > 0.6</div>
+                    <div class="mt-auto text-right pt-2"><button class="ref-btn" onclick="openRef('density')"><i class="fas fa-book"></i> Ref:</button></div>
+                </div>
+                <div class="card border-l-4 border-purple-500">
+                    <div class="flex justify-between items-start"><div><div class="text-xs text-slate-500 font-bold uppercase">平均討論深度</div><div class="text-3xl font-bold text-slate-800 mt-1">4.2 層</div></div><i class="fas fa-layer-group text-purple-200 text-3xl"></i></div>
+                    <div class="mt-2 text-xs text-purple-600 font-bold"><i class="fas fa-arrow-up mr-1"></i> +15%</div>
+                    <div class="mt-auto text-right pt-2"><button class="ref-btn" onclick="openRef('depth')"><i class="fas fa-book"></i> Ref:</button></div>
+                </div>
+                <div class="card border-l-4 border-red-500">
+                    <div class="flex justify-between items-start"><div><div class="text-xs text-slate-500 font-bold uppercase">需鷹架引導</div><div class="text-3xl font-bold text-red-500 mt-1">3 人</div></div><i class="fas fa-exclamation-triangle text-red-200 text-3xl"></i></div>
+                    <div class="mt-2 text-xs text-red-600 cursor-pointer hover:underline" onclick="switchView('students')">查看名單 ></div>
+                    <div class="mt-auto text-right pt-2"><button class="ref-btn" onclick="openRef('risk')"><i class="fas fa-book"></i> Ref:</button></div>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div class="lg:col-span-2 card">
+                    <div class="flex justify-between items-center mb-4"><h3 class="font-bold text-slate-800"><i class="fas fa-share-alt text-blue-500 mr-2"></i>社群互動結構 (SNA)</h3><button class="ref-btn" onclick="openRef('sna')"><i class="fas fa-book"></i> Ref:</button></div>
+                    <div id="overview-network-container" class="h-[300px] bg-slate-50 rounded border border-slate-100"></div>
+                </div>
+                <div class="card">
+                    <div class="flex justify-between items-center mb-4"><h3 class="font-bold text-slate-800"><i class="fas fa-compass text-indigo-500 mr-2"></i>KB 12原則落實度</h3><button class="ref-btn" onclick="openRef('principles')"><i class="fas fa-book"></i> Ref:</button></div>
+                    <div class="h-[250px]"><canvas id="principlesChart"></canvas></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- VIEW 2: 個別學生分析 (Students) -->
+        <div id="view-students" class="section-view space-y-6">
+            <!-- Content remains the same as original except calling ref functions -->
+            <header class="flex justify-between items-center">
+                <div><h2 class="text-2xl font-bold text-slate-800">個別學生深度診斷</h2><p class="text-sm text-slate-500">微觀分析：認知成長與社交結構</p></div>
+            </header>
+            <div class="flex flex-col lg:flex-row gap-6 h-[calc(100vh-140px)]">
+                <div class="w-full lg:w-1/4 bg-white rounded-xl border border-slate-200 overflow-hidden flex flex-col shadow-sm">
+                    <div class="p-3 bg-slate-50 border-b"><div class="text-xs font-bold text-slate-500 uppercase mb-2 ml-1">選擇學生</div></div>
+                    <div class="overflow-y-auto flex-1 p-2 space-y-2">
+                        <div id="student-btn-S001" onclick="loadStudentData('S001')" class="student-item p-3 rounded-lg cursor-pointer border border-transparent hover:bg-slate-50 transition active-student">
+                            <div class="flex justify-between items-center"><div class="flex items-center gap-3"><div class="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold">張</div><div><div class="font-bold text-slate-700 text-sm">張小明</div><div class="text-[10px] text-slate-500">觀點橋樑者</div></div></div><span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">成長型</span></div>
+                        </div>
+                        <div id="student-btn-S002" onclick="loadStudentData('S002')" class="student-item p-3 rounded-lg cursor-pointer border border-transparent hover:bg-slate-50 transition">
+                            <div class="flex justify-between items-center"><div class="flex items-center gap-3"><div class="w-8 h-8 rounded-full bg-red-100 text-red-600 flex items-center justify-center font-bold">李</div><div><div class="font-bold text-slate-700 text-sm">李美莉</div><div class="text-[10px] text-slate-500">觀察者</div></div></div><span class="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">停滯型</span></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="w-full lg:w-3/4 space-y-6 overflow-y-auto pr-2 pb-10" id="student-detail-panel">
+                    <div class="card bg-gradient-to-r from-white to-slate-50 border-l-4 border-blue-500" id="profile-card">
+                        <div class="flex justify-between items-start">
+                            <div class="flex gap-5"><div id="profile-avatar" class="w-20 h-20 rounded-full bg-blue-100 flex items-center justify-center text-2xl font-bold text-blue-600 border-4 border-white shadow-sm">張</div><div><h3 class="text-xl font-bold text-slate-800 flex items-center"><span id="profile-name">張小明</span> <span class="text-sm text-slate-400 font-normal ml-2" id="profile-id">S001</span></h3><div class="flex gap-2 mt-2" id="profile-badges"></div><div class="mt-3 text-sm text-slate-600"><i class="fas fa-info-circle text-blue-400 mr-1"></i> <span id="profile-status-text">載入中...</span></div></div></div>
+                            <div class="text-right"><div class="text-3xl font-bold text-slate-800" id="profile-notes-count">0</div><div class="text-xs text-slate-500 uppercase">Total Notes</div></div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="card"><div class="flex justify-between items-center mb-4"><h4 class="font-bold text-sm text-slate-700 uppercase">認知深度演化 (Depth)</h4><button class="ref-btn" onclick="openRef('depth_trajectory')"><i class="fas fa-book"></i> Ref:</button></div><div class="h-48 relative"><canvas id="studentDepthChart"></canvas></div></div>
+                        <div class="card"><div class="flex justify-between items-center mb-4"><h4 class="font-bold text-sm text-slate-700 uppercase">知識能力 DNA</h4><button class="ref-btn" onclick="openRef('radar')"><i class="fas fa-book"></i> Ref:</button></div><div class="h-48 relative"><canvas id="radarChart"></canvas></div></div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="card"><div class="flex justify-between items-center mb-2"><h4 class="font-bold text-sm text-slate-700 uppercase mr-2">自我互動圈 (Ego Network)</h4><button class="ref-btn" onclick="openRef('ego')"><i class="fas fa-book"></i> Ref:</button></div><div class="h-48 bg-slate-50 rounded border border-slate-100 relative"><div id="ego-network-container" class="absolute inset-0"></div></div><div class="text-xs text-right mt-2 text-slate-500" id="ego-metric">--</div></div>
+                        <div class="card border-l-4" id="ai-card"><h4 class="font-bold text-sm text-slate-700 uppercase mb-3 flex items-center"><i class="fas fa-robot mr-2 text-blue-500"></i> AI 綜合行動建議</h4><div class="space-y-3" id="ai-suggestions"></div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- VIEW 3: 主題與觀點 (Ideas) -->
+        <div id="view-topics" class="section-view active space-y-6">
+            <header><h2 class="text-2xl font-bold text-slate-800">觀點潛力與演化 (Ideas)</h2><p class="text-sm text-slate-500">概念網絡與詞彙成長分析 (Epistemic Network & Lexical Growth)</p></header>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="card h-[400px]">
+                    <div class="flex justify-between items-center mb-4"><div><h3 class="font-bold text-slate-800">1. 潛力觀點熱點圖</h3><p class="text-xs text-slate-500">Interest vs. Gap</p></div><button class="ref-btn" onclick="openRef('promisingness')"><i class="fas fa-book"></i> Ref:</button></div>
+                    <div class="relative flex-1 bg-slate-50 border border-slate-200 rounded-lg p-4">
+                        <div class="absolute bottom-2 right-4 text-xs font-bold text-slate-400">關注度 →</div><div class="absolute top-4 left-2 text-xs font-bold text-slate-400 rotate-90 origin-left">← 認知落差</div>
+                        <div class="absolute top-1/2 left-0 right-0 h-px bg-slate-300 border-t border-dashed"></div><div class="absolute left-1/2 top-0 bottom-0 w-px bg-slate-300 border-l border-dashed"></div>
+                        <div class="absolute top-[20%] right-[20%] cursor-pointer group"><div class="w-4 h-4 bg-red-500 rounded-full shadow-lg hotspot-dot"></div><div class="absolute -top-8 -left-10 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap z-10">T1: 光合作用</div></div>
+                    </div>
+                </div>
+                <div class="card h-[400px]">
+                    <div class="flex justify-between items-center mb-4"><div><h3 class="font-bold text-slate-800">2. 概念語義網絡 (Concept Space)</h3><p class="text-xs text-slate-500">關鍵字連結結構</p></div><button class="ref-btn" onclick="openRef('concept_network')"><i class="fas fa-book"></i> Ref:</button></div>
+                    <div id="concept-network-container" class="h-full bg-slate-50 rounded border border-slate-100"></div>
+                </div>
+                <div class="card h-[400px]">
+                    <div class="flex justify-between items-center mb-4"><div><h3 class="font-bold text-slate-800">3. 學術詞彙成長 (Lexical Growth)</h3><p class="text-xs text-slate-500">專業術語累積趨勢</p></div><button class="ref-btn" onclick="openRef('lexical_growth')"><i class="fas fa-book"></i> Ref:</button></div>
+                    <div class="relative h-full"><canvas id="lexicalChart"></canvas></div>
+                </div>
+                <div class="card h-[400px] overflow-y-auto">
+                    <div class="flex justify-between items-center mb-6"><div><h3 class="font-bold text-slate-800">4. 觀點演化路徑 (Evolution)</h3><p class="text-xs text-slate-500">從發散到整合</p></div><button class="ref-btn" onclick="openRef('rise_above')"><i class="fas fa-book"></i> Ref:</button></div>
+                    <div class="relative pl-8 space-y-10"><div class="timeline-line"></div>
+                        <div class="relative z-10"><div class="absolute -left-10 top-0 w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center border-2 border-white text-blue-600 text-xs font-bold">W1</div><div class="bg-slate-50 border border-slate-200 p-4 rounded-lg"><div class="text-xs text-slate-400 uppercase font-bold mb-2">發散階段</div><div class="bg-white p-3 border rounded shadow-sm text-sm">My Theory: 植物吃土...</div></div></div>
+                        <div class="relative z-10"><div class="absolute -left-10 top-0 w-8 h-8 bg-green-500 rounded-full flex items-center justify-center border-2 border-white text-white text-xs font-bold">W5</div><div class="bg-green-50 border border-green-200 p-5 rounded-lg shadow-sm"><div class="text-xs text-green-700 uppercase font-bold mb-2">整合階段 (Rise-above)</div><h4 class="font-bold text-slate-800">能量轉化工廠理論</h4></div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- VIEW 4: 言談品質 (Quality) -->
+        <div id="view-quality" class="section-view space-y-6">
+            <header><h2 class="text-2xl font-bold text-slate-800">認知言談品質分析 (Quality)</h2><p class="text-sm text-slate-500">視覺化班級對話的「深度結構」與「動態流向」</p></header>
+            <div class="card">
+                <div class="flex justify-between items-center mb-4">
+                    <div><h3 class="font-bold text-slate-800 flex items-center"><i class="fas fa-search-plus text-purple-600 mr-2"></i> 深度對話透視鏡 (Deep Discourse Lens)</h3><p class="text-xs text-slate-500 mt-1">互動說明：點擊節點或連線可查看<strong>學生實例 (Student Voices)</strong> 與教學意義。</p></div>
+                    <div class="flex gap-4 text-xs font-bold bg-slate-50 px-3 py-2 rounded-lg border border-slate-200">
+                        <div class="flex items-center"><span class="legend-dot dot-fact"></span> 事實</div><div class="flex items-center"><span class="legend-dot dot-theory"></span> 理論</div><div class="flex items-center"><span class="legend-dot dot-challenge"></span> 挑戰</div><div class="flex items-center"><span class="legend-dot dot-synthesis"></span> 整合</div>
+                    </div>
+                </div>
+                <div class="flex flex-col lg:flex-row gap-6">
+                    <div class="w-full lg:w-2/3 h-[350px] bg-slate-50 rounded border border-slate-100 relative"><div id="lens-network-container" class="absolute inset-0"></div></div>
+                    <div class="w-full lg:w-1/3 flex flex-col justify-center">
+                        <div class="lens-detail-box" id="lens-detail"><div class="lens-detail-title text-slate-500"><i class="fas fa-mouse-pointer mr-2"></i> 請點擊左側圖表</div><p class="text-slate-400">點擊「節點」查看認知狀態定義與學生發言範例。<br>點擊「連線」查看對話遷移意義。</p></div>
+                        <div class="mt-4 text-right"><button class="ref-btn" onclick="openRef('lens')"><i class="fas fa-book"></i> Ref:</button></div>
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="flex justify-between items-center mb-4">
+                    <div><h3 class="font-bold text-slate-800 flex items-center"><i class="fas fa-stream text-blue-500 mr-2"></i> 關鍵對話流 (Key Discourse Stream)</h3><p class="text-xs text-slate-500 mt-1">追蹤認知演化趨勢與關鍵轉折點</p></div>
+                    <button class="ref-btn" onclick="openRef('stream')"><i class="fas fa-book"></i> Ref:</button>
+                </div>
+                <div class="h-[300px] w-full relative"><canvas id="streamChart"></canvas></div>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        // --- 1. ENHANCED REF DATA (BASED ON UPLOADED IMAGES) ---
+        const refData = {
+            'gini': { 
+                title: '知識民主化 (Knowledge Democratization)', 
+                desc: '本指標基於 Gini Coefficient 指數計算參與貢獻的分布。在知識建構社群中，「知識民主化」意味著每個人的觀點都對社群有價值。低 Gini 值反映出社群內觀點貢獻高度均勻，不存在權威壟斷，有利於集體智慧的迸發。', 
+                analysis: '當前 Gini 係數為 0.21，遠低於預警閾值 (0.4)。這顯示本班級已形成「集體責任感 (Collective Responsibility)」，不再是由少數優生帶領，而是全員參與。教學建議：可開始引導學生進行更具挑戰性的「跨組對話」。', 
+                cite: 'Scardamalia, M. (2002). Collective Cognitive Responsibility for the Advancement of Knowledge. Education and Technology.' 
+            },
+            'density': { 
+                title: '社群互動密度 (Social Network Density)', 
+                desc: 'Density 衡量社群中實際連結數與最大可能連結數的比值。高密度代表成員間互動頻繁，資訊流動流暢。這對應 KB 原則中的「社群知識與集體責任」，強調知識是在互動中被共同定義與擴張的。', 
+                analysis: '本週 Density 為 0.45，呈現穩健上升趨勢，但距離學術理想值 (0.6) 仍有空間。目前的互動多集中在子群組內部。教學建議：利用「串聯觀點 (Rise-above)」任務，強迫跨組別的互評與回饋，以提升全班連結密度。', 
+                cite: 'Zhang, J., Scardamalia, M., Reeve, R., & Messina, R. (2009). Designs for collectively advancing communal knowledge.' 
+            },
+            'depth': { 
+                title: '討論深度 (Discourse Depth & Idea Diversity)', 
+                desc: '討論深度透過筆記的回覆鏈層級計算。這反映了社群是否對單一問題進行「持續性的改進 (Sustained Improvement)」。高層次的對話鏈代表學生能針對他人觀點進行深化、反證或合成，而非僅停留在簡單的贊同或發散。', 
+                analysis: '平均深度 4.2 層代表對話已跨越表層資訊交換。第 4 層級通常包含「理論假設」與「證據對話」。教學建議：針對第 2 層以下的「孤立觀點」，教師應介入提出引導問題，帶動該支線的深度發展。', 
+                cite: 'Scardamalia, M., & Bereiter, C. (2006). Knowledge building: Theory, pedagogy, and technology.' 
+            },
+            'risk': { 
+                title: '邊緣參與者診斷 (Marginalized Participators)', 
+                desc: '透過 SNA 的中心性 (Centrality) 指標識別出位於邊緣、入度與出度均顯著低於平均值的學生。長期處於邊緣可能導致認知孤立，影響社群整體的「民主化」程度。', 
+                analysis: '偵測到 3 位學生參與度顯著下滑。這並非單純的懶惰，往往是因「無法融入當前高階學術對話」。教學建議：教師應協助這類學生將生活經驗轉化為「真實問題 (Real Ideas)」，重新接回社群主幹。', 
+                cite: 'Lave, J., & Wenger, E. (1991). Situated Learning: Legitimate Peripheral Participation.' 
+            },
+            'sna': { 
+                title: '社群網絡結構分析 (SNA Metrics)', 
+                desc: '分析社群的整體拓撲。包含中心者 (Central Figures)、橋樑者 (Brokers) 與孤立點。健康的 KB 社群應呈現「分散式網絡」，而非星狀網絡。', 
+                analysis: '本班呈現多中心結構，這非常理想。特別是張小明扮演了強大的橋樑角色。但要注意「邊緣子群組」的固化。建議透過「觀點交換日」打破既有的朋友圈結構。', 
+                cite: 'Oshima, J., Oshima, R., & Matsuzawa, Y. (2012). Knowledge Building Discourse Analysis.' 
+            },
+            'principles': { 
+                title: 'KB 12 原則落實診斷 (12 Principles Alignment)', 
+                desc: '這是一個多維度的量化評估，將語意分析與 SNA 數據映射到 KB 的核心原則上。它能直觀顯示社群在「理論化」與「真實問題」等不同面向的達成度。', 
+                analysis: '本班在「觀點多樣性」與「民主化」表現優異，但「權威資料的使用 (Constructive use of authority)」偏低。這代表學生多在臆測，缺乏外部科學證據支撐。教學建議：下週應引入外部文獻資源供學生引用。', 
+                cite: 'Gan, Y., et al. (2021). Quantifying Knowledge Building Principles: A Multi-modal approach.' 
+            },
+            'promisingness': { 
+                title: '潛力觀點分析 (Promising Ideas)', 
+                desc: '分析「高關注度」但「解釋力尚有落差」的主題。這是社群最值得投入精力去衝刺的方向。它能引導學生識別出哪些觀點最具有「昇華 (Rise-above)」的可能性。', 
+                analysis: '「光合作用的能量來源」目前位於熱區核心。學生對此充滿好奇但現有筆記的理論整合度低。這是一個極佳的「教學轉折點」，可引導學生進行正式實驗設計。', 
+                cite: 'Chen, B., Scardamalia, M., & Bereiter, C. (2015). Predictive analytics for promising ideas in Knowledge Building.' 
+            },
+            'lexical_growth': { 
+                title: '學術詞彙成長 (Lexical Growth & Epistemic Agency)', 
+                desc: '追蹤學生從日常口語向專業學術術語遷移的過程。學術詞彙的增加代表學生正在內化學科領域的認同，並能精確地運用權威概念來進行思考。', 
+                analysis: 'W4 到 W5 詞彙量呈現指數增長，特別是「光反應」、「類囊體」等詞頻暴增。這顯示學生已從「觀察現象」進入「機制解釋」階段。', 
+                cite: 'Resendes, M., et al. (2015). The effect of formative feedback on vocabulary use in Knowledge Building.' 
+            },
+            'rise_above': { 
+                title: '觀點昇華 (Rise-above) 歷程', 
+                desc: 'Rise-above 是 KB 的靈魂。它要求學生將大量、發散、甚至矛盾的初階觀點，整合成為一個更高階、更簡潔且具備更強解釋力的理論架構。', 
+                analysis: '本週 T1 主題成功產出了整合性筆記。從初期的「植物吃土」到中期的「陽光驅動」，最後收斂至「生物能量工廠」。這是完美的認知轉換。', 
+                cite: 'Zhang, J., et al. (2018). Evolutionary patterns of ideas in Knowledge Building communities.' 
+            },
+            'lens': { 
+                title: '深度對話透視鏡 (Deep Discourse Sequential Analysis)', 
+                desc: '利用序列分析 (Sequential Analysis) 查看對話的演化路徑。重點在於捕捉「批判性轉折」。例如：當一個「理論」被提出後，後續是跟隨另一個「理論」(發散)，還是跟隨一個「挑戰」(深度辯證)？', 
+                analysis: '透視圖顯示本班有強大的「理論->挑戰」正向循環，頻率高於平均值。這意味著學生已具備批判性思維。若路徑多為「事實->事實」，則需介入引導學生進行解釋性思考。', 
+                cite: 'Chen, B., et al. (2017). Sequential patterns in Knowledge Building discourse.' 
+            },
+            'stream': { 
+                title: '關鍵對話流 (Dynamic Discourse Stream)', 
+                desc: '河流圖展示隨時間推移，各類認知行為的動態占比。這有助於觀察社群是否正在從「資料蒐集 (Fact)」邁向「高階整合 (Synthesis)」。', 
+                analysis: '圖表顯示「整合層級」在 W5 快速擴展，擠壓了純事實描述的空間。這代表全班正在經歷集體認知的「收割期」。', 
+                cite: 'Reimann, P. (2009). Time is of the essence: Learning as a process.' 
+            },
+            'depth_trajectory': { 
+                title: '認知深度演化軌跡', 
+                desc: '追蹤學生個人在「事實描述」與「理論建構」兩條曲線上的動態平衡。理想狀態是隨著時間推移，理論比重逐漸超越事實比重。', 
+                analysis: 'S001 在本週出現「認知交叉點」，理論性發言量首度超過事實性發言，標誌著他從「資訊收集者」轉型為「理論建構者」。', 
+                cite: 'Scardamalia, M. (2002).' 
+            },
+            'radar': { 
+                title: '知識能力 DNA', 
+                desc: '基於自然語言處理 (NLP) 與 SNA 綜合計算。包含：發起能力 (Initiative)、理論建構 (Theorizing)、回饋品質 (Social Responsibility)、合成能力 (Synthesis) 與詞彙多樣性。', 
+                analysis: '此圖譜能精準識別學生天賦。例如：S001 擅長連結他人 (Social)，但整合能力仍有提升空間。可用於差異化分組與精準輔導。', 
+                cite: 'Lee, J. Q., et al. (2006).' 
+            },
+            'ego': { 
+                title: '自我互動圈 (Ego Network)', 
+                desc: '分析學生個人為中心的微觀社交結構。橋樑型 (Broker) 學生能促進資訊跨組流動；核心型學生則穩定社群共識。', 
+                analysis: '本圖顯示該生目前的互動範圍。若連線過於單一（僅與老師連結），則需鼓勵其參與同儕討論。', 
+                cite: 'Oshima, J., et al. (2012).' 
+            }
+        };
+
+        // --- 2. LENS INTERACTIONS ---
+        const lensInteractions = {
+            'Fact': { title: '事實 (Fact)', text: '單純的資料羅列、描述現象、轉貼網址。', color: 'border-l-slate-400 bg-slate-50', example: '「書上第50頁說，光合作用需要水和二氧化碳才能進行。」' },
+            'Theory': { title: '理論 (Theory)', text: '基於觀察提出的個人解釋、假說或「My Theory」。', color: 'border-l-blue-500 bg-blue-50', example: '「我認為葉子會變紅是因為天氣冷了，葉綠素害怕寒冷所以躲起來了。」' },
+            'Challenge': { title: '挑戰 (Challenge)', text: '對他人觀點提出反證、質疑、尋找不一致處。', color: 'border-l-yellow-500 bg-yellow-50', example: '「如果葉綠素是因為怕冷才躲起來，那為什麼有些樹即使在下雪也不會變紅？」' },
+            'Synthesis': { title: '整合 (Synthesis)', text: '歸納多人看法，消除矛盾，產出更高層次的共識。', color: 'border-l-green-500 bg-green-50', example: '「綜合大家的資料和對天氣的討論，這其實是植物在回收養分，準備過冬的機制。」' },
+            'Fact->Theory': { title: '路徑：事實 ➔ 理論', text: '認知跨越點。代表學生不再只是搬運工，而開始嘗試賦予資料意義。', color: 'border-l-blue-400 bg-blue-50', example: '「看到這資料寫著植物有氣孔...我推測植物是不是也要呼吸？」' },
+            'Theory->Challenge': { title: '路徑：理論 ➔ 挑戰', text: '深度辯證的發生。社群開始進入「觀點改進」的高壓力區，這是成長最快的時候。', color: 'border-l-yellow-400 bg-yellow-50', example: '「你的理論說葉綠素是躲起來，但顯微鏡下看到的是分解耶...」' },
+            'Challenge->Synthesis': { title: '路徑：挑戰 ➔ 整合', text: '衝突的解決。代表社群成功將矛盾轉化為更高階的知識，達成 Rise-above。', color: 'border-l-green-400 bg-green-50', example: '「為了解決分解還是躲起來的矛盾，我們發現其實那是色素比例改變的結果...」' }
+        };
+
+        // --- GLOBAL VARS ---
+        let overviewNetwork, radarChartInstance, studentDepthChartInstance, egoNetworkInstance, streamChart, lensNetwork, principlesChartInstance, conceptNetworkInstance, lexicalChartInstance;
+
+        // --- HELPERS ---
+        function openRef(key) {
+            const data = refData[key] || {title:'載入中', desc:'...', analysis:'...', cite:'...'};
+            document.getElementById('modal-title').innerHTML = `<i class="fas fa-book-reader text-blue-500 mr-2"></i> ${data.title}`;
+            document.getElementById('modal-desc').innerHTML = data.desc;
+            document.getElementById('modal-analysis').innerHTML = data.analysis;
+            document.getElementById('modal-ref').innerHTML = data.cite;
+            document.getElementById('ref-modal').classList.add('open');
+        }
+        function closeModal() { document.getElementById('ref-modal').classList.remove('open'); }
+
+        // --- INIT FUNCTIONS ---
+        function initDeepLens() {
+            const container = document.getElementById('lens-network-container');
+            if(lensNetwork) { lensNetwork.destroy(); lensNetwork = null; }
+            const nodes = new vis.DataSet([
+                { id: 'Fact', label: '事實\nFact', color: '#cbd5e1', shape: 'circle', widthConstraint: { minimum: 60 } },
+                { id: 'Theory', label: '理論\nTheory', color: '#3b82f6', shape: 'circle', font: {color:'white'}, widthConstraint: { minimum: 80 } },
+                { id: 'Challenge', label: '挑戰\nChallenge', color: '#eab308', shape: 'circle', font: {color:'white'}, widthConstraint: { minimum: 70 } },
+                { id: 'Synthesis', label: '整合\nSynthesis', color: '#22c55e', shape: 'circle', font: {color:'white'}, widthConstraint: { minimum: 60 } }
+            ]);
+            const edges = new vis.DataSet([
+                { id: 'e1', from: 'Fact', to: 'Theory', width: 6, arrows: 'to' }, { id: 'e2', from: 'Theory', to: 'Challenge', width: 4, arrows: 'to' },
+                { id: 'e3', from: 'Challenge', to: 'Synthesis', width: 3, arrows: 'to' }, { id: 'e4', from: 'Theory', to: 'Theory', width: 2, arrows: 'to', dashes: true },
+                { id: 'e5', from: 'Theory', to: 'Synthesis', width: 2, arrows: 'to' }
+            ]);
+            lensNetwork = new vis.Network(container, { nodes, edges }, {
+                nodes: { font: { face: 'Noto Sans TC', size: 14 }, borderWidth: 2, shadow: true },
+                edges: { color: { color: '#94a3b8', highlight: '#1e40af' }, smooth: { type: 'curvedCW', roundness: 0.2 } },
+                physics: { stabilization: true }, interaction: { hover: true, zoomView: false }
+            });
+            lensNetwork.on("click", function (params) {
+                const detailBox = document.getElementById('lens-detail');
+                let info = null;
+                if (params.nodes.length > 0) info = lensInteractions[params.nodes[0]];
+                else if (params.edges.length > 0) {
+                    const edgeObj = edges.get(params.edges[0]);
+                    info = lensInteractions[`${edgeObj.from}->${edgeObj.to}`];
+                }
+                if (info) detailBox.innerHTML = `<div class="lens-detail-title text-slate-700">${info.title}</div><p class="text-slate-600">${info.text}</p><div class="example-quote"><div class="example-author">學生實例 (Student Voices)：</div>${info.example || "暫無範例"}</div>`;
+            });
+            setTimeout(() => lensNetwork.fit(), 100);
+        }
+
+        function initStreamChart() {
+            const ctx = document.getElementById('streamChart').getContext('2d');
+            if (streamChart) streamChart.destroy();
+            streamChart = new Chart(ctx, {
+                type: 'line', data: { labels: ['W1', 'W2', 'W3', 'W4', 'W5'], datasets: [{ label: '整合', data: [5, 10, 15, 30, 55], backgroundColor: 'rgba(34, 197, 94, 0.6)', borderColor: 'rgba(34, 197, 94, 1)', fill: true, tension: 0.4, pointRadius: 0 }, { label: '挑戰', data: [10, 20, 45, 35, 25], backgroundColor: 'rgba(234, 179, 8, 0.6)', borderColor: 'rgba(234, 179, 8, 1)', fill: true, tension: 0.4, pointRadius: 0 }, { label: '理論', data: [25, 45, 50, 40, 30], backgroundColor: 'rgba(59, 130, 246, 0.6)', borderColor: 'rgba(59, 130, 246, 1)', fill: true, tension: 0.4, pointRadius: 0 }, { label: '事實', data: [70, 50, 30, 25, 20], backgroundColor: 'rgba(203, 213, 225, 0.6)', borderColor: 'rgba(203, 213, 225, 1)', fill: true, tension: 0.4, pointRadius: 0 }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, font: { family: 'Noto Sans TC', size: 10 } } } }, scales: { x: { display: true }, y: { display: false, beginAtZero: true } } }
+            });
+        }
+
+        function initConceptNetwork() {
+            const container = document.getElementById('concept-network-container');
+            if (conceptNetworkInstance) { conceptNetworkInstance.destroy(); conceptNetworkInstance = null; }
+            const nodes = new vis.DataSet([{ id: 1, label: '光合作用', value: 20, color: '#3b82f6', font: {color:'white'} },{ id: 2, label: '能量', value: 15, color: '#60a5fa' },{ id: 3, label: '葉綠素', value: 12, color: '#93c5fd' },{ id: 4, label: '陽光', value: 10, color: '#93c5fd' },{ id: 5, label: '呼吸作用', value: 8, color: '#cbd5e1' }]);
+            const edges = new vis.DataSet([{ from: 1, to: 2, value: 5 }, { from: 1, to: 3, value: 4 }, { from: 1, to: 4, value: 4 },{ from: 2, to: 4, value: 3 }]);
+            conceptNetworkInstance = new vis.Network(container, { nodes, edges }, { nodes: { shape: 'dot', font: { face: 'Noto Sans TC' } }, physics: { stabilization: true }, interaction: { zoomView: false } });
+            setTimeout(() => conceptNetworkInstance.fit(), 100);
+        }
+
+        function initLexicalChart() {
+            const ctx = document.getElementById('lexicalChart').getContext('2d');
+            if (lexicalChartInstance) lexicalChartInstance.destroy();
+            lexicalChartInstance = new Chart(ctx, { type: 'line', data: { labels: ['W1', 'W2', 'W3', 'W4', 'W5'], datasets: [{ label: '獨特學術詞彙數', data: [5, 12, 18, 40, 48], borderColor: '#8b5cf6', backgroundColor: 'rgba(139, 92, 246, 0.1)', fill: true, tension: 0.4 }] }, options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } } });
+        }
+
+        function initOverview() {
+            const container = document.getElementById('overview-network-container');
+            if(overviewNetwork) { overviewNetwork.destroy(); overviewNetwork = null; }
+            const nodes = new vis.DataSet([{id:1,label:'小明',color:'#3b82f6',value:10, shape:'dot'},{id:2,label:'美莉',color:'#ef4444',value:5, shape:'dot'},{id:3,label:'大文',color:'#3b82f6',value:15, shape:'dot'}]);
+            const edges = new vis.DataSet([{from:1,to:3},{from:3,to:1},{from:2,to:3}]);
+            overviewNetwork = new vis.Network(container, { nodes, edges }, { nodes: { font: { face: 'Noto Sans TC' } }, physics: { stabilization: true } });
+            
+            const ctx = document.getElementById('principlesChart').getContext('2d');
+            if(principlesChartInstance) principlesChartInstance.destroy();
+            principlesChartInstance = new Chart(ctx, { type: 'radar', data: { labels: ['觀點多樣性', '集體責任', '真實問題', '權威資料', '觀點改進', '民主化'], datasets: [{ label: '本班現況', data: [85, 70, 80, 40, 75, 90], backgroundColor: 'rgba(99, 102, 241, 0.2)', borderColor: '#6366f1' }] }, options: { responsive: true, maintainAspectRatio: false, scales: { r: { suggestedMin: 0, suggestedMax: 100 } } } });
+            setTimeout(() => overviewNetwork.fit(), 100);
+        }
+
+        function loadStudentData(id) {
+            const data = {
+                'S001': { name:'張小明', role:'觀點橋樑者', radar:[60,90,85,40,70], depth:{theory:[2,5,12,18,22],fact:[10,8,5,4,3]}, badges:['觀點橋樑者','成長顯著'], egoNodes:[{id:1,label:'小明',color:'#3b82f6',size:20, shape:'dot'},{id:2,label:'大文',size:15, shape:'dot'},{id:3,label:'美莉',size:10, shape:'dot'}], egoEdges:[{from:1,to:2},{from:1,to:3}], metric:'連結數: 4人 (開放型)', suggestions:['肯定理論建構','指派整合任務'], notes:25 },
+                'S002': { name:'李美莉', role:'觀察者', radar:[80,20,40,10,30], depth:{theory:[1,2,2,3,2],fact:[8,9,7,8,6]}, badges:['觀察者','需關注'], egoNodes:[{id:1,label:'美莉',color:'#ef4444',size:20, shape:'dot'},{id:2,label:'老師',size:15, shape:'dot'}], egoEdges:[{from:1,to:2}], metric:'連結數: 2人 (依賴型)', suggestions:['使用 My Theory','減少依賴'], notes:12 }
+            }[id];
+            
+            document.querySelectorAll('.student-item').forEach(el => el.classList.remove('active-student', 'bg-indigo-50', 'border-indigo-200'));
+            const btn = document.getElementById(`student-btn-${id}`);
+            if(btn) btn.classList.add('active-student', 'bg-indigo-50', 'border-indigo-200');
+            
+            document.getElementById('profile-name').innerText = data.name;
+            document.getElementById('profile-id').innerText = id;
+            document.getElementById('profile-notes-count').innerText = data.notes;
+            document.getElementById('profile-avatar').innerText = data.name[0];
+            document.getElementById('profile-status-text').innerText = data.role + " - 狀態分析完成";
+            document.getElementById('profile-badges').innerHTML = data.badges.map(b => `<span class="kb-badge bg-blue-100 text-blue-700 mr-1">${b}</span>`).join('');
+            document.getElementById('ego-metric').innerText = data.metric;
+            document.getElementById('ai-suggestions').innerHTML = data.suggestions.map(s => `<div class="flex gap-2"><i class="fas fa-check text-green-500 mt-1"></i><div class="text-sm">${s}</div></div>`).join('');
+
+            const ctxR = document.getElementById('radarChart').getContext('2d');
+            if(radarChartInstance) radarChartInstance.destroy();
+            radarChartInstance = new Chart(ctxR, { type: 'radar', data: { labels: ['發起','理論','回應','整合','詞彙'], datasets: [{label: data.name, data: data.radar, backgroundColor:'rgba(59,130,246,0.2)', borderColor:'#3B82F6'}] }, options: { responsive:true, maintainAspectRatio:false, scales: { r: { suggestedMin: 0, suggestedMax: 100, ticks:{display:false} } }, plugins:{legend:{display:false}} } });
+
+            const ctxD = document.getElementById('studentDepthChart').getContext('2d');
+            if(studentDepthChartInstance) studentDepthChartInstance.destroy();
+            studentDepthChartInstance = new Chart(ctxD, { type: 'line', data: { labels: ['W1','W2','W3','W4','W5'], datasets: [{label:'理論', data:data.depth.theory, borderColor:'#3B82F6', tension:0.2}, {label:'事實', data:data.depth.fact, borderColor:'#CBD5E1', borderDash:[5,5], tension:0.2}] }, options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}} } });
+
+            const container = document.getElementById('ego-network-container');
+            if(egoNetworkInstance) { egoNetworkInstance.destroy(); egoNetworkInstance = null; }
+            const nodes = new vis.DataSet(data.egoNodes);
+            const edges = new vis.DataSet(data.egoEdges);
+            setTimeout(() => {
+                egoNetworkInstance = new vis.Network(container, { nodes, edges }, { nodes: { font: { face: 'Noto Sans TC' } }, physics: { stabilization: true }, interaction: { zoomView: false } });
+                egoNetworkInstance.fit();
+            }, 100);
+        }
+
+        function switchView(viewName) {
+            document.querySelectorAll('.section-view').forEach(el => el.classList.remove('active'));
+            document.getElementById('view-' + viewName).classList.add('active');
+            document.querySelectorAll('.nav-item').forEach(el => { el.classList.remove('active', 'bg-slate-900', 'border-l-4', 'border-blue-500'); el.classList.add('text-slate-400'); });
+            const activeNav = document.getElementById('nav-' + viewName);
+            activeNav.classList.add('active', 'bg-slate-900', 'text-white', 'border-l-4', 'border-blue-500');
+            activeNav.classList.remove('text-slate-400');
+
+            if (viewName === 'quality') setTimeout(() => { initDeepLens(); initStreamChart(); }, 100);
+            else if (viewName === 'overview') setTimeout(initOverview, 100);
+            else if (viewName === 'topics') setTimeout(() => { initConceptNetwork(); initLexicalChart(); }, 100);
+            else if (viewName === 'students') {
+                const id = document.querySelector('.active-student') ? document.querySelector('.active-student').id.replace('student-btn-', '') : 'S001';
+                loadStudentData(id);
+            }
+        }
+
+        window.onload = function() { switchView('overview'); };
+    </script>
+</body>
+</html>
