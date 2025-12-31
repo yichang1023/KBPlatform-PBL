@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>知識建構協作平台 (KB Platform) - v2.28 (Double Click Fixed)</title>
+    <title>知識建構協作平台 (KB Platform) - v2.29 (Title Added)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -140,7 +140,7 @@
             <div class="w-8 h-8 md:w-10 md:h-10 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold text-lg md:text-xl shrink-0">KB</div>
             <div>
                 <h1 class="font-bold text-base md:text-lg leading-tight text-slate-800 truncate max-w-[150px] md:max-w-none">知識建構平台</h1>
-                <p class="text-[10px] md:text-xs text-slate-500 hidden md:block">Knowledge Building Environment (v2.28)</p>
+                <p class="text-[10px] md:text-xs text-slate-500 hidden md:block">Knowledge Building Environment (v2.29)</p>
             </div>
         </div>
         <div class="hidden md:flex items-center bg-slate-100 p-1 rounded-lg">
@@ -191,7 +191,7 @@
     <!-- Modals -->
     <div id="modal-topic" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] hidden flex items-end md:items-center justify-center p-4">
         <div class="bg-white rounded-t-xl md:rounded-xl shadow-2xl w-full max-w-lg p-6 transform transition-all scale-100 max-h-[90vh] overflow-y-auto">
-            <h3 class="text-xl font-bold mb-4 flex items-center gap-2"><i class="fa-solid fa-folder-plus text-indigo-600"></i> 開啟探究主題</h3>
+            <h3 id="modal-topic-title" class="text-xl font-bold mb-4 flex items-center gap-2"><i class="fa-solid fa-folder-plus text-indigo-600"></i> 開啟探究主題</h3>
             <div class="space-y-4">
                 <div>
                     <label class="block text-sm font-medium text-slate-700 mb-1">核心問題</label>
@@ -208,7 +208,7 @@
             </div>
             <div class="mt-6 flex justify-end gap-3">
                 <button onclick="window.ui.closeModal('modal-topic')" class="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg">取消</button>
-                <button onclick="window.app.createTopic()" class="px-4 py-2 bg-indigo-600 text-white rounded-lg shadow hover:bg-indigo-700">建立</button>
+                <button id="btn-topic-save" onclick="window.app.saveTopic()" class="px-4 py-2 bg-indigo-600 text-white rounded-lg shadow hover:bg-indigo-700">建立</button>
             </div>
         </div>
     </div>
@@ -219,8 +219,12 @@
             <h3 class="text-lg md:text-xl font-bold mb-2">貢獻想法</h3>
             <div class="grid grid-cols-3 md:grid-cols-5 gap-2 mb-4"><div id="scaffold-selector" class="contents"></div></div>
             <div id="scaffold-desc" class="hidden"></div>
+            <!-- Added Title Input -->
+            <div class="mb-3">
+                <input type="text" id="node-title" class="w-full px-4 py-2 border border-slate-300 rounded-lg outline-none font-bold text-base md:text-lg placeholder:font-normal" placeholder="輸入想法標題 (例如：關於光線的假設)">
+            </div>
             <div class="relative">
-                <textarea id="node-content" rows="4" class="w-full px-4 py-3 border border-slate-300 rounded-lg outline-none text-base" placeholder="輸入想法..."></textarea>
+                <textarea id="node-content" rows="4" class="w-full px-4 py-3 border border-slate-300 rounded-lg outline-none text-base" placeholder="輸入詳細內容..."></textarea>
                 <div id="ai-suggestion-box" class="hidden mt-2 md:absolute md:-bottom-16 md:left-0 md:right-0 bg-blue-50 border border-blue-100 text-blue-800 p-3 rounded-lg text-sm flex items-start gap-3 shadow-sm"><i class="fa-solid fa-lightbulb text-yellow-500 mt-1 shrink-0"></i><div><span class="font-bold block text-xs uppercase text-blue-400 mb-1">AI 建議</span><p class="text-xs md:text-sm">試著用「我的理論是...因為...」來延伸？</p></div></div>
             </div>
             <div class="mt-4 md:mt-16 flex justify-end"><button onclick="window.app.submitNode()" class="px-6 py-3 md:py-2 bg-slate-900 text-white rounded-lg">發布</button></div>
@@ -233,7 +237,11 @@
                 <div class="flex items-center gap-3"><div id="detail-scaffold-icon" class="w-10 h-10 rounded-full flex items-center justify-center text-white text-lg"></div><div><div id="detail-scaffold-label" class="text-xs font-bold uppercase mb-0.5">TYPE</div><div class="flex gap-2 text-xs text-slate-500"><span id="detail-author"></span><span>•</span><span id="detail-date"></span></div></div></div>
                 <button onclick="window.ui.closeModal('modal-detail')" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-200 text-slate-400"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
-            <div class="p-6 overflow-y-auto custom-scroll flex-1"><p id="detail-content" class="text-base md:text-lg leading-relaxed whitespace-pre-wrap"></p></div>
+            <div class="p-6 overflow-y-auto custom-scroll flex-1">
+                <!-- Added Title Display -->
+                <h2 id="detail-title" class="text-xl md:text-2xl font-bold mb-4 text-slate-900"></h2>
+                <p id="detail-content" class="text-base md:text-lg leading-relaxed whitespace-pre-wrap text-slate-700"></p>
+            </div>
             <div class="p-4 border-t border-slate-100 bg-slate-50 rounded-b-xl flex justify-end gap-3 shrink-0">
                 <button id="btn-detail-reply" class="px-5 py-2 bg-indigo-600 text-white rounded-lg flex items-center gap-2"><i class="fa-solid fa-reply"></i> 延伸</button>
             </div>
@@ -318,55 +326,56 @@
                 { id: 't9', name: '數學是被發現的還是被發明的？', categories: ['哲學', '科學'], desc: '數學是宇宙的語言還是人類的工具？', author: 'u1', date: '2023-10-22' }
             ],
             nodes: [
-                { id: 'n1', topicId: 't1', type: 'question', content: '我好奇為什麼只有晴天是藍色，夕陽卻是紅色？', author: 'u2', x: 100, y: 300, parentId: null, date: Date.now(), cluster: 'A', promisingness: 30 },
-                { id: 'n2', topicId: 't1', type: 'improve', content: '這應該跟光線穿過大氣層的距離有關。距離越長，留下的光越紅。', author: 'u3', x: 400, y: 200, parentId: 'n1', date: Date.now(), cluster: 'B', promisingness: 45 },
-                { id: 'n3', topicId: 't1', type: 'extend', content: '我的理論是瑞利散射。藍光波長短，容易被散射。', author: 'u1', x: 400, y: 400, parentId: 'n1', date: Date.now(), cluster: 'A', promisingness: 85 },
-                { id: 'n4', topicId: 't1', type: 'counter', content: '但瑞利散射不能解釋為什麼陰天也是白色的，或是雲為什麼是白的？', author: 'u4', x: 700, y: 300, parentId: 'n3', date: Date.now(), cluster: 'A', promisingness: 90 },
-                { id: 'n5', topicId: 't1', type: 'improve', content: '雲是白色的可以用「米氏散射」解釋，因為水滴顆粒比氣體分子大很多，所有波長都散射，混合成白光。', author: 'u5', x: 900, y: 300, parentId: 'n4', date: Date.now(), cluster: 'B', promisingness: 80 },
-                { id: 'n6', topicId: 't1', type: 'riseabove', content: '整合觀點：天空顏色取決於「散射顆粒大小」與「光波長」的關係。微小氣體分子造成瑞利散射(藍/紅)，較大水滴造成米氏散射(白)。', author: 'u6', x: 600, y: 600, parentId: 'n5', date: Date.now(), cluster: 'C', promisingness: 95 },
-                { id: 'n2_1', topicId: 't2', type: 'question', content: 'AI 真的有創造力嗎？還是只是在拼湊？', author: 'u2', x: 100, y: 300, parentId: null, date: Date.now(), cluster: 'A', promisingness: 40 },
-                { id: 'n2_2', topicId: 't2', type: 'extend', content: '它能生成從未見過的畫作，這應該算創造吧。', author: 'u3', x: 400, y: 200, parentId: 'n2_1', date: Date.now(), cluster: 'B', promisingness: 50 },
-                { id: 'n2_3', topicId: 't2', type: 'counter', content: '但那些「畫作」只是基於訓練資料的機率分布，它沒有靈魂或意圖。', author: 'u4', x: 600, y: 200, parentId: 'n2_2', date: Date.now(), cluster: 'A', promisingness: 60 },
-                { id: 'n2_4', topicId: 't2', type: 'improve', content: '我們該定義什麼是創造力：通常包含「新穎性」與「價值」。AI 確實能產出新穎且有價值的東西。', author: 'u1', x: 800, y: 200, parentId: 'n2_3', date: Date.now(), cluster: 'B', promisingness: 75 },
-                { id: 'n2_5', topicId: 't2', type: 'extend', content: '像 AlphaGo 的第 37 手，連人類棋王都沒想過，這絕對是超越模仿的創造。', author: 'u5', x: 800, y: 400, parentId: 'n2_4', date: Date.now(), cluster: 'B', promisingness: 80 },
-                { id: 'n2_6', topicId: 't2', type: 'riseabove', content: 'AI 擁有「組合式創造力」(Combinatorial Creativity)，但目前可能還缺乏「變革式創造力」(Transformational Creativity)。它是人類創造力的強大延伸工具。', author: 'u6', x: 500, y: 600, parentId: 'n2_5', date: Date.now(), cluster: 'C', promisingness: 95 },
-                { id: 'n3_1', topicId: 't3', type: 'question', content: '艾連到底是自由的，還是被命運束縛的奴隸？', author: 'u2', x: 100, y: 300, parentId: null, date: Date.now(), cluster: 'A', promisingness: 50 },
-                { id: 'n3_2', topicId: 't3', type: 'extend', content: '他為了追求自由，反而成為了自由的奴隸，這是一種諷刺。', author: 'u3', x: 300, y: 200, parentId: 'n3_1', date: Date.now(), cluster: 'B', promisingness: 60 },
-                { id: 'n3_3', topicId: 't3', type: 'counter', content: '他看見了未來，如果未來是註定的，那他就沒有選擇，也就沒有自由意志。', author: 'u4', x: 500, y: 300, parentId: 'n3_1', date: Date.now(), cluster: 'A', promisingness: 70 },
-                { id: 'n3_4', topicId: 't3', type: 'improve', content: '或許未來之所以那樣發生，正是因為那是他「想要」的結果？這也是一種自由選擇？', author: 'u5', x: 700, y: 300, parentId: 'n3_3', date: Date.now(), cluster: 'B', promisingness: 80 },
-                { id: 'n3_5', topicId: 't3', type: 'riseabove', content: '相容論 (Compatibilism)：命運的必然性與個人的自由意志可能共存。艾連的性格決定了他的選擇，而他的選擇造就了註定的未來。', author: 'u1', x: 500, y: 600, parentId: 'n3_4', date: Date.now(), cluster: 'C', promisingness: 90 },
-                { id: 'n4_1', topicId: 't4', type: 'question', content: '我想做一個 Discord Bot，但不知道怎麼開始？', author: 'u3', x: 100, y: 300, parentId: null, date: Date.now(), cluster: 'A', promisingness: 30 },
-                { id: 'n4_2', topicId: 't4', type: 'extend', content: '你可以用 `discord.py` 這個函式庫，官方文件很詳細。', author: 'u4', x: 300, y: 200, parentId: 'n4_1', date: Date.now(), cluster: 'B', promisingness: 50 },
-                { id: 'n4_3', topicId: 't4', type: 'question', content: '那要怎麼讓它 24 小時一直跑？我家電腦不能一直開著。', author: 'u2', x: 500, y: 200, parentId: 'n4_2', date: Date.now(), cluster: 'A', promisingness: 60 },
-                { id: 'n4_4', topicId: 't4', type: 'improve', content: '可以用 Replit + UptimeRobot，這是免費方案。', author: 'u5', x: 700, y: 200, parentId: 'n4_3', date: Date.now(), cluster: 'B', promisingness: 70 },
-                { id: 'n4_5', topicId: 't4', type: 'counter', content: 'Replit 現在會休眠了，不推薦。建議用 Heroku 或是租一個便宜的 VPS (如 Linode)。', author: 'u6', x: 900, y: 200, parentId: 'n4_4', date: Date.now(), cluster: 'B', promisingness: 80 },
-                { id: 'n4_6', topicId: 't4', type: 'riseabove', content: '託管方案階層：練習用本機 -> 小型專案用免費雲 (限制多) -> 長期穩定服務建議用付費 VPS。根據需求選擇最適合的。', author: 'u1', x: 600, y: 500, parentId: 'n4_5', date: Date.now(), cluster: 'C', promisingness: 90 },
-                { id: 'n5_1', topicId: 't5', type: 'question', content: '為什麼文藝復興偏偏發生在義大利？', author: 'u1', x: 100, y: 300, parentId: null, date: Date.now(), cluster: 'A', promisingness: 40 },
-                { id: 'n5_2', topicId: 't5', type: 'extend', content: '因為羅馬帝國的遺跡就在那裡，容易獲得靈感。', author: 'u2', x: 300, y: 200, parentId: 'n5_1', date: Date.now(), cluster: 'B', promisingness: 50 },
-                { id: 'n5_3', topicId: 't5', type: 'extend', content: '還有梅第奇家族 (Medici) 的贊助，有錢才能養藝術家。', author: 'u3', x: 300, y: 400, parentId: 'n5_1', date: Date.now(), cluster: 'B', promisingness: 55 },
-                { id: 'n5_4', topicId: 't5', type: 'improve', content: '別忘了君士坦丁堡陷落，學者帶著古希臘典籍逃到義大利，帶回了失傳的知識。', author: 'u4', x: 600, y: 300, parentId: 'n5_2', date: Date.now(), cluster: 'B', promisingness: 70 },
-                { id: 'n5_5', topicId: 't5', type: 'riseabove', content: '這是一個「完美風暴」：經濟富裕 (貿易/贊助) + 文化底蘊 (羅馬遺跡) + 知識回流 (學者避難)，三者缺一不可。', author: 'u5', x: 600, y: 600, parentId: 'n5_4', date: Date.now(), cluster: 'C', promisingness: 90 },
-                { id: 'n7_1', topicId: 't7', type: 'question', content: '我每次開口說英文都很怕文法講錯，怎麼辦？', author: 'u3', x: 100, y: 300, parentId: null, date: Date.now(), cluster: 'A', promisingness: 40 },
-                { id: 'n7_2', topicId: 't7', type: 'extend', content: '找個語言交換夥伴，練習多了就不怕了。', author: 'u4', x: 300, y: 200, parentId: 'n7_1', date: Date.now(), cluster: 'B', promisingness: 50 },
-                { id: 'n7_3', topicId: 't7', type: 'counter', content: '但我就是怕在「人」面前講錯很丟臉啊！', author: 'u2', x: 500, y: 200, parentId: 'n7_2', date: Date.now(), cluster: 'A', promisingness: 60 },
-                { id: 'n7_4', topicId: 't7', type: 'improve', content: '那先跟 AI (ChatGPT 語音或 Siri) 練習？它們不會取笑你。', author: 'u5', x: 700, y: 200, parentId: 'n7_3', date: Date.now(), cluster: 'B', promisingness: 75 },
-                { id: 'n7_5', topicId: 't7', type: 'riseabove', content: '降低「情意濾網」(Affective Filter)：先在低壓環境 (AI) 建立信心，再過渡到真人對話。重點是「溝通」而非「完美」。', author: 'u6', x: 500, y: 500, parentId: 'n7_4', date: Date.now(), cluster: 'C', promisingness: 90 },
-                { id: 'n8_1', topicId: 't8', type: 'question', content: '病毒到底算不算是生物？這好像很有爭議。', author: 'u4', x: 100, y: 300, parentId: null, date: Date.now(), cluster: 'A', promisingness: 50 },
-                { id: 'n8_2', topicId: 't8', type: 'extend', content: '它們有遺傳物質 (DNA或RNA)，還會演化，應該算生物吧？', author: 'u2', x: 300, y: 200, parentId: 'n8_1', date: Date.now(), cluster: 'B', promisingness: 60 },
-                { id: 'n8_3', topicId: 't8', type: 'counter', content: '可是它們離開宿主就完全不會動，也不會新陳代謝，像石頭一樣結晶化，不算是生物。', author: 'u3', x: 500, y: 200, parentId: 'n8_2', date: Date.now(), cluster: 'A', promisingness: 70 },
-                { id: 'n8_4', topicId: 't8', type: 'improve', content: '或許它們像是「生物殭屍」？介於兩者之間？', author: 'u5', x: 700, y: 200, parentId: 'n8_3', date: Date.now(), cluster: 'B', promisingness: 65 },
-                { id: 'n8_5', topicId: 't8', type: 'riseabove', content: '科學定義是「絕對寄生」。生命可能不是非黑即白的二分法，而是一個光譜。病毒位於「生命邊緣」，挑戰了我們對生命的定義。', author: 'u1', x: 500, y: 500, parentId: 'n8_4', date: Date.now(), cluster: 'C', promisingness: 95 },
-                { id: 'n9_1', topicId: 't9', type: 'question', content: '數學原本就存在於宇宙中，還是人類發明出來的？', author: 'u6', x: 100, y: 300, parentId: null, date: Date.now(), cluster: 'A', promisingness: 50 },
-                { id: 'n9_2', topicId: 't9', type: 'extend', content: '我覺得是被發現的。像圓周率 Pi，不管在外星系還是地球都是一樣的。', author: 'u2', x: 300, y: 200, parentId: 'n9_1', date: Date.now(), cluster: 'B', promisingness: 60 },
-                { id: 'n9_3', topicId: 't9', type: 'counter', content: '但是「數字符號」和「十進位」是我們發明的啊！', author: 'u4', x: 500, y: 200, parentId: 'n9_2', date: Date.now(), cluster: 'A', promisingness: 65 },
-                { id: 'n9_4', topicId: 't9', type: 'improve', content: '或許「概念」是被發現的，但「描述語言」是被發明的？', author: 'u3', x: 700, y: 200, parentId: 'n9_3', date: Date.now(), cluster: 'B', promisingness: 80 },
-                { id: 'n9_5', topicId: 't9', type: 'riseabove', content: '數學是人類發明的「語言」，用來描述我們發現的「宇宙規律」。兩者並不互斥，這是一種主客觀的交織。', author: 'u1', x: 500, y: 500, parentId: 'n9_4', date: Date.now(), cluster: 'C', promisingness: 95 }
+                { id: 'n1', topicId: 't1', type: 'question', title: '晴天與夕陽的顏色差異', content: '我好奇為什麼只有晴天是藍色，夕陽卻是紅色？', author: 'u2', x: 100, y: 300, parentId: null, date: Date.now(), cluster: 'A', promisingness: 30 },
+                { id: 'n2', topicId: 't1', type: 'improve', title: '距離與顏色的關係', content: '這應該跟光線穿過大氣層的距離有關。距離越長，留下的光越紅。', author: 'u3', x: 400, y: 200, parentId: 'n1', date: Date.now(), cluster: 'B', promisingness: 45 },
+                { id: 'n3', topicId: 't1', type: 'extend', title: '瑞利散射理論', content: '我的理論是瑞利散射。藍光波長短，容易被散射。', author: 'u1', x: 400, y: 400, parentId: 'n1', date: Date.now(), cluster: 'A', promisingness: 85 },
+                { id: 'n4', topicId: 't1', type: 'counter', title: '陰天與雲的例外', content: '但瑞利散射不能解釋為什麼陰天也是白色的，或是雲為什麼是白的？', author: 'u4', x: 700, y: 300, parentId: 'n3', date: Date.now(), cluster: 'A', promisingness: 90 },
+                { id: 'n5', topicId: 't1', type: 'improve', title: '米氏散射解釋雲朵', content: '雲是白色的可以用「米氏散射」解釋，因為水滴顆粒比氣體分子大很多，所有波長都散射，混合成白光。', author: 'u5', x: 900, y: 300, parentId: 'n4', date: Date.now(), cluster: 'B', promisingness: 80 },
+                { id: 'n6', topicId: 't1', type: 'riseabove', title: '散射與顆粒大小的整合模型', content: '整合觀點：天空顏色取決於「散射顆粒大小」與「光波長」的關係。微小氣體分子造成瑞利散射(藍/紅)，較大水滴造成米氏散射(白)。', author: 'u6', x: 600, y: 600, parentId: 'n5', date: Date.now(), cluster: 'C', promisingness: 95 },
+                { id: 'n2_1', topicId: 't2', type: 'question', title: 'AI 的創造力質疑', content: 'AI 真的有創造力嗎？還是只是在拼湊？', author: 'u2', x: 100, y: 300, parentId: null, date: Date.now(), cluster: 'A', promisingness: 40 },
+                { id: 'n2_2', topicId: 't2', type: 'extend', title: '生成未知的新圖像', content: '它能生成從未見過的畫作，這應該算創造吧。', author: 'u3', x: 400, y: 200, parentId: 'n2_1', date: Date.now(), cluster: 'B', promisingness: 50 },
+                { id: 'n2_3', topicId: 't2', type: 'counter', title: '缺乏靈魂的機率分佈', content: '但那些「畫作」只是基於訓練資料的機率分布，它沒有靈魂或意圖。', author: 'u4', x: 600, y: 200, parentId: 'n2_2', date: Date.now(), cluster: 'A', promisingness: 60 },
+                { id: 'n2_4', topicId: 't2', type: 'improve', title: '重新定義創造力', content: '我們該定義什麼是創造力：通常包含「新穎性」與「價值」。AI 確實能產出新穎且有價值的東西。', author: 'u1', x: 800, y: 200, parentId: 'n2_3', date: Date.now(), cluster: 'B', promisingness: 75 },
+                { id: 'n2_5', topicId: 't2', type: 'extend', title: 'AlphaGo 的第 37 手', content: '像 AlphaGo 的第 37 手，連人類棋王都沒想過，這絕對是超越模仿的創造。', author: 'u5', x: 800, y: 400, parentId: 'n2_4', date: Date.now(), cluster: 'B', promisingness: 80 },
+                { id: 'n2_6', topicId: 't2', type: 'riseabove', title: '組合式 vs 變革式創造力', content: 'AI 擁有「組合式創造力」(Combinatorial Creativity)，但目前可能還缺乏「變革式創造力」(Transformational Creativity)。它是人類創造力的強大延伸工具。', author: 'u6', x: 500, y: 600, parentId: 'n2_5', date: Date.now(), cluster: 'C', promisingness: 95 },
+                { id: 'n3_1', topicId: 't3', type: 'question', title: '艾連的自由意志', content: '艾連到底是自由的，還是被命運束縛的奴隸？', author: 'u2', x: 100, y: 300, parentId: null, date: Date.now(), cluster: 'A', promisingness: 50 },
+                { id: 'n3_2', topicId: 't3', type: 'extend', title: '自由的奴隸諷刺', content: '他為了追求自由，反而成為了自由的奴隸，這是一種諷刺。', author: 'u3', x: 300, y: 200, parentId: 'n3_1', date: Date.now(), cluster: 'B', promisingness: 60 },
+                { id: 'n3_3', topicId: 't3', type: 'counter', title: '看見未來的宿命論', content: '他看見了未來，如果未來是註定的，那他就沒有選擇，也就沒有自由意志。', author: 'u4', x: 500, y: 300, parentId: 'n3_1', date: Date.now(), cluster: 'A', promisingness: 70 },
+                { id: 'n3_4', topicId: 't3', type: 'improve', title: '願望與未來的重合', content: '或許未來之所以那樣發生，正是因為那是他「想要」的結果？這也是一種自由選擇？', author: 'u5', x: 700, y: 300, parentId: 'n3_3', date: Date.now(), cluster: 'B', promisingness: 80 },
+                { id: 'n3_5', topicId: 't3', type: 'riseabove', title: '相容論的解釋', content: '相容論 (Compatibilism)：命運的必然性與個人的自由意志可能共存。艾連的性格決定了他的選擇，而他的選擇造就了註定的未來。', author: 'u1', x: 500, y: 600, parentId: 'n3_4', date: Date.now(), cluster: 'C', promisingness: 90 },
+                { id: 'n4_1', topicId: 't4', type: 'question', title: 'Discord Bot 入門', content: '我想做一個 Discord Bot，但不知道怎麼開始？', author: 'u3', x: 100, y: 300, parentId: null, date: Date.now(), cluster: 'A', promisingness: 30 },
+                { id: 'n4_2', topicId: 't4', type: 'extend', title: '推薦 discord.py', content: '你可以用 `discord.py` 這個函式庫，官方文件很詳細。', author: 'u4', x: 300, y: 200, parentId: 'n4_1', date: Date.now(), cluster: 'B', promisingness: 50 },
+                { id: 'n4_3', topicId: 't4', type: 'question', title: '24小時託管問題', content: '那要怎麼讓它 24 小時一直跑？我家電腦不能一直開著。', author: 'u2', x: 500, y: 200, parentId: 'n4_2', date: Date.now(), cluster: 'A', promisingness: 60 },
+                { id: 'n4_4', topicId: 't4', type: 'improve', title: 'Replit 免費方案', content: '可以用 Replit + UptimeRobot，這是免費方案。', author: 'u5', x: 700, y: 200, parentId: 'n4_3', date: Date.now(), cluster: 'B', promisingness: 70 },
+                { id: 'n4_5', topicId: 't4', type: 'counter', title: 'Replit 休眠問題', content: 'Replit 現在會休眠了，不推薦。建議用 Heroku 或是租一個便宜的 VPS (如 Linode)。', author: 'u6', x: 900, y: 200, parentId: 'n4_4', date: Date.now(), cluster: 'B', promisingness: 80 },
+                { id: 'n4_6', topicId: 't4', type: 'riseabove', title: '託管方案階層建議', content: '託管方案階層：練習用本機 -> 小型專案用免費雲 (限制多) -> 長期穩定服務建議用付費 VPS。根據需求選擇最適合的。', author: 'u1', x: 600, y: 500, parentId: 'n4_5', date: Date.now(), cluster: 'C', promisingness: 90 },
+                { id: 'n5_1', topicId: 't5', type: 'question', title: '文藝復興的地點之謎', content: '為什麼文藝復興偏偏發生在義大利？', author: 'u1', x: 100, y: 300, parentId: null, date: Date.now(), cluster: 'A', promisingness: 40 },
+                { id: 'n5_2', topicId: 't5', type: 'extend', title: '羅馬遺跡的靈感', content: '因為羅馬帝國的遺跡就在那裡，容易獲得靈感。', author: 'u2', x: 300, y: 200, parentId: 'n5_1', date: Date.now(), cluster: 'B', promisingness: 50 },
+                { id: 'n5_3', topicId: 't5', type: 'extend', title: '梅第奇家族贊助', content: '還有梅第奇家族 (Medici) 的贊助，有錢才能養藝術家。', author: 'u3', x: 300, y: 400, parentId: 'n5_1', date: Date.now(), cluster: 'B', promisingness: 55 },
+                { id: 'n5_4', topicId: 't5', type: 'improve', title: '古希臘知識回流', content: '別忘了君士坦丁堡陷落，學者帶著古希臘典籍逃到義大利，帶回了失傳的知識。', author: 'u4', x: 600, y: 300, parentId: 'n5_2', date: Date.now(), cluster: 'B', promisingness: 70 },
+                { id: 'n5_5', topicId: 't5', type: 'riseabove', title: '完美風暴理論', content: '這是一個「完美風暴」：經濟富裕 (貿易/贊助) + 文化底蘊 (羅馬遺跡) + 知識回流 (學者避難)，三者缺一不可。', author: 'u5', x: 600, y: 600, parentId: 'n5_4', date: Date.now(), cluster: 'C', promisingness: 90 },
+                { id: 'n7_1', topicId: 't7', type: 'question', title: '口說文法焦慮', content: '我每次開口說英文都很怕文法講錯，怎麼辦？', author: 'u3', x: 100, y: 300, parentId: null, date: Date.now(), cluster: 'A', promisingness: 40 },
+                { id: 'n7_2', topicId: 't7', type: 'extend', title: '語言交換', content: '找個語言交換夥伴，練習多了就不怕了。', author: 'u4', x: 300, y: 200, parentId: 'n7_1', date: Date.now(), cluster: 'B', promisingness: 50 },
+                { id: 'n7_3', topicId: 't7', type: 'counter', title: '人際恐懼', content: '但我就是怕在「人」面前講錯很丟臉啊！', author: 'u2', x: 500, y: 200, parentId: 'n7_2', date: Date.now(), cluster: 'A', promisingness: 60 },
+                { id: 'n7_4', topicId: 't7', type: 'improve', title: 'AI 對話練習', content: '那先跟 AI (ChatGPT 語音或 Siri) 練習？它們不會取笑你。', author: 'u5', x: 700, y: 200, parentId: 'n7_3', date: Date.now(), cluster: 'B', promisingness: 75 },
+                { id: 'n7_5', topicId: 't7', type: 'riseabove', title: '情意濾網理論應用', content: '降低「情意濾網」(Affective Filter)：先在低壓環境 (AI) 建立信心，再過渡到真人對話。重點是「溝通」而非「完美」。', author: 'u6', x: 500, y: 500, parentId: 'n7_4', date: Date.now(), cluster: 'C', promisingness: 90 },
+                { id: 'n8_1', topicId: 't8', type: 'question', title: '病毒的生命定義', content: '病毒到底算不算是生物？這好像很有爭議。', author: 'u4', x: 100, y: 300, parentId: null, date: Date.now(), cluster: 'A', promisingness: 50 },
+                { id: 'n8_2', topicId: 't8', type: 'extend', title: '遺傳物質論', content: '它們有遺傳物質 (DNA或RNA)，還會演化，應該算生物吧？', author: 'u2', x: 300, y: 200, parentId: 'n8_1', date: Date.now(), cluster: 'B', promisingness: 60 },
+                { id: 'n8_3', topicId: 't8', type: 'counter', title: '絕對寄生論', content: '可是它們離開宿主就完全不會動，也不會新陳代謝，像石頭一樣結晶化，不算是生物。', author: 'u3', x: 500, y: 200, parentId: 'n8_2', date: Date.now(), cluster: 'A', promisingness: 70 },
+                { id: 'n8_4', topicId: 't8', type: 'improve', title: '生物殭屍比喻', content: '或許它們像是「生物殭屍」？介於兩者之間？', author: 'u5', x: 700, y: 200, parentId: 'n8_3', date: Date.now(), cluster: 'B', promisingness: 65 },
+                { id: 'n8_5', topicId: 't8', type: 'riseabove', title: '生命光譜說', content: '科學定義是「絕對寄生」。生命可能不是非黑即白的二分法，而是一個光譜。病毒位於「生命邊緣」，挑戰了我們對生命的定義。', author: 'u1', x: 500, y: 500, parentId: 'n8_4', date: Date.now(), cluster: 'C', promisingness: 95 },
+                { id: 'n9_1', topicId: 't9', type: 'question', title: '數學的本體論', content: '數學原本就存在於宇宙中，還是人類發明出來的？', author: 'u6', x: 100, y: 300, parentId: null, date: Date.now(), cluster: 'A', promisingness: 50 },
+                { id: 'n9_2', topicId: 't9', type: 'extend', title: '發現說 (Platonism)', content: '我覺得是被發現的。像圓周率 Pi，不管在外星系還是地球都是一樣的。', author: 'u2', x: 300, y: 200, parentId: 'n9_1', date: Date.now(), cluster: 'B', promisingness: 60 },
+                { id: 'n9_3', topicId: 't9', type: 'counter', title: '發明說 (Formalism)', content: '但是「數字符號」和「十進位」是我們發明的啊！', author: 'u4', x: 500, y: 200, parentId: 'n9_2', date: Date.now(), cluster: 'A', promisingness: 65 },
+                { id: 'n9_4', topicId: 't9', type: 'improve', title: '概念與語言的區分', content: '或許「概念」是被發現的，但「描述語言」是被發明的？', author: 'u3', x: 700, y: 200, parentId: 'n9_3', date: Date.now(), cluster: 'B', promisingness: 80 },
+                { id: 'n9_5', topicId: 't9', type: 'riseabove', title: '主客觀交織論', content: '數學是人類發明的「語言」，用來描述我們發現的「宇宙規律」。兩者並不互斥，這是一種主客觀的交織。', author: 'u1', x: 500, y: 500, parentId: 'n9_4', date: Date.now(), cluster: 'C', promisingness: 95 }
             ]
         };
 
         window.state = {
             user: null, userList: {}, topics: [], nodes: [], trash: [], currentView: 'entrance', currentTopicId: null,
             activeFilter: '全部', tempSelectedCategories: [], 
+            editingTopicId: null, // Add editing state
             canvas: { 
                 scale: 1, offsetX: 0, offsetY: 0, 
                 isDragging: false, lastX: 0, lastY: 0, 
@@ -472,12 +481,66 @@
         };
 
         // Data Manipulation
-        window.app.createTopic = () => {
-            const name = document.getElementById('topic-name').value; if(!name) return window.ui.showToast('請輸入問題', 'error');
-            const categories = window.state.tempSelectedCategories.length > 0 ? window.state.tempSelectedCategories : ['其他'];
-            window.state.topics.unshift({ id: 't'+Date.now(), name, categories: categories, desc: document.getElementById('topic-desc').value, author: window.state.user.id, date: new Date().toISOString() });
-            window.dataManager.save(); window.ui.closeModal('modal-topic'); window.ui.renderEntrance();
+        window.app.openCreateTopic = () => {
+            window.state.editingTopicId = null;
+            document.getElementById('modal-topic-title').innerHTML = '<i class="fa-solid fa-folder-plus text-indigo-600"></i> 開啟探究主題';
+            document.getElementById('btn-topic-save').innerText = '建立';
+            document.getElementById('topic-name').value = '';
+            document.getElementById('topic-desc').value = '';
+            window.state.tempSelectedCategories = [];
+            window.app.renderCategorySelector();
+            document.getElementById('modal-topic').classList.remove('hidden');
         };
+
+        window.app.openEditTopic = (id) => {
+            const topic = window.state.topics.find(t => t.id === id);
+            if (!topic) return;
+            
+            window.state.editingTopicId = id;
+            document.getElementById('modal-topic-title').innerHTML = '<i class="fa-solid fa-pen-to-square text-indigo-600"></i> 編輯探究主題';
+            document.getElementById('btn-topic-save').innerText = '儲存修改';
+            
+            document.getElementById('topic-name').value = topic.name;
+            document.getElementById('topic-desc').value = topic.desc;
+            window.state.tempSelectedCategories = [...(topic.categories || [])];
+            window.app.renderCategorySelector();
+            
+            document.getElementById('modal-topic').classList.remove('hidden');
+        };
+
+        window.app.saveTopic = () => {
+            const name = document.getElementById('topic-name').value; 
+            if(!name) return window.ui.showToast('請輸入問題', 'error');
+            const categories = window.state.tempSelectedCategories.length > 0 ? window.state.tempSelectedCategories : ['其他'];
+            const desc = document.getElementById('topic-desc').value;
+
+            if (window.state.editingTopicId) {
+                // Update existing topic
+                const topicIndex = window.state.topics.findIndex(t => t.id === window.state.editingTopicId);
+                if (topicIndex !== -1) {
+                    window.state.topics[topicIndex].name = name;
+                    window.state.topics[topicIndex].categories = categories;
+                    window.state.topics[topicIndex].desc = desc;
+                    window.ui.showToast('主題已更新');
+                }
+            } else {
+                // Create new topic
+                window.state.topics.unshift({ 
+                    id: 't'+Date.now(), 
+                    name, 
+                    categories: categories, 
+                    desc: desc, 
+                    author: window.state.user.id, 
+                    date: new Date().toISOString() 
+                });
+                window.ui.showToast('主題已建立');
+            }
+            
+            window.dataManager.save(); 
+            window.ui.closeModal('modal-topic'); 
+            window.ui.renderEntrance();
+        };
+
         window.app.updateTrashBadge = () => {
             const badge = document.getElementById('trash-count-badge'); if(!badge) return;
             const count = window.state.trash.length;
@@ -555,8 +618,11 @@
         };
         window.app.submitNode = () => {
             if(!window.state.composer.selectedScaffold) return window.ui.showToast('請選擇意圖', 'error');
+            const title = document.getElementById('node-title').value; // Get Title
             const content = document.getElementById('node-content').value;
-            if(!content) return;
+            if(!title) return window.ui.showToast('請輸入標題', 'error'); // Validate Title
+            if(!content) return window.ui.showToast('請輸入內容', 'error');
+            
             const pid = window.state.composer.parentId;
             let nx, ny;
             if(pid) {
@@ -570,7 +636,19 @@
             const randomCluster = ['A', 'B', 'C'][Math.floor(Math.random() * 3)];
             const randomProm = Math.floor(Math.random() * 100);
             
-            window.state.nodes.push({ id: 'n'+Date.now(), topicId: window.state.currentTopicId, type: window.state.composer.selectedScaffold, content, author: window.state.user.id, date: Date.now(), x: nx, y: ny, parentId: pid, cluster: randomCluster, promisingness: randomProm });
+            window.state.nodes.push({ 
+                id: 'n'+Date.now(), 
+                topicId: window.state.currentTopicId, 
+                type: window.state.composer.selectedScaffold, 
+                title: title, // Save Title
+                content: content, 
+                author: window.state.user.id, 
+                date: Date.now(), 
+                x: nx, y: ny, 
+                parentId: pid, 
+                cluster: randomCluster, 
+                promisingness: randomProm 
+            });
             window.dataManager.save(); window.ui.closeModal('modal-node'); window.ui.renderCanvas();
         };
         window.app.openNodeDetail = (id) => {
@@ -581,6 +659,7 @@
             icon.innerHTML = `<i class="fa-solid ${s.icon}"></i>`;
             document.getElementById('detail-scaffold-label').innerText = s.label;
             document.getElementById('detail-scaffold-label').className = `text-xs font-bold uppercase mb-0.5 ${s.text}`;
+            document.getElementById('detail-title').innerText = n.title || '無標題'; // Show Title
             document.getElementById('detail-author').innerText = u ? u.name : '?';
             document.getElementById('detail-date').innerText = new Date(n.date).toLocaleString();
             document.getElementById('detail-content').innerText = n.content;
@@ -612,7 +691,7 @@
             let trajectoryHTML = "";
             if (nodes.length === 0) { trajectoryHTML = "<p class='text-slate-500 italic'>尚無足夠資料來分析演化軌跡，快去貢獻想法吧！</p>"; } else {
                 const sorted = [...nodes].sort((a,b) => b.date - a.date).slice(0, 3);
-                trajectoryHTML = sorted.map((n, i) => { const s = window.SCAFFOLDS[n.type]; return `<div class="flex items-start gap-3 relative pb-4 last:pb-0">${i !== sorted.length -1 ? '<div class="absolute left-[14px] top-8 bottom-0 w-0.5 bg-slate-200"></div>' : ''}<div class="w-7 h-7 rounded-full ${s.color} text-white flex items-center justify-center shrink-0 z-10 text-xs"><i class="fa-solid ${s.icon}"></i></div><div class="flex-1"><div class="flex items-center gap-2 mb-1"><span class="text-xs font-bold px-2 py-0.5 rounded-full ${s.bgSoft} ${s.text}">${s.label}</span><span class="text-[10px] text-slate-400">${new Date(n.date).toLocaleDateString()}</span></div><p class="text-slate-700 text-sm bg-slate-50 p-2 rounded border border-slate-100">${n.content}</p></div></div>`; }).join('');
+                trajectoryHTML = sorted.map((n, i) => { const s = window.SCAFFOLDS[n.type]; return `<div class="flex items-start gap-3 relative pb-4 last:pb-0">${i !== sorted.length -1 ? '<div class="absolute left-[14px] top-8 bottom-0 w-0.5 bg-slate-200"></div>' : ''}<div class="w-7 h-7 rounded-full ${s.color} text-white flex items-center justify-center shrink-0 z-10 text-xs"><i class="fa-solid ${s.icon}"></i></div><div class="flex-1"><div class="flex items-center gap-2 mb-1"><span class="text-xs font-bold px-2 py-0.5 rounded-full ${s.bgSoft} ${s.text}">${s.label}</span><span class="text-[10px] text-slate-400">${new Date(n.date).toLocaleDateString()}</span></div><p class="text-slate-900 font-bold text-xs mb-1">${n.title || ''}</p><p class="text-slate-700 text-sm bg-slate-50 p-2 rounded border border-slate-100">${n.content}</p></div></div>`; }).join('');
             }
             const replyCount = nodes.filter(n => n.parentId).length; 
             const sparkedCount = Math.floor(total * 0.8); 
@@ -888,15 +967,6 @@
             window.addEventListener('touchend', window.app.canvas.handleEnd);
             window.addEventListener('resize', () => { if(window.state.currentView === 'canvas') window.ui.renderCanvas(); });
             
-            // Add specific listener for double click to body to delegate, but better on wrapper.
-            // Since wrapper is re-rendered, inline is safer or re-attach.
-            // Current implementation uses inline ondblclick which calls window.app.canvas.handleDoubleClick.
-            window.addEventListener('dblclick', (e) => {
-                if(window.state.currentView === 'canvas') {
-                     window.app.canvas.handleDoubleClick(e);
-                }
-            });
-            
             // NEW: Escape key to close modals
             window.addEventListener('keydown', (e) => {
                 if (e.key === 'Escape') {
@@ -913,7 +983,7 @@
             window.app.canvas.renderLoop();
             console.log("UI Initialized.");
         };
-        // ... (UI functions remain largely the same, attached to window.ui)
+        
         window.ui.renderUserInfo = () => {
             const u = window.state.user;
             const avatarEl = document.getElementById('user-avatar');
@@ -923,9 +993,9 @@
             const roleEl = document.getElementById('user-role');
             if(roleEl) roleEl.innerText = u.role === window.ROLES.LEAD ? '首席' : '協同';
         };
-        // ... Re-attach other UI functions ...
-        window.ui.renderUserMenu = () => { /* ... implementation from previous version ... */
-             const userList = window.state.userList;
+        
+        window.ui.renderUserMenu = () => { 
+            const userList = window.state.userList;
             const menuContent = Object.entries(userList).map(([key, u]) => {
                 const isCurrentUser = window.state.user.id === u.id;
                 const canDelete = window.state.user.role === window.ROLES.LEAD && !isCurrentUser;
@@ -936,9 +1006,9 @@
             const menuEl = document.getElementById('user-menu');
             if(menuEl) menuEl.innerHTML = `<div class="bg-slate-50 px-4 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider">切換身份</div><div class="max-h-60 overflow-y-auto custom-scroll">${menuContent}</div><div class="bg-slate-50 px-4 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider border-t mt-1">人員管理</div><button onclick="window.app.openAddUserModal()" class="w-full text-left px-4 py-3 hover:bg-slate-50 text-sm flex items-center gap-2 text-indigo-600 font-medium"><span class="text-xl">➕</span> 新增協同研究員</button>${resetOption}`;
         };
-        // ... (Continuing with minimal implementations to save space but ensure functionality) ...
-        window.ui.renderTrashList = () => {
-             const list = document.getElementById('trash-list');
+
+        window.ui.renderTrashList = () => { 
+            const list = document.getElementById('trash-list');
             if (!list) return;
             if (window.state.trash.length === 0) { list.innerHTML = `<div class="text-center py-10 text-slate-400"><i class="fa-regular fa-trash-can text-4xl mb-3 opacity-50"></i><p>回收桶是空的</p></div>`; return; }
             list.innerHTML = window.state.trash.map(item => {
@@ -950,19 +1020,26 @@
                 return `<div class="flex items-center justify-between p-3 border border-slate-200 rounded-lg hover:bg-slate-50 transition"><div class="flex items-center gap-3"><div class="w-10 h-10 rounded-full ${color} flex items-center justify-center shrink-0"><i class="fa-solid ${icon}"></i></div><div><div class="font-bold text-slate-800 text-sm">${name}</div><div class="text-xs text-slate-400">刪除於: ${date}</div></div></div><div class="flex gap-2"><button onclick="window.app.restoreTrashItem('${item.id}')" class="text-xs bg-green-50 text-green-600 px-3 py-1.5 rounded hover:bg-green-100 transition border border-green-200">還原</button><button onclick="window.app.deleteTrashItem('${item.id}')" class="text-xs bg-red-50 text-red-600 px-3 py-1.5 rounded hover:bg-red-100 transition border border-red-200">永久刪除</button></div></div>`;
             }).join('');
         };
-        window.ui.closeModal = (id) => {
-             document.getElementById(id).classList.add('hidden');
+        window.ui.closeModal = (id) => { 
+            document.getElementById(id).classList.add('hidden');
             if(id === 'modal-node') {
+                document.getElementById('node-title').value = ''; // Clear Title
                 document.getElementById('node-content').value = '';
                 document.getElementById('ai-suggestion-box').classList.add('hidden');
                 window.state.composer.parentId = null;
                 window.state.composer.selectedScaffold = null;
             }
             if (id === 'modal-addUser') { document.getElementById('new-user-name').value = ''; }
-            if (id === 'modal-topic') { window.state.tempSelectedCategories = []; window.app.renderCategorySelector(); document.getElementById('topic-name').value = ''; document.getElementById('topic-desc').value = ''; }
+            if (id === 'modal-topic') { 
+                window.state.tempSelectedCategories = []; 
+                window.state.editingTopicId = null;
+                window.app.renderCategorySelector(); 
+                document.getElementById('topic-name').value = ''; 
+                document.getElementById('topic-desc').value = ''; 
+            }
         };
-        window.ui.showToast = (msg, type = 'info') => {
-             const container = document.getElementById('toast-container');
+        window.ui.showToast = (msg, type = 'info') => { 
+            const container = document.getElementById('toast-container');
             const el = document.createElement('div');
             const colors = type === 'error' ? 'bg-red-500' : (type === 'success' ? 'bg-green-600' : 'bg-slate-800');
             el.className = `${colors} text-white px-4 py-2 rounded-lg shadow-xl text-sm flex items-center gap-2 transform transition-all translate-y-2 opacity-0`;
@@ -971,14 +1048,14 @@
             requestAnimationFrame(() => el.classList.remove('translate-y-2', 'opacity-0'));
             setTimeout(() => { el.classList.add('opacity-0', 'translate-x-full'); setTimeout(() => el.remove(), 300); }, 3000);
         };
-        window.ui.confirm = (title, desc, action) => {
-             document.querySelector('#modal-confirm h3').innerText = title;
+        window.ui.confirm = (title, desc, action) => { 
+            document.querySelector('#modal-confirm h3').innerText = title;
             document.querySelector('#modal-confirm p').innerText = desc;
             document.getElementById('btn-confirm-action').onclick = action;
             document.getElementById('modal-confirm').classList.remove('hidden');
         };
-        window.ui.updateNav = (view) => {
-             document.querySelectorAll('.nav-btn, .mobile-nav-btn').forEach(btn => {
+        window.ui.updateNav = (view) => { 
+            document.querySelectorAll('.nav-btn, .mobile-nav-btn').forEach(btn => {
                 if(btn.dataset.nav === view) {
                     btn.classList.add('active');
                     if(btn.classList.contains('mobile-nav-btn')) btn.classList.add('text-indigo-600');
@@ -988,17 +1065,27 @@
                 }
             });
         };
-        window.ui.renderEntrance = () => {
-             const container = document.getElementById('app-container');
+        window.ui.renderEntrance = () => { 
+            const container = document.getElementById('app-container');
             const visibleTopics = window.state.activeFilter === '全部' 
                 ? window.state.topics 
                 : window.state.topics.filter(t => t.categories && t.categories.includes(window.state.activeFilter));
 
-            container.innerHTML = `<div class="max-w-7xl mx-auto px-4 md:px-6 py-8 h-full overflow-y-auto custom-scroll"><div class="mb-6 text-center"><h2 class="text-2xl md:text-3xl font-bold text-slate-900">知識建構論壇 Knowledge Building Forum</h2><p class="text-slate-500 text-sm">"知識建構不是追求答案，而是以改善想法為共同使命，讓社群思維持續朝向更深刻的理解。"</p></div><div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4"><div class="w-full md:w-auto category-scroll-container"><div id="category-filters" class="flex gap-2 whitespace-nowrap md:flex-wrap">${window.app.generateCategoryFilters()}</div></div>${window.state.user.role === window.ROLES.LEAD ? `<button onclick="document.getElementById('modal-topic').classList.remove('hidden')" class="bg-indigo-600 text-white px-5 py-2 rounded-lg shadow text-sm hover:bg-indigo-700 transition flex-shrink-0"><i class="fa-solid fa-plus"></i> 新增主題</button>` : ''}</div><div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-20">${visibleTopics.length === 0 ? `<div class="col-span-full text-center text-slate-400 py-10">此分類暫無主題，點擊右上角新增一個吧！</div>` : ''}${visibleTopics.map(t => { const count = window.state.nodes.filter(n => n.topicId === t.id).length; const cats = t.categories || [t.category] || ['其他']; const tagsHtml = cats.map(c => `<span class="bg-indigo-50 text-indigo-700 px-2 py-1 rounded text-xs font-bold mr-1">${window.TOPIC_CATEGORIES[c] || c}</span>`).join(''); return `<div onclick="window.app.enterTopic('${t.id}')" class="bg-white rounded-xl border p-5 cursor-pointer hover:shadow-lg relative overflow-hidden group transition"><div class="flex justify-between mb-3 items-start"><div class="flex flex-wrap gap-1">${tagsHtml}</div>${window.state.user.role === window.ROLES.LEAD ? `<button onclick="event.stopPropagation(); window.app.deleteTopic('${t.id}')" class="text-slate-300 hover:text-red-500"><i class="fa-solid fa-trash"></i></button>` : ''}</div><h3 class="font-bold text-lg mb-2 group-hover:text-indigo-600 transition">${t.name}</h3><p class="text-slate-500 text-sm mb-4 line-clamp-2">${t.desc}</p><div class="flex justify-between text-xs text-slate-400 pt-3 border-t"><span><i class="fa-solid fa-user"></i> ${window.state.userList[t.author] ? window.state.userList[t.author].name : 'Unknown'}</span><span>${count} 想法</span></div></div>`; }).join('')}</div></div>`;
+            container.innerHTML = `<div class="max-w-7xl mx-auto px-4 md:px-6 py-8 h-full overflow-y-auto custom-scroll"><div class="mb-6 text-center"><h2 class="text-2xl md:text-3xl font-bold text-slate-900">知識建構論壇 Knowledge Building Forum</h2><p class="text-slate-500 text-sm">"知識建構不是追求答案，而是以改善想法為共同使命，讓社群思維持續朝向更深刻的理解。"</p></div><div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4"><div class="w-full md:w-auto category-scroll-container"><div id="category-filters" class="flex gap-2 whitespace-nowrap md:flex-wrap">${window.app.generateCategoryFilters()}</div></div>${window.state.user.role === window.ROLES.LEAD ? `<button onclick="window.app.openCreateTopic()" class="bg-indigo-600 text-white px-5 py-2 rounded-lg shadow text-sm hover:bg-indigo-700 transition flex-shrink-0"><i class="fa-solid fa-plus"></i> 新增主題</button>` : ''}</div><div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-20">${visibleTopics.length === 0 ? `<div class="col-span-full text-center text-slate-400 py-10">此分類暫無主題，點擊右上角新增一個吧！</div>` : ''}${visibleTopics.map(t => { 
+                const count = window.state.nodes.filter(n => n.topicId === t.id).length; 
+                const cats = t.categories || [t.category] || ['其他']; 
+                const tagsHtml = cats.map(c => `<span class="bg-indigo-50 text-indigo-700 px-2 py-1 rounded text-xs font-bold mr-1">${window.TOPIC_CATEGORIES[c] || c}</span>`).join(''); 
+                const adminControls = window.state.user.role === window.ROLES.LEAD ? `
+                    <div class="flex gap-2">
+                        <button onclick="event.stopPropagation(); window.app.openEditTopic('${t.id}')" class="text-slate-300 hover:text-indigo-500 transition" title="編輯主題"><i class="fa-solid fa-pen-to-square"></i></button>
+                        <button onclick="event.stopPropagation(); window.app.deleteTopic('${t.id}')" class="text-slate-300 hover:text-red-500 transition" title="刪除主題"><i class="fa-solid fa-trash"></i></button>
+                    </div>` : '';
+                return `<div onclick="window.app.enterTopic('${t.id}')" class="bg-white rounded-xl border p-5 cursor-pointer hover:shadow-lg relative overflow-hidden group transition"><div class="flex justify-between mb-3 items-start"><div class="flex flex-wrap gap-1">${tagsHtml}</div>${adminControls}</div><h3 class="font-bold text-lg mb-2 group-hover:text-indigo-600 transition">${t.name}</h3><p class="text-slate-500 text-sm mb-4 line-clamp-2">${t.desc}</p><div class="flex justify-between text-xs text-slate-400 pt-3 border-t"><span><i class="fa-solid fa-user"></i> ${window.state.userList[t.author] ? window.state.userList[t.author].name : 'Unknown'}</span><span>${count} 想法</span></div></div>`; 
+            }).join('')}</div></div>`;
             setTimeout(() => { document.querySelectorAll('.filter-btn').forEach(button => { button.addEventListener('click', (e) => { window.app.setFilter(e.currentTarget.dataset.category); }); }); }, 0);
         };
-        window.ui.renderCanvas = () => {
-             const topic = window.state.topics.find(t => t.id === window.state.currentTopicId);
+        window.ui.renderCanvas = () => { 
+            const topic = window.state.topics.find(t => t.id === window.state.currentTopicId);
             const nodes = window.state.nodes.filter(n => n.topicId === window.state.currentTopicId);
             const container = document.getElementById('app-container');
             
@@ -1031,8 +1118,8 @@
                 </button>
             </div>
 
-            <div class="absolute bottom-6 right-4 md:bottom-8 md:right-8 z-40">
-                 <button onclick="window.app.openComposer(null)" class="bg-indigo-600 text-white rounded-full w-12 h-12 md:w-14 md:h-14 shadow-xl flex items-center justify-center text-xl transition transform hover:scale-105"><i class="fa-solid fa-plus"></i></button>
+            <div class="absolute bottom-6 right-4 md:bottom-8 md:right-8 z-40"> 
+                <button onclick="window.app.openComposer(null)" class="bg-indigo-600 text-white rounded-full w-12 h-12 md:w-14 md:h-14 shadow-xl flex items-center justify-center text-xl transition transform hover:scale-105"><i class="fa-solid fa-plus"></i></button>
             </div>
             
             <div class="absolute bottom-24 left-4 md:bottom-8 md:left-24 z-30 pointer-events-none">
@@ -1047,6 +1134,7 @@
 
             <div id="canvas-wrapper" class="w-full h-full overflow-hidden relative touch-none noselect" 
                  style="cursor: ${isPanMode ? 'grab' : 'default'}"
+                 ondblclick="window.app.canvas.handleDoubleClick(event)"
                  onmousedown="window.app.canvas.startPan(event)" 
                  ontouchstart="window.app.canvas.startPan(event)" 
                  onmousemove="window.app.canvas.pan(event)" 
@@ -1073,18 +1161,18 @@
             setTimeout(() => window.ui.drawConnections(nodes), 0);
             window.app.canvas.applyTransform();
         };
-        window.ui.renderProfile = () => { /* ... Profile ... */ 
-             const container = document.getElementById('app-container');
+        window.ui.renderProfile = () => {
+            const container = document.getElementById('app-container');
             const u = window.state.user;
             container.innerHTML = `<div class="max-w-2xl mx-auto px-6 py-8 h-full overflow-y-auto custom-scroll pb-20"><div class="bg-gradient-to-br from-indigo-50 to-white rounded-2xl p-6 shadow-sm border border-indigo-100 text-center mb-6 relative overflow-hidden"><div class="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-400 via-purple-500 to-indigo-500"></div><img src="${u.avatar}" class="w-20 h-20 rounded-full mx-auto mb-3 border-4 border-white shadow-md"><h2 class="text-2xl font-bold text-slate-800">${u.name}</h2><p class="text-slate-500 text-sm mb-1">${u.role === window.ROLES.LEAD ? '首席研究員' : '協同研究員'}</p><div class="flex justify-center gap-2 mt-4"><span class="bg-white/80 border px-3 py-1 rounded-full text-xs font-bold text-slate-600 shadow-sm">ID: ${u.id}</span></div></div><div class="space-y-6"><div class="flex items-center justify-between"><h3 class="font-bold text-lg flex items-center gap-2"><i class="fa-solid fa-robot text-indigo-600"></i> 我的知識建構檔案 (KB Profile)</h3><button onclick="window.app.generateAIProfile()" id="btn-gen-profile" class="bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-slate-700 transition flex items-center gap-2"><i class="fa-solid fa-wand-magic-sparkles"></i> <span>生成分析</span></button></div><div id="ai-loading" class="hidden p-8 text-center bg-white rounded-2xl border border-slate-100"><div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mb-2"></div><p class="text-sm text-slate-500 animate-pulse">正在回顧你的知識演化軌跡...</p></div><div id="ai-profile-result" class="hidden space-y-4"></div></div></div>`;
             if (window.state.profile && document.getElementById('ai-profile-result')) { window.ui.renderProfileContent(window.state.profile); }
         };
-        window.ui.renderProfileContent = (data) => { /* ... */ 
+        window.ui.renderProfileContent = (data) => {
             const result = document.getElementById('ai-profile-result');
             result.innerHTML = `<div class="animate-fade-in bg-white p-5 rounded-xl shadow-sm border-l-4 border-indigo-500 relative overflow-hidden"><div class="absolute right-0 top-0 opacity-5 transform translate-x-4 -translate-y-4"><i class="fa-solid ${data.icon} text-9xl text-indigo-900"></i></div><h4 class="text-sm font-bold text-indigo-500 uppercase tracking-wider mb-3 flex items-center gap-2"><i class="fa-solid fa-fire"></i> 使用者知識角色</h4><div class="relative z-10"><p class="text-xl font-bold text-slate-800 mb-2">${data.role}</p><p class="text-sm text-slate-600 leading-relaxed">${data.desc}</p></div></div><div class="grid grid-cols-1 md:grid-cols-2 gap-4"><div class="animate-fade-in bg-white p-5 rounded-xl shadow-sm border-l-4 border-green-500" style="animation-delay: 0.1s"><h4 class="text-sm font-bold text-green-600 uppercase tracking-wider mb-4 flex items-center gap-2"><i class="fa-solid fa-seedling"></i> 想法演化軌跡</h4><div class="pl-2">${data.trajectoryHTML}</div></div><div class="animate-fade-in bg-white p-5 rounded-xl shadow-sm border-l-4 border-blue-500" style="animation-delay: 0.2s"><h4 class="text-sm font-bold text-blue-600 uppercase tracking-wider mb-4 flex items-center gap-2"><i class="fa-solid fa-puzzle-piece"></i> 社群推動力</h4>${data.communityHTML}</div></div><div class="animate-fade-in bg-white p-5 rounded-xl shadow-sm border-l-4 border-purple-500" style="animation-delay: 0.3s"><h4 class="text-sm font-bold text-purple-600 uppercase tracking-wider mb-4 flex items-center gap-2"><i class="fa-solid fa-chart-pie"></i> 知識建構策略分佈</h4><p class="text-xs text-slate-500 mb-4">這顯示了你在知識建構過程中所使用的認知策略多樣性 (Idea Diversity)：</p><div class="grid grid-cols-1 gap-2">${data.statsHTML}</div></div>`;
             result.classList.remove('hidden');
         };
-        window.ui.drawNodes = (nodes) => { /* ... */ 
+        window.ui.drawNodes = (nodes) => {
             document.getElementById('nodes-layer').innerHTML = nodes.map(node => {
                 const s = window.SCAFFOLDS[node.type];
                 const user = Object.values(window.state.userList).find(u => u.id === node.author) || {name: '?'};
@@ -1093,10 +1181,10 @@
                 const heatmapClass = isPromising ? 'promising-node' : '';
                 const flameBadge = isPromising ? `<div class="absolute -top-3 -right-2 bg-orange-500 text-white text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm animate-bounce-slow z-50"><i class="fa-solid fa-fire"></i> 熱點</div>` : '';
                 const isSelected = window.state.selectedNodeIds.includes(node.id) ? 'selected-node' : '';
-                return `<div id="node-${node.id}" class="absolute node-card w-64 md:w-72 bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col overflow-visible ${heatmapClass} ${isSelected}" style="left: ${node.x}px; top: ${node.y}px;" onmousedown="event.stopPropagation(); window.app.canvas.startDrag(event, '${node.id}')" ontouchstart="event.stopPropagation(); window.app.canvas.startDrag(event, '${node.id}')" ondblclick="event.stopPropagation(); window.app.openNodeDetail('${node.id}')">${flameBadge}<div class="px-3 py-2 ${s.bgSoft} border-b ${s.border} flex justify-between items-center cursor-move rounded-t-xl"><div class="flex items-center gap-2"><span class="w-5 h-5 rounded-full ${s.color} text-white flex justify-center items-center text-xs"><i class="fa-solid ${s.icon}"></i></span><span class="text-xs font-bold ${s.text}">${s.label}</span></div><div class="flex gap-1"><button onclick="event.stopPropagation(); window.app.openNodeDetail('${node.id}')" class="w-8 h-8 rounded hover:bg-white/50 text-slate-500 flex justify-center items-center"><i class="fa-solid fa-eye"></i></button><button onclick="event.stopPropagation(); window.app.openComposer('${node.id}')" class="w-8 h-8 rounded hover:bg-white/50 text-slate-500 flex justify-center items-center"><i class="fa-solid fa-reply"></i></button>${canDel ? `<button onclick="event.stopPropagation(); window.app.deleteNode('${node.id}')" class="w-8 h-8 rounded hover:bg-white/50 text-slate-500 hover:text-red-500 flex justify-center items-center"><i class="fa-solid fa-xmark"></i></button>` : ''}</div></div><div class="p-3 text-sm text-slate-700 leading-relaxed min-h-[60px] line-clamp-3 pointer-events-none bg-white">${node.content}</div><div class="px-3 py-2 bg-slate-50 border-t flex justify-between text-[10px] text-slate-500 items-center rounded-b-xl"><div class="flex items-center gap-2"><img src="${user.avatar}" class="w-4 h-4 rounded-full"><span>${user.name}</span></div><span>${new Date(node.date).toLocaleDateString()}</span></div></div>`;
+                return `<div id="node-${node.id}" class="absolute node-card w-64 md:w-72 bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col overflow-visible ${heatmapClass} ${isSelected}" style="left: ${node.x}px; top: ${node.y}px;" onmousedown="event.stopPropagation(); window.app.canvas.startDrag(event, '${node.id}')" ontouchstart="event.stopPropagation(); window.app.canvas.startDrag(event, '${node.id}')" ondblclick="event.stopPropagation(); window.app.openNodeDetail('${node.id}')">${flameBadge}<div class="px-3 py-2 ${s.bgSoft} border-b ${s.border} flex justify-between items-center cursor-move rounded-t-xl"><div class="flex items-center gap-2"><span class="w-5 h-5 rounded-full ${s.color} text-white flex justify-center items-center text-xs"><i class="fa-solid ${s.icon}"></i></span><span class="text-xs font-bold ${s.text}">${s.label}</span></div><div class="flex gap-1"><button onclick="event.stopPropagation(); window.app.openNodeDetail('${node.id}')" class="w-8 h-8 rounded hover:bg-white/50 text-slate-500 flex justify-center items-center"><i class="fa-solid fa-eye"></i></button><button onclick="event.stopPropagation(); window.app.openComposer('${node.id}')" class="w-8 h-8 rounded hover:bg-white/50 text-slate-500 flex justify-center items-center"><i class="fa-solid fa-reply"></i></button>${canDel ? `<button onclick="event.stopPropagation(); window.app.deleteNode('${node.id}')" class="w-8 h-8 rounded hover:bg-white/50 text-slate-500 hover:text-red-500 flex justify-center items-center"><i class="fa-solid fa-xmark"></i></button>` : ''}</div></div><div class="p-3 text-sm text-slate-700 leading-relaxed min-h-[60px] pointer-events-none bg-white"><h4 class="font-bold mb-1 text-slate-900 block truncate text-base">${node.title || '無標題'}</h4><p class="line-clamp-2 text-slate-600">${node.content}</p></div><div class="px-3 py-2 bg-slate-50 border-t flex justify-between text-[10px] text-slate-500 items-center rounded-b-xl"><div class="flex items-center gap-2"><img src="${user.avatar}" class="w-4 h-4 rounded-full"><span>${user.name}</span></div><span>${new Date(node.date).toLocaleDateString()}</span></div></div>`;
             }).join('');
         };
-        window.ui.drawConnections = (nodes) => { /* ... */ 
+        window.ui.drawConnections = (nodes) => { 
             const layer = document.getElementById('connections-layer');
             if(!layer) return;
             layer.innerHTML = `<defs>${Object.keys(window.SCAFFOLDS).map(k => { const c = { question: '#3b82f6', extend: '#eab308', improve: '#22c55e', counter: '#ef4444', riseabove: '#a855f7' }[k]; return `<marker id="arrow-${k}" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="${c}" /></marker>`; }).join('')}</defs>`;
