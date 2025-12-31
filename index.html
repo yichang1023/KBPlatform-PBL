@@ -2,443 +2,1214 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>知識建構與智慧分析平台 | Knowledge Building Portal</title>
-    <!-- Tailwind CSS -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>知識建構協作平台 (KB Platform) - v2.29 (Title Added)</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Font Awesome -->
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
-    <!-- Three.js for 3D Möbius Strip -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script>
         tailwind.config = {
             theme: {
                 extend: {
                     fontFamily: {
                         sans: ['Noto Sans TC', 'sans-serif'],
-                        mono: ['Orbitron', 'monospace'],
                     },
                     colors: {
                         kb: {
-                            dark: '#0f172a',
-                            primary: '#4f46e5',
-                            accent: '#06b6d4',
+                            blue: '#3b82f6',
+                            yellow: '#eab308',
+                            green: '#22c55e',
+                            red: '#ef4444',
+                            purple: '#a855f7',
                         }
                     },
                     animation: {
-                        'float': 'float 6s ease-in-out infinite',
-                        'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-                        'fade-in': 'fadeIn 0.8s ease-out forwards',
-                        'slide-up': 'slideUp 0.6s ease-out forwards',
-                    },
-                    keyframes: {
-                        float: {
-                            '0%, 100%': { transform: 'translateY(0)' },
-                            '50%': { transform: 'translateY(-20px)' },
-                        },
-                        fadeIn: {
-                            '0%': { opacity: '0' },
-                            '100%': { opacity: '1' },
-                        },
-                        slideUp: {
-                            '0%': { opacity: '0', transform: 'translateY(20px)' },
-                            '100%': { opacity: '1', transform: 'translateY(0)' },
-                        }
+                        'bounce-slow': 'bounce 3s infinite',
                     }
                 }
             }
         }
     </script>
     <style>
-        body { margin: 0; overflow: hidden; background-color: #0f172a; color: white; }
-        #canvas-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; opacity: 0.6; }
-        .glass-panel {
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-        }
-        .role-card {
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            cursor: pointer;
-        }
-        .role-card:hover {
-            transform: translateY(-10px) scale(1.02);
-            background: rgba(255, 255, 255, 0.1);
-            border-color: rgba(255, 255, 255, 0.3);
-            box-shadow: 0 20px 40px rgba(0,0,0,0.4);
-        }
-        .role-card.active {
-            border-color: #06b6d4;
-            background: rgba(6, 182, 212, 0.1);
-            box-shadow: 0 0 30px rgba(6, 182, 212, 0.2);
-        }
-        .btn-glow {
-            position: relative;
-            overflow: hidden;
-            transition: all 0.3s;
-        }
-        .btn-glow::after {
-            content: '';
+        body { overflow: hidden; overscroll-behavior: none; }
+        #canvas-bg {
+            background-color: #f8fafc;
+            background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
+            background-size: 20px 20px;
+            width: 100%;
+            height: 100%;
             position: absolute;
-            top: 0; left: -100%;
-            width: 100%; height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-            transition: 0.5s;
+            top: 0; left: 0;
+            z-index: -1;
         }
-        .btn-glow:hover::after { left: 100%; }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .node-card {
+            transition: box-shadow 0.2s, transform 0.2s; 
+            user-select: none; touch-action: none; -webkit-user-select: none;
+            will-change: left, top; 
+        }
+        .node-card:hover {
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            z-index: 50;
+        }
+        .node-card.selected-node {
+            box-shadow: 0 0 0 3px #3b82f6, 0 10px 15px -3px rgba(59, 130, 246, 0.2);
+            border-color: #3b82f6;
+            z-index: 60;
+        }
+        .promising-node {
+            box-shadow: 0 0 0 4px rgba(251, 146, 60, 0.3), 0 0 20px rgba(251, 146, 60, 0.4);
+            border-color: #f97316 !important;
+        }
+        .cluster-zone {
+            position: absolute;
+            border: 2px dashed rgba(203, 213, 225, 0.6);
+            border-radius: 24px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding-top: 1rem;
+            pointer-events: none;
+            transition: all 0.5s ease-in-out;
+            background: rgba(255, 255, 255, 0.4);
+        }
+        .cluster-title {
+            font-weight: 700;
+            font-size: 1rem;
+            padding: 0.5rem 1.5rem;
+            border-radius: 9999px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            background: white;
+            color: #475569;
+            border: 1px solid #e2e8f0;
+        }
+        path.connection { fill: none; stroke-width: 2; transition: stroke 0.3s; pointer-events: none; }
         
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); }
-        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.3); }
+        /* Selection Box Style */
+        #selection-box {
+            position: fixed;
+            background-color: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.5);
+            pointer-events: none;
+            z-index: 100;
+            display: none;
+        }
 
-        .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
-        .status-active { background-color: #10b981; box-shadow: 0 0 10px #10b981; }
-        .status-inactive { background-color: #ef4444; }
+        .noselect {
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            -khtml-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+
+        @keyframes pulse-gentle { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+        .ai-pulse { animation: pulse-gentle 2s infinite; }
+        @keyframes fade-in-up { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fade-in { animation: fade-in-up 0.5s ease-out forwards; }
+        
+        .category-scroll-container {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+        }
+        .category-scroll-container::-webkit-scrollbar { display: none; }
+        @media (min-width: 768px) {
+            .category-scroll-container { overflow-x: visible; }
+        }
+
+        .nav-btn.active { color: #4f46e5; background-color: #e0e7ff; }
+        .mobile-nav-btn.active { color: #4f46e5; }
+        .filter-btn { transition: background-color 0.2s, color 0.2s, border-color 0.2s; border-color: rgb(226, 232, 240); }
+        .filter-btn.active { background-color: rgb(238, 242, 255); color: rgb(79, 70, 229); border-color: rgb(165, 180, 252); }
+        .custom-scroll::-webkit-scrollbar { width: 6px; }
+        .custom-scroll::-webkit-scrollbar-track { background: transparent; }
+        .custom-scroll::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 20px; }
+        #canvas-wrapper { touch-action: none; }
+        
+        .category-tag { cursor: pointer; transition: all 0.2s; user-select: none; }
+        .category-tag.selected { background-color: #e0e7ff; color: #4338ca; border-color: #818cf8; }
     </style>
 </head>
-<body>
+<body class="bg-slate-50 text-slate-800 h-screen flex flex-col font-sans">
 
-    <!-- 3D 背景容器 -->
-    <div id="canvas-container"></div>
-
-    <!-- 頂部導覽與設定 -->
-    <nav class="absolute top-0 left-0 w-full p-6 z-50 flex justify-between items-center">
-        <div class="flex items-center gap-3 animate-fade-in">
-            <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-indigo-500 to-cyan-500 flex items-center justify-center font-bold text-xl shadow-lg shadow-indigo-500/50">KB</div>
-            <div class="hidden md:block">
-                <h1 class="text-lg font-bold tracking-wider font-mono text-cyan-400">KB PLATFORM <span class="text-xs text-slate-400 align-top">AI-Enhanced</span></h1>
-                <p class="text-xs text-slate-400">知識建構專題環境</p>
+    <!-- Top Navbar -->
+    <nav class="h-14 md:h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-6 z-50 shadow-sm relative shrink-0">
+        <div class="flex items-center gap-3 cursor-pointer" onclick="window.app.router('entrance')">
+            <div class="w-8 h-8 md:w-10 md:h-10 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold text-lg md:text-xl shrink-0">KB</div>
+            <div>
+                <h1 class="font-bold text-base md:text-lg leading-tight text-slate-800 truncate max-w-[150px] md:max-w-none">知識建構平台</h1>
+                <p class="text-[10px] md:text-xs text-slate-500 hidden md:block">Knowledge Building Environment (v2.29)</p>
             </div>
         </div>
-        <div class="flex items-center gap-4">
-            <!-- AI 狀態燈 -->
-            <div id="ai-status-badge" class="glass-panel px-3 py-1 rounded-full text-[10px] font-mono flex items-center gap-2 border-slate-700">
-                <span id="ai-status-dot" class="status-dot status-inactive"></span>
-                <span id="ai-status-text" class="text-slate-400">AI 尚未連線</span>
+        <div class="hidden md:flex items-center bg-slate-100 p-1 rounded-lg">
+            <button onclick="window.app.router('entrance')" data-nav="entrance" class="nav-btn px-4 py-1.5 text-sm font-medium rounded-md text-slate-500 hover:text-slate-900 transition">主題入口</button>
+            <button onclick="window.app.router('canvas')" data-nav="canvas" class="nav-btn px-4 py-1.5 text-sm font-medium rounded-md text-slate-500 hover:text-slate-900 transition">知識地圖</button>
+            <button onclick="window.app.router('profile')" data-nav="profile" class="nav-btn px-4 py-1.5 text-sm font-medium rounded-md text-slate-500 hover:text-slate-900 transition">我的檔案</button>
+        </div>
+        <div class="flex items-center gap-2 md:gap-4">
+            <div id="ai-persona-indicator" class="hidden md:flex items-center gap-2 px-3 py-1 bg-indigo-50 text-indigo-700 rounded-full text-xs font-medium border border-indigo-100">
+                <i class="fa-solid fa-robot ai-pulse"></i>
+                <span id="active-ai-role">AI 協作中</span>
             </div>
-            <button onclick="openSettings()" class="text-slate-400 hover:text-white transition p-2 rounded-full hover:bg-white/10" title="系統設定 / System Settings">
-                <i class="fa-solid fa-gear text-xl hover:rotate-90 transition-transform duration-500"></i>
-            </button>
+            <div class="h-6 w-px bg-slate-200 mx-1 md:mx-2 hidden md:block"></div>
+            <div class="flex items-center gap-2 group relative">
+                <img id="user-avatar" src="" class="w-8 h-8 rounded-full bg-slate-200 object-cover border border-slate-300 shrink-0">
+                <div class="text-right hidden sm:block">
+                    <div id="user-name" class="text-sm font-semibold">User</div>
+                    <div id="user-role" class="text-xs text-slate-500">Role</div>
+                </div>
+                <button onclick="window.app.toggleUserMenu()" class="ml-1 md:ml-2 text-slate-400 hover:text-indigo-600 p-1"><i class="fa-solid fa-chevron-down"></i></button>
+                <div id="user-menu" class="absolute top-full right-0 mt-2 w-56 bg-white rounded-lg shadow-xl border border-slate-100 hidden overflow-hidden z-[100]"></div>
+            </div>
         </div>
     </nav>
 
-    <!-- 主要內容 -->
-    <main class="relative z-10 w-full h-screen flex flex-col justify-center items-center px-4">
-        
-        <!-- 標題文字 -->
-        <div class="text-center mb-12 animate-slide-up" style="animation-delay: 0.1s;">
-            <div class="inline-block px-4 py-1 rounded-full border border-cyan-500/30 bg-cyan-900/20 text-cyan-400 text-xs font-mono mb-4 tracking-widest backdrop-blur-sm">
-                Next-Gen Learning Environment
-            </div>
-            <h2 class="text-4xl md:text-6xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-white via-cyan-200 to-indigo-400 drop-shadow-lg">
-                知識建構協作平台
-            </h2>
-            <p class="text-slate-300 text-lg md:text-xl max-w-2xl mx-auto font-light leading-relaxed">
-                "學習是一種連續的過程，以終為始，問題解決、持續探究"
-            </p>
-            <p class="text-slate-500 text-sm mt-2 italic font-mono">
-                <i class="fa-solid fa-infinity mr-2"></i>莫比烏斯帶持續探究 (Möbiusband)
-            </p>
-        </div>
+    <!-- Main Container -->
+    <main id="app-container" class="flex-1 relative overflow-hidden bg-slate-50 w-full mb-14 md:mb-0"></main>
 
-        <!-- 身分選擇卡片 -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-4xl px-4 animate-slide-up" style="animation-delay: 0.3s;">
-            
-            <!-- 學生卡片 -->
-            <div id="card-student" onclick="selectRole('student')" class="role-card glass-panel rounded-2xl p-8 flex flex-col items-center text-center group border-t-4 border-t-transparent hover:border-t-cyan-400 relative overflow-hidden">
-                <div class="absolute inset-0 bg-gradient-to-b from-cyan-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                <div class="w-20 h-20 rounded-full bg-slate-800/50 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300 border border-slate-700 group-hover:border-cyan-500/50 shadow-xl relative z-10">
-                    <i class="fa-solid fa-user-astronaut text-4xl text-cyan-400"></i>
-                </div>
-                <h3 class="text-2xl font-bold mb-2 group-hover:text-cyan-300 transition-colors relative z-10">我是學生</h3>
-                <p class="text-slate-400 text-sm mb-6 relative z-10">Student / Researcher</p>
-                <div class="text-slate-400 text-sm leading-relaxed mb-6 opacity-80 group-hover:opacity-100 relative z-10">
-                    進入專屬的知識羅盤，看見自己的成長軌跡與貢獻，參與協作討論。
-                </div>
-                <div id="actions-student" class="hidden w-full space-y-3 relative z-10 animate-fade-in">
-                    <div class="h-px w-full bg-slate-700/50 mb-4"></div>
-                    <a href="Knowledge Building Forum.html" class="btn-glow block w-full py-3 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold shadow-lg shadow-indigo-900/50 flex items-center justify-center gap-2">
-                        <i class="fa-solid fa-comments"></i> 進入論壇討論
-                    </a>
-                    <a href="ANALYTICS-student.html" class="btn-glow block w-full py-3 rounded-lg bg-slate-700 hover:bg-slate-600 text-white font-medium border border-slate-600 hover:border-cyan-400 flex items-center justify-center gap-2">
-                        <i class="fa-solid fa-compass"></i> 查看知識羅盤
-                    </a>
-                </div>
-            </div>
+    <!-- Desktop Footer -->
+    <footer class="hidden md:flex bg-white border-t border-slate-200 px-4 py-2 text-center z-40 text-[10px] md:text-xs text-slate-500 justify-center items-center gap-2 shrink-0 safe-area-bottom">
+        <i class="fa-solid fa-seedling text-green-500"></i>
+        <span class="truncate">知識建構：在未完成的理解中彼此承擔責任，使想法在社群裡不斷向更好的解釋演化。</span>
+    </footer>
 
-            <!-- 老師卡片 -->
-            <div id="card-teacher" onclick="selectRole('teacher')" class="role-card glass-panel rounded-2xl p-8 flex flex-col items-center text-center group border-t-4 border-t-transparent hover:border-t-indigo-400 relative overflow-hidden">
-                <div class="absolute inset-0 bg-gradient-to-b from-indigo-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                <div class="w-20 h-20 rounded-full bg-slate-800/50 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300 border border-slate-700 group-hover:border-indigo-500/50 shadow-xl relative z-10">
-                    <i class="fa-solid fa-chalkboard-user text-4xl text-indigo-400"></i>
-                </div>
-                <h3 class="text-2xl font-bold mb-2 group-hover:text-indigo-300 transition-colors relative z-10">我是老師</h3>
-                <p class="text-slate-400 text-sm mb-6 relative z-10">Teacher / Facilitator</p>
-                <div class="text-slate-400 text-sm leading-relaxed mb-6 opacity-80 group-hover:opacity-100 relative z-10">
-                    掌握全班學習脈動，使用 AI 分析中樞引導學生，賦能學生成為知識的主人。
-                </div>
-                <div id="actions-teacher" class="hidden w-full space-y-3 relative z-10 animate-fade-in">
-                    <div class="h-px w-full bg-slate-700/50 mb-4"></div>
-                    <a href="Knowledge Building Forum.html" class="btn-glow block w-full py-3 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold shadow-lg shadow-indigo-900/50 flex items-center justify-center gap-2">
-                        <i class="fa-solid fa-comments"></i> 進入論壇討論
-                    </a>
-                    <a href="ANALYTICS-teacher.html" class="btn-glow block w-full py-3 rounded-lg bg-slate-700 hover:bg-slate-600 text-white font-medium border border-slate-600 hover:border-indigo-400 flex items-center justify-center gap-2">
-                        <i class="fa-solid fa-chart-line"></i> 進入分析中樞
-                    </a>
-                </div>
-            </div>
+    <!-- Mobile Bottom Navigation -->
+    <div class="md:hidden fixed bottom-0 left-0 right-0 h-14 bg-white border-t border-slate-200 flex justify-around items-center z-50 pb-safe">
+        <button onclick="window.app.router('entrance')" data-nav="entrance" class="mobile-nav-btn flex flex-col items-center justify-center w-full h-full text-slate-400 hover:text-indigo-600"><i class="fa-solid fa-house text-lg mb-0.5"></i> <span class="text-[10px]">主題</span></button>
+        <button onclick="window.app.router('canvas')" data-nav="canvas" class="mobile-nav-btn flex flex-col items-center justify-center w-full h-full text-slate-400 hover:text-indigo-600"><i class="fa-solid fa-project-diagram text-lg mb-0.5"></i> <span class="text-[10px]">地圖</span></button>
+        <button onclick="window.app.router('profile')" data-nav="profile" class="mobile-nav-btn flex flex-col items-center justify-center w-full h-full text-slate-400 hover:text-indigo-600"><i class="fa-solid fa-user text-lg mb-0.5"></i> <span class="text-[10px]">檔案</span></button>
+    </div>
 
-        </div>
+    <!-- Trash Can FAB -->
+    <button onclick="window.app.openTrash()" id="btn-trash-fab" class="fixed bottom-20 left-4 md:bottom-8 md:left-8 z-[60] bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 rounded-full w-12 h-12 md:w-14 md:h-14 shadow-lg flex items-center justify-center text-xl transition transform hover:scale-105 group" title="資源回收桶">
+        <i class="fa-solid fa-trash-can group-hover:text-red-500 transition-colors"></i>
+        <span id="trash-count-badge" class="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full hidden border-2 border-white">0</span>
+    </button>
 
-        <footer class="absolute bottom-4 text-center text-slate-500 text-xs font-light">
-            <p>&copy; 2025 Knowledge Building Platform. Designed for Vocational High School Project Learning.</p>
-        </footer>
-
-    </main>
-
-    <!-- 設定視窗 (用於 API Key) -->
-    <div id="settings-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300">
-        <div class="glass-panel w-full max-w-md rounded-2xl p-6 transform scale-95 transition-transform duration-300" id="modal-content">
-            <div class="flex justify-between items-center mb-6 border-b border-slate-700 pb-4">
-                <h3 class="text-xl font-bold text-white flex items-center gap-2"><i class="fa-solid fa-sliders"></i> 系統設定</h3>
-                <button onclick="closeSettings()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-xl"></i></button>
-            </div>
-            
+    <!-- Modals -->
+    <div id="modal-topic" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] hidden flex items-end md:items-center justify-center p-4">
+        <div class="bg-white rounded-t-xl md:rounded-xl shadow-2xl w-full max-w-lg p-6 transform transition-all scale-100 max-h-[90vh] overflow-y-auto">
+            <h3 id="modal-topic-title" class="text-xl font-bold mb-4 flex items-center gap-2"><i class="fa-solid fa-folder-plus text-indigo-600"></i> 開啟探究主題</h3>
             <div class="space-y-4">
                 <div>
-                    <label class="block text-sm font-medium text-cyan-400 mb-1">AI 協作 API Key (Gemini)</label>
-                    <p class="text-xs text-slate-400 mb-2">金鑰將儲存於您的瀏覽器。請點選測試以確認金鑰有效。</p>
-                    <div class="relative">
-                        <i class="fa-solid fa-key absolute left-3 top-3 text-slate-500"></i>
-                        <input type="password" id="api-key-input" class="w-full bg-slate-900/50 border border-slate-700 rounded-lg py-2.5 pl-10 pr-4 text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition" placeholder="輸入 API Key...">
-                    </div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">核心問題</label>
+                    <input type="text" id="topic-name" placeholder="例如：為什麼天空是藍色的？" class="w-full px-4 py-2 border border-slate-300 rounded-lg outline-none focus:border-indigo-500 transition">
                 </div>
-                
-                <div class="pt-2 flex flex-col gap-3">
-                    <button id="btn-test-ai" onclick="testAIConnection()" class="w-full py-2 bg-slate-800 hover:bg-slate-700 text-cyan-400 border border-cyan-500/30 rounded-lg font-mono text-xs transition flex items-center justify-center gap-2">
-                        <i class="fa-solid fa-vial"></i> 測試 AI 連線 (Test Connection)
-                    </button>
-                    
-                    <div id="test-result" class="hidden text-[10px] p-2 rounded bg-slate-900/80 border border-slate-700 text-slate-300 font-mono overflow-hidden break-all">
-                        <!-- 測試結果顯示區 -->
-                    </div>
-
-                    <div class="flex justify-end gap-3 mt-2">
-                        <button onclick="closeSettings()" class="px-4 py-2 text-slate-400 hover:text-white transition text-sm">取消</button>
-                        <button onclick="saveSettings()" class="px-6 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-lg font-bold shadow-lg shadow-cyan-900/20 transition transform active:scale-95 text-sm">
-                            儲4儲存並套用
-                        </button>
-                    </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-2">類別 (可複選)</label>
+                    <div id="topic-category-selector" class="flex flex-wrap gap-2 max-h-32 overflow-y-auto custom-scroll p-1"></div>
                 </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">背景說明</label>
+                    <textarea id="topic-desc" rows="3" class="w-full px-4 py-2 border border-slate-300 rounded-lg outline-none focus:border-indigo-500 transition"></textarea>
+                </div>
+            </div>
+            <div class="mt-6 flex justify-end gap-3">
+                <button onclick="window.ui.closeModal('modal-topic')" class="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg">取消</button>
+                <button id="btn-topic-save" onclick="window.app.saveTopic()" class="px-4 py-2 bg-indigo-600 text-white rounded-lg shadow hover:bg-indigo-700">建立</button>
             </div>
         </div>
     </div>
 
+    <div id="modal-node" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] hidden flex items-end md:items-center justify-center sm:p-4">
+        <div class="bg-white rounded-t-xl sm:rounded-xl shadow-2xl w-full max-w-2xl p-4 sm:p-6 relative max-h-[95vh] overflow-y-auto">
+            <button onclick="window.ui.closeModal('modal-node')" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 p-2"><i class="fa-solid fa-xmark text-xl"></i></button>
+            <h3 class="text-lg md:text-xl font-bold mb-2">貢獻想法</h3>
+            <div class="grid grid-cols-3 md:grid-cols-5 gap-2 mb-4"><div id="scaffold-selector" class="contents"></div></div>
+            <div id="scaffold-desc" class="hidden"></div>
+            <!-- Added Title Input -->
+            <div class="mb-3">
+                <input type="text" id="node-title" class="w-full px-4 py-2 border border-slate-300 rounded-lg outline-none font-bold text-base md:text-lg placeholder:font-normal" placeholder="輸入想法標題 (例如：關於光線的假設)">
+            </div>
+            <div class="relative">
+                <textarea id="node-content" rows="4" class="w-full px-4 py-3 border border-slate-300 rounded-lg outline-none text-base" placeholder="輸入詳細內容..."></textarea>
+                <div id="ai-suggestion-box" class="hidden mt-2 md:absolute md:-bottom-16 md:left-0 md:right-0 bg-blue-50 border border-blue-100 text-blue-800 p-3 rounded-lg text-sm flex items-start gap-3 shadow-sm"><i class="fa-solid fa-lightbulb text-yellow-500 mt-1 shrink-0"></i><div><span class="font-bold block text-xs uppercase text-blue-400 mb-1">AI 建議</span><p class="text-xs md:text-sm">試著用「我的理論是...因為...」來延伸？</p></div></div>
+            </div>
+            <div class="mt-4 md:mt-16 flex justify-end"><button onclick="window.app.submitNode()" class="px-6 py-3 md:py-2 bg-slate-900 text-white rounded-lg">發布</button></div>
+        </div>
+    </div>
+
+    <div id="modal-detail" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-[65] hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh]">
+            <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0 bg-slate-50 rounded-t-xl">
+                <div class="flex items-center gap-3"><div id="detail-scaffold-icon" class="w-10 h-10 rounded-full flex items-center justify-center text-white text-lg"></div><div><div id="detail-scaffold-label" class="text-xs font-bold uppercase mb-0.5">TYPE</div><div class="flex gap-2 text-xs text-slate-500"><span id="detail-author"></span><span>•</span><span id="detail-date"></span></div></div></div>
+                <button onclick="window.ui.closeModal('modal-detail')" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-200 text-slate-400"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div class="p-6 overflow-y-auto custom-scroll flex-1">
+                <!-- Added Title Display -->
+                <h2 id="detail-title" class="text-xl md:text-2xl font-bold mb-4 text-slate-900"></h2>
+                <p id="detail-content" class="text-base md:text-lg leading-relaxed whitespace-pre-wrap text-slate-700"></p>
+            </div>
+            <div class="p-4 border-t border-slate-100 bg-slate-50 rounded-b-xl flex justify-end gap-3 shrink-0">
+                <button id="btn-detail-reply" class="px-5 py-2 bg-indigo-600 text-white rounded-lg flex items-center gap-2"><i class="fa-solid fa-reply"></i> 延伸</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-confirm" class="fixed inset-0 bg-black/50 z-[110] hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg p-6 max-w-sm w-full shadow-xl text-center">
+            <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-red-500 text-xl"><i class="fa-solid fa-triangle-exclamation"></i></div>
+            <h3 class="text-lg font-bold mb-2">確定要刪除嗎？</h3>
+            <p class="text-slate-500 text-sm mb-6">將連同子節點一併刪除。</p>
+            <div class="flex justify-center gap-3"><button onclick="window.ui.closeModal('modal-confirm')" class="px-4 py-2 border rounded-lg">取消</button><button id="btn-confirm-action" class="px-4 py-2 bg-red-600 text-white rounded-lg">刪除</button></div>
+        </div>
+    </div>
+
+    <div id="modal-addUser" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6">
+            <h3 class="text-xl font-bold mb-4 flex items-center gap-2"><i class="fa-solid fa-user-plus text-indigo-600"></i> 新增使用者</h3>
+            <div class="space-y-4">
+                <div><label class="block text-sm font-medium text-slate-700 mb-1">暱稱 (Nickname)</label><input type="text" id="new-user-name" placeholder="例如：小明" class="w-full px-4 py-2 border border-slate-300 rounded-lg outline-none"></div>
+                <div><label class="block text-sm font-medium text-slate-700 mb-1">角色</label><select id="new-user-role" class="w-full px-4 py-2 border border-slate-300 rounded-lg outline-none bg-white"><option value="student">協同研究員 (學生)</option><option value="teacher">首席研究員 (老師)</option></select></div>
+            </div>
+            <div class="mt-6 flex justify-end gap-3">
+                <button onclick="window.ui.closeModal('modal-addUser')" class="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg">取消</button>
+                <button onclick="window.app.createNewUser()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-sm">新增</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-trash" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-[70] hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh]">
+            <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0 bg-red-50 rounded-t-xl">
+                <h3 class="text-lg font-bold text-red-700 flex items-center gap-2"><i class="fa-solid fa-trash-can"></i> 資源回收桶</h3>
+                <button onclick="window.ui.closeModal('modal-trash')" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-red-100 text-red-400"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div class="p-6 overflow-y-auto custom-scroll flex-1"><div id="trash-list" class="space-y-3"></div></div>
+            <div class="p-4 border-t border-slate-100 bg-slate-50 rounded-b-xl flex justify-between gap-3 shrink-0">
+                <button onclick="window.app.emptyTrash()" class="px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg text-sm font-bold"><i class="fa-solid fa-ban"></i> 清空回收桶</button>
+                <button onclick="window.ui.closeModal('modal-trash')" class="px-5 py-2 bg-white border border-slate-300 text-slate-600 rounded-lg shadow-sm text-sm">關閉</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="selection-box"></div>
+    <div id="toast-container" class="fixed bottom-20 md:bottom-10 right-4 md:right-6 z-[120] flex flex-col gap-2 pointer-events-none w-full max-w-[300px] md:w-auto items-end"></div>
+
     <script>
-        // --- AI 測試連線邏輯 ---
-        async function testAIConnection() {
-            const apiKey = document.getElementById('api-key-input').value.trim();
-            const btn = document.getElementById('btn-test-ai');
-            const resultDiv = document.getElementById('test-result');
-            
-            if (!apiKey) {
-                alert("請先輸入 API Key！");
-                return;
-            }
+        // --- 1. Global Constants ---
+        window.ROLES = { LEAD: 'teacher', CO: 'student' };
+        window.SCAFFOLDS = {
+            question: { id: 'question', label: 'Question', icon: 'fa-circle-question', color: 'bg-blue-500', border: 'border-blue-500', bgSoft: 'bg-blue-50', text: 'text-blue-700', desc: '提出你感興趣的問題或目前的困惑，邀請夥伴們一起探索答案。' },
+            extend: { id: 'extend', label: 'Build on', icon: 'fa-plus', color: 'bg-yellow-500', border: 'border-yellow-500', bgSoft: 'bg-yellow-50', text: 'text-yellow-700', desc: '參考夥伴的觀點，試著補充更多資訊或接續討論，讓想法更進一步。' },
+            improve: { id: 'improve', label: 'Improve', icon: 'fa-bolt', color: 'bg-green-500', border: 'border-green-500', bgSoft: 'bg-green-50', text: 'text-green-700', desc: '修正或改良現有的觀點，讓解釋更有說服力；或是記錄靈光一閃的新點子。' },
+            counter: { id: 'counter', label: 'Counter', icon: 'fa-triangle-exclamation', color: 'bg-red-500', border: 'border-red-500', bgSoft: 'bg-red-50', text: 'text-red-700', desc: '提出不同的看法、反例或證據，試著挑戰現有的想法，激盪出更多可能。' },
+            riseabove: { id: 'riseabove', label: 'Rise Above', icon: 'fa-rocket', color: 'bg-purple-500', border: 'border-purple-500', bgSoft: 'bg-purple-50', text: 'text-purple-700', desc: '整合大家分散的討論，歸納出一個更完整、層次更高的結論或新發現。' }
+        };
+        window.TOPIC_CATEGORIES = { '科學': '🔬 科學', 'STEAM': '💡 STEAM', '專題課': '🎓 專題課', '電機電子': '📡 電機電子', 'AI': '🤖 AI', '語言學習': '📙 語言學習', '文學': '📖 文學', '社會議題': '☁️ 社會議題', '物理': '⚛️ 物理學', '動漫': '🎨 動漫', '程式': '💻 程式設計', '歷史': '📜 歷史', '哲學': '🤔 哲學', '藝術': '🎭 藝術', '其他': '📦 其他' };
+        window.STORAGE_KEY = 'kb_platform_v2_28_data'; 
+        window.CLUSTER_CENTERS = { 
+            'A': {x: 250, y: 300, title: '核心問題探究區 (Core Question)', width: 600, height: 600}, 
+            'B': {x: 1050, y: 300, title: '延伸變因討論區 (Variables)', width: 600, height: 600}, 
+            'C': {x: 650, y: 1000, title: '知識昇華整合區 (Rise-Above)', width: 800, height: 500} 
+        };
 
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> 正在連線 AI 伺服器...';
-            resultDiv.classList.add('hidden');
+        window.SEED_DATA = {
+            userList: {
+                teacher: { id: 'u1', name: '王教授', role: window.ROLES.LEAD, avatar: 'https://api.dicebear.com/9.x/notionists/svg?seed=Felix' },
+                student1: { id: 'u2', name: '小美', role: window.ROLES.CO, avatar: 'https://api.dicebear.com/9.x/notionists/svg?seed=S1' },
+                student2: { id: 'u3', name: '大華', role: window.ROLES.CO, avatar: 'https://api.dicebear.com/9.x/notionists/svg?seed=S2' },
+                student3: { id: 'u4', name: '阿凱', role: window.ROLES.CO, avatar: 'https://api.dicebear.com/9.x/notionists/svg?seed=S3' },
+                student4: { id: 'u5', name: '芷婷', role: window.ROLES.CO, avatar: 'https://api.dicebear.com/9.x/notionists/svg?seed=S4' },
+                student5: { id: 'u6', name: '子睿', role: window.ROLES.CO, avatar: 'https://api.dicebear.com/9.x/notionists/svg?seed=S5' }
+            },
+            topics: [
+                { id: 't1', name: '為什麼天空是藍色的？', categories: ['科學', '物理'], desc: '探討光線散射。', author: 'u1', date: '2023-10-01' },
+                { id: 't2', name: 'AI 是否具有創造力？', categories: ['AI', '社會議題', '哲學'], desc: '定義創造力與機器智慧。', author: 'u1', date: '2023-10-05' },
+                { id: 't3', name: '進擊的巨人中的自由意志', categories: ['動漫', '哲學', '文學'], desc: '艾連的選擇是自由的嗎？', author: 'u2', date: '2023-10-08' },
+                { id: 't4', name: '如何用 Python 製作 Discord Bot', categories: ['程式', 'STEAM'], desc: '新手入門教學與討論。', author: 'u3', date: '2023-10-10' },
+                { id: 't5', name: '文藝復興對現代藝術的影響', categories: ['歷史', '藝術'], desc: '從達文西到米開朗基羅。', author: 'u1', date: '2023-10-12' },
+                { id: 't7', name: '英文口說練習技巧', categories: ['語言學習'], desc: '如何克服開口說英文的恐懼？', author: 'u3', date: '2023-10-18' },
+                { id: 't8', name: '病毒算是生物嗎？', categories: ['科學', '哲學'], desc: '生物與非生物的界線在哪裡？', author: 'u1', date: '2023-10-20' },
+                { id: 't9', name: '數學是被發現的還是被發明的？', categories: ['哲學', '科學'], desc: '數學是宇宙的語言還是人類的工具？', author: 'u1', date: '2023-10-22' }
+            ],
+            nodes: [
+                { id: 'n1', topicId: 't1', type: 'question', title: '晴天與夕陽的顏色差異', content: '我好奇為什麼只有晴天是藍色，夕陽卻是紅色？', author: 'u2', x: 100, y: 300, parentId: null, date: Date.now(), cluster: 'A', promisingness: 30 },
+                { id: 'n2', topicId: 't1', type: 'improve', title: '距離與顏色的關係', content: '這應該跟光線穿過大氣層的距離有關。距離越長，留下的光越紅。', author: 'u3', x: 400, y: 200, parentId: 'n1', date: Date.now(), cluster: 'B', promisingness: 45 },
+                { id: 'n3', topicId: 't1', type: 'extend', title: '瑞利散射理論', content: '我的理論是瑞利散射。藍光波長短，容易被散射。', author: 'u1', x: 400, y: 400, parentId: 'n1', date: Date.now(), cluster: 'A', promisingness: 85 },
+                { id: 'n4', topicId: 't1', type: 'counter', title: '陰天與雲的例外', content: '但瑞利散射不能解釋為什麼陰天也是白色的，或是雲為什麼是白的？', author: 'u4', x: 700, y: 300, parentId: 'n3', date: Date.now(), cluster: 'A', promisingness: 90 },
+                { id: 'n5', topicId: 't1', type: 'improve', title: '米氏散射解釋雲朵', content: '雲是白色的可以用「米氏散射」解釋，因為水滴顆粒比氣體分子大很多，所有波長都散射，混合成白光。', author: 'u5', x: 900, y: 300, parentId: 'n4', date: Date.now(), cluster: 'B', promisingness: 80 },
+                { id: 'n6', topicId: 't1', type: 'riseabove', title: '散射與顆粒大小的整合模型', content: '整合觀點：天空顏色取決於「散射顆粒大小」與「光波長」的關係。微小氣體分子造成瑞利散射(藍/紅)，較大水滴造成米氏散射(白)。', author: 'u6', x: 600, y: 600, parentId: 'n5', date: Date.now(), cluster: 'C', promisingness: 95 },
+                { id: 'n2_1', topicId: 't2', type: 'question', title: 'AI 的創造力質疑', content: 'AI 真的有創造力嗎？還是只是在拼湊？', author: 'u2', x: 100, y: 300, parentId: null, date: Date.now(), cluster: 'A', promisingness: 40 },
+                { id: 'n2_2', topicId: 't2', type: 'extend', title: '生成未知的新圖像', content: '它能生成從未見過的畫作，這應該算創造吧。', author: 'u3', x: 400, y: 200, parentId: 'n2_1', date: Date.now(), cluster: 'B', promisingness: 50 },
+                { id: 'n2_3', topicId: 't2', type: 'counter', title: '缺乏靈魂的機率分佈', content: '但那些「畫作」只是基於訓練資料的機率分布，它沒有靈魂或意圖。', author: 'u4', x: 600, y: 200, parentId: 'n2_2', date: Date.now(), cluster: 'A', promisingness: 60 },
+                { id: 'n2_4', topicId: 't2', type: 'improve', title: '重新定義創造力', content: '我們該定義什麼是創造力：通常包含「新穎性」與「價值」。AI 確實能產出新穎且有價值的東西。', author: 'u1', x: 800, y: 200, parentId: 'n2_3', date: Date.now(), cluster: 'B', promisingness: 75 },
+                { id: 'n2_5', topicId: 't2', type: 'extend', title: 'AlphaGo 的第 37 手', content: '像 AlphaGo 的第 37 手，連人類棋王都沒想過，這絕對是超越模仿的創造。', author: 'u5', x: 800, y: 400, parentId: 'n2_4', date: Date.now(), cluster: 'B', promisingness: 80 },
+                { id: 'n2_6', topicId: 't2', type: 'riseabove', title: '組合式 vs 變革式創造力', content: 'AI 擁有「組合式創造力」(Combinatorial Creativity)，但目前可能還缺乏「變革式創造力」(Transformational Creativity)。它是人類創造力的強大延伸工具。', author: 'u6', x: 500, y: 600, parentId: 'n2_5', date: Date.now(), cluster: 'C', promisingness: 95 },
+                { id: 'n3_1', topicId: 't3', type: 'question', title: '艾連的自由意志', content: '艾連到底是自由的，還是被命運束縛的奴隸？', author: 'u2', x: 100, y: 300, parentId: null, date: Date.now(), cluster: 'A', promisingness: 50 },
+                { id: 'n3_2', topicId: 't3', type: 'extend', title: '自由的奴隸諷刺', content: '他為了追求自由，反而成為了自由的奴隸，這是一種諷刺。', author: 'u3', x: 300, y: 200, parentId: 'n3_1', date: Date.now(), cluster: 'B', promisingness: 60 },
+                { id: 'n3_3', topicId: 't3', type: 'counter', title: '看見未來的宿命論', content: '他看見了未來，如果未來是註定的，那他就沒有選擇，也就沒有自由意志。', author: 'u4', x: 500, y: 300, parentId: 'n3_1', date: Date.now(), cluster: 'A', promisingness: 70 },
+                { id: 'n3_4', topicId: 't3', type: 'improve', title: '願望與未來的重合', content: '或許未來之所以那樣發生，正是因為那是他「想要」的結果？這也是一種自由選擇？', author: 'u5', x: 700, y: 300, parentId: 'n3_3', date: Date.now(), cluster: 'B', promisingness: 80 },
+                { id: 'n3_5', topicId: 't3', type: 'riseabove', title: '相容論的解釋', content: '相容論 (Compatibilism)：命運的必然性與個人的自由意志可能共存。艾連的性格決定了他的選擇，而他的選擇造就了註定的未來。', author: 'u1', x: 500, y: 600, parentId: 'n3_4', date: Date.now(), cluster: 'C', promisingness: 90 },
+                { id: 'n4_1', topicId: 't4', type: 'question', title: 'Discord Bot 入門', content: '我想做一個 Discord Bot，但不知道怎麼開始？', author: 'u3', x: 100, y: 300, parentId: null, date: Date.now(), cluster: 'A', promisingness: 30 },
+                { id: 'n4_2', topicId: 't4', type: 'extend', title: '推薦 discord.py', content: '你可以用 `discord.py` 這個函式庫，官方文件很詳細。', author: 'u4', x: 300, y: 200, parentId: 'n4_1', date: Date.now(), cluster: 'B', promisingness: 50 },
+                { id: 'n4_3', topicId: 't4', type: 'question', title: '24小時託管問題', content: '那要怎麼讓它 24 小時一直跑？我家電腦不能一直開著。', author: 'u2', x: 500, y: 200, parentId: 'n4_2', date: Date.now(), cluster: 'A', promisingness: 60 },
+                { id: 'n4_4', topicId: 't4', type: 'improve', title: 'Replit 免費方案', content: '可以用 Replit + UptimeRobot，這是免費方案。', author: 'u5', x: 700, y: 200, parentId: 'n4_3', date: Date.now(), cluster: 'B', promisingness: 70 },
+                { id: 'n4_5', topicId: 't4', type: 'counter', title: 'Replit 休眠問題', content: 'Replit 現在會休眠了，不推薦。建議用 Heroku 或是租一個便宜的 VPS (如 Linode)。', author: 'u6', x: 900, y: 200, parentId: 'n4_4', date: Date.now(), cluster: 'B', promisingness: 80 },
+                { id: 'n4_6', topicId: 't4', type: 'riseabove', title: '託管方案階層建議', content: '託管方案階層：練習用本機 -> 小型專案用免費雲 (限制多) -> 長期穩定服務建議用付費 VPS。根據需求選擇最適合的。', author: 'u1', x: 600, y: 500, parentId: 'n4_5', date: Date.now(), cluster: 'C', promisingness: 90 },
+                { id: 'n5_1', topicId: 't5', type: 'question', title: '文藝復興的地點之謎', content: '為什麼文藝復興偏偏發生在義大利？', author: 'u1', x: 100, y: 300, parentId: null, date: Date.now(), cluster: 'A', promisingness: 40 },
+                { id: 'n5_2', topicId: 't5', type: 'extend', title: '羅馬遺跡的靈感', content: '因為羅馬帝國的遺跡就在那裡，容易獲得靈感。', author: 'u2', x: 300, y: 200, parentId: 'n5_1', date: Date.now(), cluster: 'B', promisingness: 50 },
+                { id: 'n5_3', topicId: 't5', type: 'extend', title: '梅第奇家族贊助', content: '還有梅第奇家族 (Medici) 的贊助，有錢才能養藝術家。', author: 'u3', x: 300, y: 400, parentId: 'n5_1', date: Date.now(), cluster: 'B', promisingness: 55 },
+                { id: 'n5_4', topicId: 't5', type: 'improve', title: '古希臘知識回流', content: '別忘了君士坦丁堡陷落，學者帶著古希臘典籍逃到義大利，帶回了失傳的知識。', author: 'u4', x: 600, y: 300, parentId: 'n5_2', date: Date.now(), cluster: 'B', promisingness: 70 },
+                { id: 'n5_5', topicId: 't5', type: 'riseabove', title: '完美風暴理論', content: '這是一個「完美風暴」：經濟富裕 (貿易/贊助) + 文化底蘊 (羅馬遺跡) + 知識回流 (學者避難)，三者缺一不可。', author: 'u5', x: 600, y: 600, parentId: 'n5_4', date: Date.now(), cluster: 'C', promisingness: 90 },
+                { id: 'n7_1', topicId: 't7', type: 'question', title: '口說文法焦慮', content: '我每次開口說英文都很怕文法講錯，怎麼辦？', author: 'u3', x: 100, y: 300, parentId: null, date: Date.now(), cluster: 'A', promisingness: 40 },
+                { id: 'n7_2', topicId: 't7', type: 'extend', title: '語言交換', content: '找個語言交換夥伴，練習多了就不怕了。', author: 'u4', x: 300, y: 200, parentId: 'n7_1', date: Date.now(), cluster: 'B', promisingness: 50 },
+                { id: 'n7_3', topicId: 't7', type: 'counter', title: '人際恐懼', content: '但我就是怕在「人」面前講錯很丟臉啊！', author: 'u2', x: 500, y: 200, parentId: 'n7_2', date: Date.now(), cluster: 'A', promisingness: 60 },
+                { id: 'n7_4', topicId: 't7', type: 'improve', title: 'AI 對話練習', content: '那先跟 AI (ChatGPT 語音或 Siri) 練習？它們不會取笑你。', author: 'u5', x: 700, y: 200, parentId: 'n7_3', date: Date.now(), cluster: 'B', promisingness: 75 },
+                { id: 'n7_5', topicId: 't7', type: 'riseabove', title: '情意濾網理論應用', content: '降低「情意濾網」(Affective Filter)：先在低壓環境 (AI) 建立信心，再過渡到真人對話。重點是「溝通」而非「完美」。', author: 'u6', x: 500, y: 500, parentId: 'n7_4', date: Date.now(), cluster: 'C', promisingness: 90 },
+                { id: 'n8_1', topicId: 't8', type: 'question', title: '病毒的生命定義', content: '病毒到底算不算是生物？這好像很有爭議。', author: 'u4', x: 100, y: 300, parentId: null, date: Date.now(), cluster: 'A', promisingness: 50 },
+                { id: 'n8_2', topicId: 't8', type: 'extend', title: '遺傳物質論', content: '它們有遺傳物質 (DNA或RNA)，還會演化，應該算生物吧？', author: 'u2', x: 300, y: 200, parentId: 'n8_1', date: Date.now(), cluster: 'B', promisingness: 60 },
+                { id: 'n8_3', topicId: 't8', type: 'counter', title: '絕對寄生論', content: '可是它們離開宿主就完全不會動，也不會新陳代謝，像石頭一樣結晶化，不算是生物。', author: 'u3', x: 500, y: 200, parentId: 'n8_2', date: Date.now(), cluster: 'A', promisingness: 70 },
+                { id: 'n8_4', topicId: 't8', type: 'improve', title: '生物殭屍比喻', content: '或許它們像是「生物殭屍」？介於兩者之間？', author: 'u5', x: 700, y: 200, parentId: 'n8_3', date: Date.now(), cluster: 'B', promisingness: 65 },
+                { id: 'n8_5', topicId: 't8', type: 'riseabove', title: '生命光譜說', content: '科學定義是「絕對寄生」。生命可能不是非黑即白的二分法，而是一個光譜。病毒位於「生命邊緣」，挑戰了我們對生命的定義。', author: 'u1', x: 500, y: 500, parentId: 'n8_4', date: Date.now(), cluster: 'C', promisingness: 95 },
+                { id: 'n9_1', topicId: 't9', type: 'question', title: '數學的本體論', content: '數學原本就存在於宇宙中，還是人類發明出來的？', author: 'u6', x: 100, y: 300, parentId: null, date: Date.now(), cluster: 'A', promisingness: 50 },
+                { id: 'n9_2', topicId: 't9', type: 'extend', title: '發現說 (Platonism)', content: '我覺得是被發現的。像圓周率 Pi，不管在外星系還是地球都是一樣的。', author: 'u2', x: 300, y: 200, parentId: 'n9_1', date: Date.now(), cluster: 'B', promisingness: 60 },
+                { id: 'n9_3', topicId: 't9', type: 'counter', title: '發明說 (Formalism)', content: '但是「數字符號」和「十進位」是我們發明的啊！', author: 'u4', x: 500, y: 200, parentId: 'n9_2', date: Date.now(), cluster: 'A', promisingness: 65 },
+                { id: 'n9_4', topicId: 't9', type: 'improve', title: '概念與語言的區分', content: '或許「概念」是被發現的，但「描述語言」是被發明的？', author: 'u3', x: 700, y: 200, parentId: 'n9_3', date: Date.now(), cluster: 'B', promisingness: 80 },
+                { id: 'n9_5', topicId: 't9', type: 'riseabove', title: '主客觀交織論', content: '數學是人類發明的「語言」，用來描述我們發現的「宇宙規律」。兩者並不互斥，這是一種主客觀的交織。', author: 'u1', x: 500, y: 500, parentId: 'n9_4', date: Date.now(), cluster: 'C', promisingness: 95 }
+            ]
+        };
 
-            try {
-                // 使用 Gemini 2.5 Flash 進行簡單測試
-                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{ parts: [{ text: "請用繁體中文回傳一句話確認你已啟動，並稱呼我為『大師』。" }] }]
-                    })
-                });
-
-                const data = await response.json();
-                
-                if (data.candidates && data.candidates[0].content.parts[0].text) {
-                    const aiMsg = data.candidates[0].content.parts[0].text;
-                    resultDiv.innerHTML = `<span class="text-green-400">連線成功！</span><br>AI 回應：${aiMsg}`;
-                    updateStatusBadge(true);
-                } else {
-                    throw new Error(data.error?.message || "未知錯誤");
+        window.state = {
+            user: null, userList: {}, topics: [], nodes: [], trash: [], currentView: 'entrance', currentTopicId: null,
+            activeFilter: '全部', tempSelectedCategories: [], 
+            editingTopicId: null, // Add editing state
+            canvas: { 
+                scale: 1, offsetX: 0, offsetY: 0, 
+                isDragging: false, lastX: 0, lastY: 0, 
+                draggedNodeId: null, isClusterMode: false, isHeatmapMode: false, 
+                animFrame: null,
+                // Selection Box State
+                isSelecting: false, selectionStart: {x: 0, y: 0}, selectionCurrent: {x: 0, y: 0},
+                isPanMode: false 
+            },
+            selectedNodeIds: [],
+            composer: { parentId: null, selectedScaffold: null }, profile: null
+        };
+        
+        window.dataManager = {
+            save: () => { localStorage.setItem(window.STORAGE_KEY, JSON.stringify({ userList: window.state.userList, topics: window.state.topics, nodes: window.state.nodes, trash: window.state.trash, currentUserKey: Object.keys(window.state.userList).find(key => window.state.userList[key].id === window.state.user.id) || 'teacher', currentView: window.state.currentView, currentTopicId: window.state.currentTopicId })); },
+            load: () => {
+                const saved = localStorage.getItem(window.STORAGE_KEY);
+                if (saved) {
+                    try {
+                        const parsed = JSON.parse(saved);
+                        window.state.userList = parsed.userList || window.SEED_DATA.userList;
+                        window.state.topics = parsed.topics || window.SEED_DATA.topics;
+                        window.state.topics.forEach(t => { if (!t.categories) t.categories = t.category ? [t.category] : ['其他']; });
+                        window.state.nodes = parsed.nodes || window.SEED_DATA.nodes;
+                        window.state.trash = parsed.trash || [];
+                        window.state.currentView = parsed.currentView || 'entrance';
+                        window.state.currentTopicId = parsed.currentTopicId || null;
+                        const key = parsed.currentUserKey;
+                        window.state.user = (key && window.state.userList[key]) ? window.state.userList[key] : window.state.userList['teacher'];
+                        return;
+                    } catch (e) {}
                 }
-            } catch (error) {
-                resultDiv.innerHTML = `<span class="text-red-400">連線失敗：</span><br>${error.message}`;
-                updateStatusBadge(false);
-            } finally {
-                resultDiv.classList.remove('hidden');
-                btn.disabled = false;
-                btn.innerHTML = '<i class="fa-solid fa-vial"></i> 再次測試連線';
-            }
-        }
+                window.state.userList = JSON.parse(JSON.stringify(window.SEED_DATA.userList));
+                window.state.topics = JSON.parse(JSON.stringify(window.SEED_DATA.topics));
+                window.state.nodes = JSON.parse(JSON.stringify(window.SEED_DATA.nodes));
+                window.state.trash = [];
+                window.state.user = window.state.userList['teacher'];
+                window.state.currentView = 'entrance';
+                window.dataManager.save();
+            },
+            reset: () => { localStorage.removeItem(window.STORAGE_KEY); window.location.reload(); }
+        };
 
-        function updateStatusBadge(isActive) {
-            const dot = document.getElementById('ai-status-dot');
-            const text = document.getElementById('ai-status-text');
-            if (isActive) {
-                dot.className = "status-dot status-active";
-                text.innerText = "AI 功能已啟動";
-                text.className = "text-green-400";
-            } else {
-                dot.className = "status-dot status-inactive";
-                text.innerText = "AI 尚未連線";
-                text.className = "text-slate-400";
-            }
-        }
+        window.app = {};
 
-        // 頁面載入時檢查狀態
-        window.addEventListener('load', () => {
-            const savedKey = localStorage.getItem('kb_ai_key');
-            if (savedKey) updateStatusBadge(true);
-            init3D();
-        });
+        // Helper functions
+        window.app.generateCategoryOptions = () => Object.entries(window.TOPIC_CATEGORIES).map(([value, label]) => `<option value="${value}">${label}</option>`).join('');
+        
+        window.app.generateCategoryFilters = () => {
+            let html = `<button class="px-4 py-1.5 rounded-full text-sm font-medium filter-btn transition ${window.state.activeFilter === '全部' ? 'active bg-slate-200 text-slate-900 border-slate-300' : 'bg-white text-slate-500 border border-slate-200'}" data-category="全部">所有主題</button>`;
+            html += Object.keys(window.TOPIC_CATEGORIES).map(key => {
+                const isActive = window.state.activeFilter === key;
+                const label = window.TOPIC_CATEGORIES[key];
+                return `<button class="px-4 py-1.5 rounded-full text-sm font-medium filter-btn transition ${isActive ? 'active bg-indigo-50 text-indigo-700 border-indigo-200' : 'bg-white text-slate-500 border border-slate-200'}" data-category="${key}">${label}</button>`;
+            }).join('');
+            return html;
+        };
 
-        // --- 3D 莫比烏斯帶動畫 ---
-        function init3D() {
-            const container = document.getElementById('canvas-container');
-            const scene = new THREE.Scene();
-            scene.fog = new THREE.FogExp2(0x0f172a, 0.002);
+        window.app.setFilter = (category) => { window.state.activeFilter = category; window.ui.renderEntrance(); };
+        window.app.initCategorySelector = () => { };
+        window.app.renderCategorySelector = () => {
+            const container = document.getElementById('topic-category-selector'); if(!container) return;
+            container.innerHTML = Object.keys(window.TOPIC_CATEGORIES).map(key => {
+                const isSelected = window.state.tempSelectedCategories.includes(key);
+                return `<span onclick="window.app.toggleTempCategory('${key}')" class="category-tag px-3 py-1 rounded-full text-xs font-bold border ${isSelected ? 'selected' : 'bg-white text-slate-500 border-slate-200'}">${window.TOPIC_CATEGORIES[key]}</span>`;
+            }).join('');
+        };
+        window.app.toggleTempCategory = (key) => {
+            if (window.state.tempSelectedCategories.includes(key)) { window.state.tempSelectedCategories = window.state.tempSelectedCategories.filter(c => c !== key); } else { window.state.tempSelectedCategories.push(key); }
+            window.app.renderCategorySelector();
+        };
 
-            const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+        // Routing & User
+        window.app.router = (view) => {
+            if (view === 'canvas' && !window.state.currentTopicId) { window.ui.showToast('請先從主題入口選擇一個探究主題', 'error'); window.app.router('entrance'); return; }
+            window.state.currentView = view;
+            if(view === 'entrance') { window.state.currentTopicId = null; }
+            window.dataManager.save();
+            window.ui.updateNav(view);
+            document.getElementById('user-menu').classList.add('hidden');
+            if(view === 'entrance') { window.ui.renderEntrance(); }
+            else if(view === 'canvas') { window.ui.renderCanvas(); }
+            else if(view === 'profile') { window.ui.renderProfile(); }
+        };
+        window.app.toggleUserMenu = () => document.getElementById('user-menu').classList.toggle('hidden');
+        window.app.openAddUserModal = () => { document.getElementById('modal-addUser').classList.remove('hidden'); document.getElementById('user-menu').classList.add('hidden'); document.getElementById('new-user-name').focus(); };
+        window.app.createNewUser = () => {
+            const nameInput = document.getElementById('new-user-name'); const roleInput = document.getElementById('new-user-role');
+            const name = nameInput.value.trim(); if (!name) return window.ui.showToast('暱稱不能為空', 'error');
+            const newKey = `user${Date.now()}`; const newId = `u${Date.now()}`;
+            window.state.userList[newKey] = { id: newId, name, role: roleInput.value, avatar: `https://api.dicebear.com/9.x/notionists/svg?seed=${name}` };
+            window.dataManager.save(); window.ui.closeModal('modal-addUser'); window.ui.renderUserMenu(); window.ui.showToast('新增成功'); window.app.switchUser(newKey);
+        };
+        window.app.deleteUser = (key) => {
+            if (window.state.userList[key].id === window.state.user.id) return window.ui.showToast('無法刪除當前登入的使用者', 'error');
+            if (Object.keys(window.state.userList).length <= 1) return window.ui.showToast('無法刪除最後一位使用者', 'error');
+            window.ui.confirm('確定刪除使用者？', '此操作無法復原。', () => { delete window.state.userList[key]; window.dataManager.save(); window.ui.renderUserMenu(); window.ui.showToast('使用者已刪除'); window.ui.closeModal('modal-confirm'); });
+        };
+        window.app.switchUser = (userKey) => {
+            if (!window.state.userList[userKey]) return;
+            window.state.user = window.state.userList[userKey]; window.state.profile = null; window.dataManager.save(); window.ui.renderUserInfo(); window.ui.renderUserMenu(); window.ui.showToast(`已切換：${window.state.user.name}`); document.getElementById('user-menu').classList.add('hidden');
+            if(window.state.currentView === 'canvas') window.ui.renderCanvas(); else if(window.state.currentView === 'profile') window.ui.renderProfile(); else window.ui.renderEntrance();
+        };
+
+        // Data Manipulation
+        window.app.openCreateTopic = () => {
+            window.state.editingTopicId = null;
+            document.getElementById('modal-topic-title').innerHTML = '<i class="fa-solid fa-folder-plus text-indigo-600"></i> 開啟探究主題';
+            document.getElementById('btn-topic-save').innerText = '建立';
+            document.getElementById('topic-name').value = '';
+            document.getElementById('topic-desc').value = '';
+            window.state.tempSelectedCategories = [];
+            window.app.renderCategorySelector();
+            document.getElementById('modal-topic').classList.remove('hidden');
+        };
+
+        window.app.openEditTopic = (id) => {
+            const topic = window.state.topics.find(t => t.id === id);
+            if (!topic) return;
             
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(window.devicePixelRatio);
-            container.appendChild(renderer.domElement);
+            window.state.editingTopicId = id;
+            document.getElementById('modal-topic-title').innerHTML = '<i class="fa-solid fa-pen-to-square text-indigo-600"></i> 編輯探究主題';
+            document.getElementById('btn-topic-save').innerText = '儲存修改';
+            
+            document.getElementById('topic-name').value = topic.name;
+            document.getElementById('topic-desc').value = topic.desc;
+            window.state.tempSelectedCategories = [...(topic.categories || [])];
+            window.app.renderCategorySelector();
+            
+            document.getElementById('modal-topic').classList.remove('hidden');
+        };
 
-            const mobiusFunction = (u, v, target) => {
-                u = u * Math.PI * 2;
-                v = v * 2 - 1;
-                const radius = 3;
-                const width = 1.2;
-                const x = (radius + (width * v / 2) * Math.cos(u / 2)) * Math.cos(u);
-                const y = (radius + (width * v / 2) * Math.cos(u / 2)) * Math.sin(u);
-                const z = (width * v / 2) * Math.sin(u / 2);
-                target.set(x, y, z);
-            };
+        window.app.saveTopic = () => {
+            const name = document.getElementById('topic-name').value; 
+            if(!name) return window.ui.showToast('請輸入問題', 'error');
+            const categories = window.state.tempSelectedCategories.length > 0 ? window.state.tempSelectedCategories : ['其他'];
+            const desc = document.getElementById('topic-desc').value;
 
-            const geometry = new THREE.ParametricGeometry(mobiusFunction, 100, 20);
-            const material = new THREE.MeshBasicMaterial({ 
-                color: 0x06b6d4,
-                wireframe: true,
-                transparent: true,
-                opacity: 0.15,
-                side: THREE.DoubleSide
-            });
-
-            const pointsMaterial = new THREE.PointsMaterial({
-                color: 0x4f46e5,
-                size: 0.05,
-                transparent: true,
-                opacity: 0.4
-            });
-
-            const mobiusMesh = new THREE.Mesh(geometry, material);
-            const mobiusPoints = new THREE.Points(geometry, pointsMaterial);
-            const mobiusGroup = new THREE.Group();
-            mobiusGroup.add(mobiusMesh);
-            mobiusGroup.add(mobiusPoints);
-            scene.add(mobiusGroup);
-
-            const particlesGeometry = new THREE.BufferGeometry();
-            const particlesCount = 400;
-            const posArray = new Float32Array(particlesCount * 3);
-            for(let i = 0; i < particlesCount * 3; i++) {
-                posArray[i] = (Math.random() - 0.5) * 20;
-            }
-            particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
-            const particlesMaterial = new THREE.PointsMaterial({
-                size: 0.02,
-                color: 0xffffff,
-                transparent: true,
-                opacity: 0.2
-            });
-            const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial);
-            scene.add(particlesMesh);
-
-            camera.position.z = 8;
-
-            let time = 0;
-            const animate = function () {
-                requestAnimationFrame(animate);
-                time += 0.005;
-                mobiusGroup.rotation.x = Math.sin(time * 0.3) * 0.2;
-                mobiusGroup.rotation.y += 0.003;
-                particlesMesh.rotation.y = -time * 0.05;
-                renderer.render(scene, camera);
-            };
-            animate();
-
-            window.addEventListener('resize', () => {
-                camera.aspect = window.innerWidth / window.innerHeight;
-                camera.updateProjectionMatrix();
-                renderer.setSize(window.innerWidth, window.innerHeight);
-            });
-        }
-
-        const modal = document.getElementById('settings-modal');
-        const modalContent = document.getElementById('modal-content');
-
-        function openSettings() {
-            modal.classList.remove('hidden');
-            const savedKey = localStorage.getItem('kb_ai_key');
-            if(savedKey) document.getElementById('api-key-input').value = savedKey;
-            setTimeout(() => {
-                modal.classList.remove('opacity-0');
-                modalContent.classList.remove('scale-95');
-                modalContent.classList.add('scale-100');
-            }, 10);
-        }
-
-        function closeSettings() {
-            modal.classList.add('opacity-0');
-            modalContent.classList.remove('scale-100');
-            modalContent.classList.add('scale-95');
-            setTimeout(() => modal.classList.add('hidden'), 300);
-        }
-
-        function saveSettings() {
-            const key = document.getElementById('api-key-input').value.trim();
-            localStorage.setItem('kb_ai_key', key);
-            updateStatusBadge(!!key);
-            closeSettings();
-        }
-
-        function selectRole(role) {
-            const studentCard = document.getElementById('card-student');
-            const teacherCard = document.getElementById('card-teacher');
-            const studentActions = document.getElementById('actions-student');
-            const teacherActions = document.getElementById('actions-teacher');
-
-            if (role === 'student') {
-                studentCard.classList.add('active', 'scale-105');
-                teacherCard.classList.remove('active', 'scale-105', 'opacity-50', 'scale-95');
-                teacherCard.classList.add('opacity-50', 'scale-95');
-                studentCard.classList.remove('opacity-50', 'scale-95');
-                studentActions.classList.remove('hidden');
-                teacherActions.classList.add('hidden');
+            if (window.state.editingTopicId) {
+                // Update existing topic
+                const topicIndex = window.state.topics.findIndex(t => t.id === window.state.editingTopicId);
+                if (topicIndex !== -1) {
+                    window.state.topics[topicIndex].name = name;
+                    window.state.topics[topicIndex].categories = categories;
+                    window.state.topics[topicIndex].desc = desc;
+                    window.ui.showToast('主題已更新');
+                }
             } else {
-                teacherCard.classList.add('active', 'scale-105');
-                studentCard.classList.remove('active', 'scale-105', 'opacity-50', 'scale-95');
-                studentCard.classList.add('opacity-50', 'scale-95');
-                teacherCard.classList.remove('opacity-50', 'scale-95');
-                teacherActions.classList.remove('hidden');
-                studentActions.classList.add('hidden');
+                // Create new topic
+                window.state.topics.unshift({ 
+                    id: 't'+Date.now(), 
+                    name, 
+                    categories: categories, 
+                    desc: desc, 
+                    author: window.state.user.id, 
+                    date: new Date().toISOString() 
+                });
+                window.ui.showToast('主題已建立');
             }
-        }
+            
+            window.dataManager.save(); 
+            window.ui.closeModal('modal-topic'); 
+            window.ui.renderEntrance();
+        };
+
+        window.app.updateTrashBadge = () => {
+            const badge = document.getElementById('trash-count-badge'); if(!badge) return;
+            const count = window.state.trash.length;
+            if(count > 0) { badge.innerText = count; badge.classList.remove('hidden'); } else { badge.classList.add('hidden'); }
+        };
+        window.app.openTrash = () => { window.ui.renderTrashList(); document.getElementById('modal-trash').classList.remove('hidden'); document.getElementById('user-menu').classList.add('hidden'); };
+        window.app.restoreTrashItem = (trashId) => {
+            const itemIndex = window.state.trash.findIndex(t => t.id === trashId); if(itemIndex === -1) return;
+            const item = window.state.trash[itemIndex];
+            if (item.type === 'topic') { window.state.topics.unshift(item.data); window.state.nodes.push(...item.relatedNodes); } else { window.state.nodes.push(...item.data); }
+            window.state.trash.splice(itemIndex, 1); window.dataManager.save(); window.ui.renderTrashList(); window.app.updateTrashBadge();
+            if(window.state.currentView === 'entrance') window.ui.renderEntrance(); if(window.state.currentView === 'canvas') window.ui.renderCanvas();
+            window.ui.showToast('已還原項目', 'success');
+        };
+        window.app.deleteTrashItem = (trashId) => {
+            window.ui.confirm('確定永久刪除？', '此動作無法復原！', () => { window.state.trash = window.state.trash.filter(t => t.id !== trashId); window.dataManager.save(); window.ui.renderTrashList(); window.app.updateTrashBadge(); window.ui.closeModal('modal-confirm'); window.ui.showToast('已永久刪除'); });
+        };
+        window.app.emptyTrash = () => {
+            if(window.state.trash.length === 0) return;
+            window.ui.confirm('確定清空回收桶？', '所有項目將永久消失！', () => { window.state.trash = []; window.dataManager.save(); window.ui.renderTrashList(); window.app.updateTrashBadge(); window.ui.closeModal('modal-confirm'); window.ui.showToast('回收桶已清空'); });
+        };
+        window.app.deleteTopic = (id) => {
+            window.ui.confirm('確定要刪除嗎？', '主題將被移至資源回收桶。', () => {
+                const topic = window.state.topics.find(t => t.id === id); const associatedNodes = window.state.nodes.filter(n => n.topicId === id);
+                window.state.trash.unshift({ id: `trash-${Date.now()}`, type: 'topic', data: topic, relatedNodes: associatedNodes, deletedAt: Date.now(), deletedBy: window.state.user.id });
+                window.state.topics = window.state.topics.filter(t => t.id !== id); window.state.nodes = window.state.nodes.filter(n => n.topicId !== id);
+                window.dataManager.save(); window.app.updateTrashBadge(); window.ui.closeModal('modal-confirm'); window.ui.renderEntrance(); window.ui.showToast('主題已移至回收桶');
+            });
+        };
+        window.app.deleteNode = (id) => {
+            window.ui.confirm('確定要刪除嗎？', '想法將被移至資源回收桶。', () => {
+                const toDel = [];
+                const findChildren = (pid) => { window.state.nodes.filter(n => n.parentId === pid).forEach(c => { toDel.push(c); findChildren(c.id); }); };
+                const target = window.state.nodes.find(n => n.id === id);
+                if(target) { toDel.push(target); findChildren(id); }
+                window.state.trash.unshift({ id: `trash-${Date.now()}`, type: 'node', data: toDel, deletedAt: Date.now(), deletedBy: window.state.user.id });
+                const idsToDelete = toDel.map(n => n.id);
+                window.state.nodes = window.state.nodes.filter(n => !idsToDelete.includes(n.id));
+                window.dataManager.save(); window.app.updateTrashBadge(); window.ui.closeModal('modal-confirm'); window.ui.renderCanvas(); window.ui.showToast('想法已移至回收桶');
+            });
+        };
+        window.app.enterTopic = (id) => { window.state.currentTopicId = id; window.state.canvas.scale=1; window.state.canvas.offsetX=0; window.state.canvas.offsetY=0; window.app.router('canvas'); };
+        
+        // Node Composition
+        window.app.openComposer = (pid) => {
+            window.state.composer.parentId = pid;
+            document.getElementById('scaffold-selector').innerHTML = Object.values(window.SCAFFOLDS).map(s => `
+                <button onclick="window.app.selectScaffold('${s.id}')" id="btn-scaffold-${s.id}" class="flex flex-col items-center justify-center p-2 rounded-lg border-2 border-slate-100 opacity-60 transition hover:opacity-80">
+                    <div class="w-8 h-8 rounded-full ${s.color} text-white flex justify-center items-center mb-1"><i class="fa-solid ${s.icon}"></i></div>
+                    <span class="text-xs font-bold text-slate-600">${s.label}</span>
+                </button>`).join('');
+            const descEl = document.getElementById('scaffold-desc');
+            if(descEl) { descEl.innerHTML = ''; descEl.className = 'hidden'; }
+            document.getElementById('modal-node').classList.remove('hidden');
+        };
+        window.app.selectScaffold = (t) => {
+            window.state.composer.selectedScaffold = t;
+            Object.values(window.SCAFFOLDS).forEach(s => {
+                const btn = document.getElementById(`btn-scaffold-${s.id}`);
+                if(s.id === t) { btn.classList.remove('opacity-60', 'border-slate-100'); btn.classList.add('opacity-100', window.SCAFFOLDS[t].border, window.SCAFFOLDS[t].bgSoft); }
+                else { btn.classList.add('opacity-60', 'border-slate-100'); btn.classList.remove('opacity-100', window.SCAFFOLDS[s.id].border, window.SCAFFOLDS[s.id].bgSoft); }
+            });
+            const s = window.SCAFFOLDS[t];
+            const descEl = document.getElementById('scaffold-desc');
+            if(descEl) {
+                descEl.innerHTML = `<i class="fa-solid fa-circle-info mr-2"></i><span>${s.desc}</span>`;
+                descEl.className = `text-sm mb-4 px-4 py-3 rounded-lg border flex items-start animate-fade-in ${s.bgSoft} ${s.text} ${s.border}`;
+                descEl.classList.remove('hidden');
+            }
+        };
+        window.app.checkAIIntervention = (e) => {
+            const len = e.target.value.length;
+            const box = document.getElementById('ai-suggestion-box');
+            if(len > 5 && len < 20) box.classList.remove('hidden'); else box.classList.add('hidden');
+        };
+        window.app.submitNode = () => {
+            if(!window.state.composer.selectedScaffold) return window.ui.showToast('請選擇意圖', 'error');
+            const title = document.getElementById('node-title').value; // Get Title
+            const content = document.getElementById('node-content').value;
+            if(!title) return window.ui.showToast('請輸入標題', 'error'); // Validate Title
+            if(!content) return window.ui.showToast('請輸入內容', 'error');
+            
+            const pid = window.state.composer.parentId;
+            let nx, ny;
+            if(pid) {
+                const p = window.state.nodes.find(n => n.id === pid);
+                nx = p.x + (Math.random()*100 - 50); ny = p.y + 200;
+            } else {
+                const wrap = document.getElementById('canvas-wrapper');
+                nx = -window.state.canvas.offsetX + wrap.clientWidth/2 - 140;
+                ny = -window.state.canvas.offsetY + wrap.clientHeight/2 - 100;
+            }
+            const randomCluster = ['A', 'B', 'C'][Math.floor(Math.random() * 3)];
+            const randomProm = Math.floor(Math.random() * 100);
+            
+            window.state.nodes.push({ 
+                id: 'n'+Date.now(), 
+                topicId: window.state.currentTopicId, 
+                type: window.state.composer.selectedScaffold, 
+                title: title, // Save Title
+                content: content, 
+                author: window.state.user.id, 
+                date: Date.now(), 
+                x: nx, y: ny, 
+                parentId: pid, 
+                cluster: randomCluster, 
+                promisingness: randomProm 
+            });
+            window.dataManager.save(); window.ui.closeModal('modal-node'); window.ui.renderCanvas();
+        };
+        window.app.openNodeDetail = (id) => {
+            const n = window.state.nodes.find(x => x.id === id); if(!n) return;
+            const s = window.SCAFFOLDS[n.type]; const u = Object.values(window.state.userList).find(u => u.id === n.author);
+            const icon = document.getElementById('detail-scaffold-icon');
+            icon.className = `w-10 h-10 rounded-full flex justify-center items-center text-white text-lg ${s.color}`;
+            icon.innerHTML = `<i class="fa-solid ${s.icon}"></i>`;
+            document.getElementById('detail-scaffold-label').innerText = s.label;
+            document.getElementById('detail-scaffold-label').className = `text-xs font-bold uppercase mb-0.5 ${s.text}`;
+            document.getElementById('detail-title').innerText = n.title || '無標題'; // Show Title
+            document.getElementById('detail-author').innerText = u ? u.name : '?';
+            document.getElementById('detail-date').innerText = new Date(n.date).toLocaleString();
+            document.getElementById('detail-content').innerText = n.content;
+            document.getElementById('btn-detail-reply').onclick = () => { window.ui.closeModal('modal-detail'); setTimeout(() => window.app.openComposer(n.id), 200); };
+            document.getElementById('modal-detail').classList.remove('hidden');
+        };
+
+        // AI Mock
+        window.app.generateAIProfile = () => {
+            const btn = document.getElementById('btn-gen-profile'); const loading = document.getElementById('ai-loading');
+            btn.classList.add('hidden'); loading.classList.remove('hidden'); document.getElementById('ai-profile-result').classList.add('hidden');
+            setTimeout(() => {
+                const myNodes = window.state.nodes.filter(n => n.author === window.state.user.id);
+                const profileData = window.app.mockGeminiAnalysis(window.state.user, myNodes);
+                window.state.profile = profileData; window.ui.renderProfileContent(profileData); loading.classList.add('hidden');
+            }, 1500);
+        };
+        window.app.mockGeminiAnalysis = (user, nodes) => {
+            const counts = { question:0, extend:0, improve:0, counter:0, riseabove:0 };
+            nodes.forEach(n => { if(counts[n.type] !== undefined) counts[n.type]++; });
+            const total = nodes.length || 1;
+            let role, desc, icon;
+            const maxType = Object.keys(counts).length > 0 ? Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b) : 'question';
+            if (maxType === 'question') { role = "前瞻探索者 (Epistemic Explorer)"; desc = "你善於發掘問題的本質..."; icon = "fa-compass"; } 
+            else if (maxType === 'riseabove') { role = "觀點昇華者 (Idea Synthesizer)"; desc = "你擁有卓越的整合能力..."; icon = "fa-layer-group"; } 
+            else if (maxType === 'counter') { role = "建設性批判者 (Constructive Critic)"; desc = "你勇於挑戰既有假設..."; icon = "fa-gavel"; } 
+            else if (maxType === 'improve') { role = "理論優化者 (Theory Improver)"; desc = "你持續致力於改善他人的想法..."; icon = "fa-wrench"; } 
+            else { role = "積極連結者 (Active Connector)"; desc = "你積極串聯各種想法..."; icon = "fa-link"; }
+            let trajectoryHTML = "";
+            if (nodes.length === 0) { trajectoryHTML = "<p class='text-slate-500 italic'>尚無足夠資料來分析演化軌跡，快去貢獻想法吧！</p>"; } else {
+                const sorted = [...nodes].sort((a,b) => b.date - a.date).slice(0, 3);
+                trajectoryHTML = sorted.map((n, i) => { const s = window.SCAFFOLDS[n.type]; return `<div class="flex items-start gap-3 relative pb-4 last:pb-0">${i !== sorted.length -1 ? '<div class="absolute left-[14px] top-8 bottom-0 w-0.5 bg-slate-200"></div>' : ''}<div class="w-7 h-7 rounded-full ${s.color} text-white flex items-center justify-center shrink-0 z-10 text-xs"><i class="fa-solid ${s.icon}"></i></div><div class="flex-1"><div class="flex items-center gap-2 mb-1"><span class="text-xs font-bold px-2 py-0.5 rounded-full ${s.bgSoft} ${s.text}">${s.label}</span><span class="text-[10px] text-slate-400">${new Date(n.date).toLocaleDateString()}</span></div><p class="text-slate-900 font-bold text-xs mb-1">${n.title || ''}</p><p class="text-slate-700 text-sm bg-slate-50 p-2 rounded border border-slate-100">${n.content}</p></div></div>`; }).join('');
+            }
+            const replyCount = nodes.filter(n => n.parentId).length; 
+            const sparkedCount = Math.floor(total * 0.8); 
+            const communityHTML = `<div class="grid grid-cols-2 gap-4 mb-3"><div class="bg-blue-50 p-3 rounded-lg text-center"><div class="text-2xl font-bold text-blue-600">${replyCount}</div><div class="text-xs text-blue-800">承接他人想法</div></div><div class="bg-indigo-50 p-3 rounded-lg text-center"><div class="text-2xl font-bold text-indigo-600">${sparkedCount}</div><div class="text-xs text-indigo-800">激發後續討論</div></div></div><p class="text-sm text-slate-600 leading-relaxed">${replyCount > sparkedCount ? "你傾向於<span class='font-bold text-blue-600'>站在巨人的肩膀上</span>，善於消化並延續他人的觀點..." : "你的想法具有<span class='font-bold text-indigo-600'>高度啟發性</span>，經常成為社群熱烈討論的核心..."}</p>`;
+            const statsHTML = Object.entries(counts).map(([k, v]) => { const pct = (v / total) * 100; const s = window.SCAFFOLDS[k]; return `<div class="mb-2"><div class="flex justify-between text-xs mb-1"><span class="font-medium text-slate-600 flex items-center gap-1"><i class="fa-solid ${s.icon} ${s.text}"></i> ${s.label}</span><span class="text-slate-400">${Math.round(pct)}%</span></div><div class="w-full bg-slate-100 rounded-full h-1.5"><div class="${s.color} h-1.5 rounded-full transition-all duration-1000" style="width: ${pct}%"></div></div></div>`; }).join('');
+            return { role, desc, icon, trajectoryHTML, communityHTML, statsHTML };
+        };
+
+        // --- 4. Canvas Logic (Isolated Module) ---
+        window.app.canvas = {
+            renderLoop: () => {
+                if (window.state.currentView === 'canvas') {
+                    const nodes = window.state.nodes.filter(n => n.topicId === window.state.currentTopicId);
+                    if (window.state.canvas.draggedNodeId || window.state.canvas.isAnimating) {
+                            window.ui.drawConnections(nodes);
+                    }
+                }
+                requestAnimationFrame(window.app.canvas.renderLoop);
+            },
+            applyTransform: () => {
+                const el = document.getElementById('canvas-content');
+                if(el) el.style.transform = `translate(${window.state.canvas.offsetX}px, ${window.state.canvas.offsetY}px) scale(${window.state.canvas.scale})`;
+                const bg = document.getElementById('canvas-bg');
+                if(bg) bg.style.backgroundPosition = `${window.state.canvas.offsetX}px ${window.state.canvas.offsetY}px`;
+            },
+            getCoords: (e) => (e.touches && e.touches.length > 0) ? {x: e.touches[0].clientX, y: e.touches[0].clientY} : {x: e.clientX, y: e.clientY},
+            
+            toggleMode: () => {
+                window.state.canvas.isPanMode = !window.state.canvas.isPanMode;
+                const w = document.getElementById('canvas-wrapper');
+                if (window.state.canvas.isPanMode) {
+                    if(w) w.style.cursor = 'grab';
+                    window.state.canvas.isSelecting = false;
+                    const sb = document.getElementById('selection-box');
+                    if(sb) sb.style.display = 'none';
+                    window.ui.showToast('已切換為：拖曳模式 (按左鍵拖曳)', 'success');
+                } else {
+                    if(w) w.style.cursor = 'default';
+                    window.ui.showToast('已切換為：選取模式 (按左鍵框選)', 'info');
+                }
+                window.ui.renderCanvas();
+            },
+            
+            handleDoubleClick: (e) => {
+                if (e.target.closest('.node-card')) return;
+                window.app.canvas.toggleMode();
+            },
+
+            startPan: (e) => {
+                if(e.target.closest('.node-card')) {
+                    const nodeId = e.target.closest('.node-card').id.replace('node-', '');
+                    if (!e.shiftKey && !e.ctrlKey && !window.state.selectedNodeIds.includes(nodeId)) {
+                        window.state.selectedNodeIds = [];
+                        // Manually clear classes to avoid re-render that kills double click
+                        document.querySelectorAll('.node-card.selected-node').forEach(el => el.classList.remove('selected-node'));
+                    }
+                    if (!window.state.selectedNodeIds.includes(nodeId)) {
+                        window.state.selectedNodeIds.push(nodeId);
+                        // Visual update only
+                        const card = document.getElementById(`node-${nodeId}`);
+                        if(card) card.classList.add('selected-node');
+                    }
+                    return; 
+                }
+                if (e.ctrlKey || window.state.canvas.isPanMode) {
+                    window.state.canvas.isDragging = true;
+                    const c = window.app.canvas.getCoords(e);
+                    window.state.canvas.lastX = c.x; 
+                    window.state.canvas.lastY = c.y;
+                    const w = document.getElementById('canvas-wrapper'); if(w) w.style.cursor = 'grabbing';
+                    return;
+                }
+                window.state.canvas.isSelecting = true;
+                const c = window.app.canvas.getCoords(e);
+                window.state.canvas.selectionStart = {x: c.x, y: c.y};
+                window.state.canvas.selectionCurrent = {x: c.x, y: c.y};
+                const box = document.getElementById('selection-box');
+                box.style.left = c.x + 'px';
+                box.style.top = c.y + 'px';
+                box.style.width = '0px';
+                box.style.height = '0px';
+                box.style.display = 'block';
+                if (!e.shiftKey) {
+                    window.state.selectedNodeIds = [];
+                    // Visual update only
+                    document.querySelectorAll('.node-card.selected-node').forEach(el => el.classList.remove('selected-node'));
+                }
+            },
+            pan: (e) => {
+                const c = window.app.canvas.getCoords(e);
+                if(window.state.canvas.isDragging) {
+                    window.state.canvas.offsetX += c.x - window.state.canvas.lastX;
+                    window.state.canvas.offsetY += c.y - window.state.canvas.lastY;
+                    window.state.canvas.lastX = c.x; window.state.canvas.lastY = c.y;
+                    window.app.canvas.applyTransform();
+                } else if(window.state.canvas.draggedNodeId) {
+                    const dx = (c.x - window.state.canvas.lastX) / window.state.canvas.scale;
+                    const dy = (c.y - window.state.canvas.lastY) / window.state.canvas.scale;
+                    
+                    // Check if dragged node is part of selection
+                    let nodesToMoveIds = [window.state.canvas.draggedNodeId];
+                    if (window.state.selectedNodeIds.includes(window.state.canvas.draggedNodeId)) {
+                        nodesToMoveIds = window.state.selectedNodeIds;
+                    }
+
+                    nodesToMoveIds.forEach(id => {
+                        const node = window.state.nodes.find(n => n.id === id);
+                        if(node) {
+                            node.x += dx;
+                            node.y += dy;
+                            const el = document.getElementById(`node-${node.id}`);
+                            if(el) {
+                                el.style.left = `${node.x}px`;
+                                el.style.top = `${node.y}px`;
+                            }
+                        }
+                    });
+
+                    window.state.canvas.lastX = c.x; window.state.canvas.lastY = c.y;
+                } else if (window.state.canvas.isSelecting) {
+                    window.state.canvas.selectionCurrent = {x: c.x, y: c.y};
+                    const start = window.state.canvas.selectionStart;
+                    const current = window.state.canvas.selectionCurrent;
+                    const x = Math.min(start.x, current.x);
+                    const y = Math.min(start.y, current.y);
+                    const w = Math.abs(current.x - start.x);
+                    const h = Math.abs(current.y - start.y);
+                    const box = document.getElementById('selection-box');
+                    box.style.left = x + 'px';
+                    box.style.top = y + 'px';
+                    box.style.width = w + 'px';
+                    box.style.height = h + 'px';
+                }
+            },
+            handleEnd: () => {
+                if (window.state.canvas.isDragging) {
+                    window.state.canvas.isDragging = false;
+                    const cursor = window.state.canvas.isPanMode ? 'grab' : 'default'; 
+                    const w = document.getElementById('canvas-wrapper'); if(w) w.style.cursor = cursor;
+                }
+                if (window.state.canvas.draggedNodeId) {
+                    window.state.canvas.draggedNodeId = null;
+                }
+                if (window.state.canvas.isSelecting) {
+                    const start = window.state.canvas.selectionStart;
+                    const current = window.state.canvas.selectionCurrent;
+                    const selRect = { left: Math.min(start.x, current.x), top: Math.min(start.y, current.y), right: Math.max(start.x, current.x), bottom: Math.max(start.y, current.y) };
+                    
+                    // If box is tiny, just hide it and return (treat as click)
+                    if (Math.abs(selRect.right - selRect.left) < 5 && Math.abs(selRect.bottom - selRect.top) < 5) {
+                            window.state.canvas.isSelecting = false;
+                            document.getElementById('selection-box').style.display = 'none';
+                            return;
+                    }
+
+                    const nodeElements = document.querySelectorAll('.node-card');
+                    const newSelectedIds = [];
+                    nodeElements.forEach(el => {
+                        const rect = el.getBoundingClientRect();
+                        if (rect.left < selRect.right && rect.right > selRect.left &&
+                            rect.top < selRect.bottom && rect.bottom > selRect.top) {
+                            const id = el.id.replace('node-', '');
+                            newSelectedIds.push(id);
+                        }
+                    });
+                    newSelectedIds.forEach(id => { if (!window.state.selectedNodeIds.includes(id)) window.state.selectedNodeIds.push(id); });
+                    window.state.canvas.isSelecting = false;
+                    document.getElementById('selection-box').style.display = 'none';
+                    window.ui.renderCanvas(); 
+                }
+            },
+            handleWheel: (e) => {
+                e.preventDefault();
+                const d = -e.deltaY * 0.001;
+                window.state.canvas.scale = Math.min(Math.max(0.2, window.state.canvas.scale + d), 3);
+                window.app.canvas.applyTransform();
+            },
+            zoom: (d) => { window.state.canvas.scale = Math.min(Math.max(0.2, window.state.canvas.scale + d), 3); window.app.canvas.applyTransform(); },
+            fitView: () => { window.state.canvas.scale = window.innerWidth < 768 ? 0.8 : 1; window.state.canvas.offsetX = 0; window.state.canvas.offsetY = 0; window.app.canvas.applyTransform(); },
+            startDrag: (e, id) => {
+                window.state.canvas.draggedNodeId = id;
+                const c = window.app.canvas.getCoords(e);
+                window.state.canvas.lastX = c.x; window.state.canvas.lastY = c.y;
+                if (!window.state.selectedNodeIds.includes(id)) {
+                    if (!e.shiftKey) window.state.selectedNodeIds = [];
+                    window.state.selectedNodeIds.push(id);
+                    window.ui.renderCanvas();
+                }
+            },
+            toggleHeatmap: () => {
+                window.state.canvas.isHeatmapMode = !window.state.canvas.isHeatmapMode;
+                window.ui.renderCanvas(); 
+            },
+            toggleCluster: () => {
+                const isCluster = !window.state.canvas.isClusterMode;
+                window.state.canvas.isClusterMode = isCluster;
+                const nodes = window.state.nodes.filter(n => n.topicId === window.state.currentTopicId);
+                if (isCluster) {
+                    const clusterGroups = { 'A': [], 'B': [], 'C': [], 'Other': [] };
+                    nodes.forEach(n => {
+                        if (window.CLUSTER_CENTERS[n.cluster]) clusterGroups[n.cluster].push(n);
+                        else clusterGroups['Other'].push(n);
+                    });
+                    const targets = [];
+                    const nodeW = 320; 
+                    const nodeH = 200; 
+                    Object.entries(clusterGroups).forEach(([key, groupNodes]) => {
+                        const center = window.CLUSTER_CENTERS[key] || {x: 0, y: 0, width: 1000, height: 1000};
+                        const cols = Math.max(1, Math.floor(center.width / nodeW));
+                        groupNodes.forEach((n, idx) => {
+                            if (n.savedX === undefined) { n.savedX = n.x; n.savedY = n.y; }
+                            const col = idx % cols;
+                            const row = Math.floor(idx / cols);
+                            const startX = center.x - ((cols * nodeW) / 2) + (nodeW / 2);
+                            const startY = center.y - (center.height / 2) + 100; 
+                            const tx = startX + (col * nodeW);
+                            const ty = startY + (row * nodeH);
+                            targets.push({ id: n.id, x: tx, y: ty });
+                        });
+                    });
+                    window.app.canvas.animateNodes(targets);
+                } else {
+                    const targets = nodes.map(n => ({ id: n.id, x: n.savedX !== undefined ? n.savedX : n.x, y: n.savedY !== undefined ? n.savedY : n.y }));
+                    window.app.canvas.animateNodes(targets);
+                }
+                window.ui.renderCanvas();
+            },
+            animateNodes: (targets) => {
+                const startPositions = {};
+                const nodes = window.state.nodes.filter(n => n.topicId === window.state.currentTopicId);
+                nodes.forEach(n => { startPositions[n.id] = {x: n.x, y: n.y}; });
+                const duration = 800; const startTime = performance.now(); window.state.canvas.isAnimating = true;
+                const animate = (time) => {
+                    const elapsed = time - startTime;
+                    const progress = Math.min(elapsed / duration, 1);
+                    const ease = progress < 0.5 ? 2 * progress * progress : -1 + (4 - 2 * progress) * progress;
+                    targets.forEach(target => {
+                        const node = nodes.find(n => n.id === target.id);
+                        if (node) {
+                            const start = startPositions[target.id];
+                            node.x = start.x + (target.x - start.x) * ease;
+                            node.y = start.y + (target.y - start.y) * ease;
+                            const el = document.getElementById(`node-${node.id}`);
+                            if (el) { el.style.left = `${node.x}px`; el.style.top = `${node.y}px`; }
+                        }
+                    });
+                    if (progress < 1) { requestAnimationFrame(animate); } 
+                    else { 
+                        window.state.canvas.isAnimating = false; 
+                        targets.forEach(target => { const node = nodes.find(n => n.id === target.id); if(node) { node.x = target.x; node.y = target.y; } }); 
+                        window.ui.drawConnections(nodes); // Redraw lines at end
+                    }
+                };
+                requestAnimationFrame(animate);
+            }
+        };
+
+        // --- 5. UI Logic (Separated for safety) ---
+        window.ui = {};
+        window.ui.init = () => {
+            console.log("Initializing UI...");
+            window.dataManager.load();
+            window.app.updateTrashBadge();
+            window.app.initCategorySelector();
+            window.ui.renderUserInfo();
+            window.ui.renderUserMenu();
+            if (window.state.currentView === 'canvas' && window.state.currentTopicId && window.state.topics.find(t => t.id === window.state.currentTopicId)) { window.app.router('canvas'); }
+            else if (window.state.currentView === 'profile') { window.app.router('profile'); }
+            else { window.app.router('entrance'); }
+            
+            // Global Listeners for Canvas Interaction
+            window.addEventListener('mouseup', window.app.canvas.handleEnd);
+            window.addEventListener('touchend', window.app.canvas.handleEnd);
+            window.addEventListener('resize', () => { if(window.state.currentView === 'canvas') window.ui.renderCanvas(); });
+            
+            // NEW: Escape key to close modals
+            window.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    const modals = ['modal-topic', 'modal-node', 'modal-detail', 'modal-confirm', 'modal-addUser', 'modal-trash'];
+                    modals.forEach(id => {
+                        const el = document.getElementById(id);
+                        if (el && !el.classList.contains('hidden')) {
+                            window.ui.closeModal(id);
+                        }
+                    });
+                }
+            });
+
+            window.app.canvas.renderLoop();
+            console.log("UI Initialized.");
+        };
+        
+        window.ui.renderUserInfo = () => {
+            const u = window.state.user;
+            const avatarEl = document.getElementById('user-avatar');
+            if(avatarEl) avatarEl.src = u.avatar;
+            const nameEl = document.getElementById('user-name');
+            if(nameEl) nameEl.innerText = u.name;
+            const roleEl = document.getElementById('user-role');
+            if(roleEl) roleEl.innerText = u.role === window.ROLES.LEAD ? '首席' : '協同';
+        };
+        
+        window.ui.renderUserMenu = () => { 
+            const userList = window.state.userList;
+            const menuContent = Object.entries(userList).map(([key, u]) => {
+                const isCurrentUser = window.state.user.id === u.id;
+                const canDelete = window.state.user.role === window.ROLES.LEAD && !isCurrentUser;
+                const deleteBtn = canDelete ? `<button onclick="event.stopPropagation(); window.app.deleteUser('${key}')" class="p-3 text-slate-400 hover:text-red-500 transition"><i class="fa-solid fa-trash"></i></button>` : `<div class="p-3 w-10"></div>`; 
+                return `<div class="flex items-center hover:bg-slate-50 border-b border-slate-50 last:border-0 group"><button onclick="window.app.switchUser('${key}')" class="flex-1 text-left px-4 py-3 text-sm flex items-center gap-2 ${isCurrentUser ? 'bg-indigo-50 text-indigo-700' : ''}"><span class="text-xl">${u.role === window.ROLES.LEAD ? '👨‍🏫' : '🧑‍🎓'}</span><div class="flex flex-col"><span class="font-medium">${u.name}</span><span class="text-[10px] text-slate-400">${u.role === window.ROLES.LEAD ? '首席' : '協同'}</span></div></button>${deleteBtn}</div>`;
+            }).join('');
+            let resetOption = window.state.user.role === window.ROLES.LEAD ? `<div class="bg-slate-50 px-4 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider border-t mt-1">系統設定</div><button onclick="window.ui.confirm('確定重置所有資料？', '這將刪除所有資料，恢復到預設狀態。', window.dataManager.reset)" class="w-full text-left px-4 py-3 hover:bg-red-50 text-sm flex items-center gap-2 text-red-600 font-medium"><span class="text-xl">⚠️</span> 重置系統資料</button>` : '';
+            const menuEl = document.getElementById('user-menu');
+            if(menuEl) menuEl.innerHTML = `<div class="bg-slate-50 px-4 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider">切換身份</div><div class="max-h-60 overflow-y-auto custom-scroll">${menuContent}</div><div class="bg-slate-50 px-4 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider border-t mt-1">人員管理</div><button onclick="window.app.openAddUserModal()" class="w-full text-left px-4 py-3 hover:bg-slate-50 text-sm flex items-center gap-2 text-indigo-600 font-medium"><span class="text-xl">➕</span> 新增協同研究員</button>${resetOption}`;
+        };
+
+        window.ui.renderTrashList = () => { 
+            const list = document.getElementById('trash-list');
+            if (!list) return;
+            if (window.state.trash.length === 0) { list.innerHTML = `<div class="text-center py-10 text-slate-400"><i class="fa-regular fa-trash-can text-4xl mb-3 opacity-50"></i><p>回收桶是空的</p></div>`; return; }
+            list.innerHTML = window.state.trash.map(item => {
+                const isTopic = item.type === 'topic';
+                const icon = isTopic ? 'fa-folder' : (window.SCAFFOLDS[item.data[0]?.type]?.icon || 'fa-note-sticky');
+                const color = isTopic ? 'text-indigo-500 bg-indigo-100' : 'text-slate-500 bg-slate-100';
+                const name = isTopic ? item.data.name : (item.data[0]?.content.substring(0, 30) + '...');
+                const date = new Date(item.deletedAt).toLocaleString();
+                return `<div class="flex items-center justify-between p-3 border border-slate-200 rounded-lg hover:bg-slate-50 transition"><div class="flex items-center gap-3"><div class="w-10 h-10 rounded-full ${color} flex items-center justify-center shrink-0"><i class="fa-solid ${icon}"></i></div><div><div class="font-bold text-slate-800 text-sm">${name}</div><div class="text-xs text-slate-400">刪除於: ${date}</div></div></div><div class="flex gap-2"><button onclick="window.app.restoreTrashItem('${item.id}')" class="text-xs bg-green-50 text-green-600 px-3 py-1.5 rounded hover:bg-green-100 transition border border-green-200">還原</button><button onclick="window.app.deleteTrashItem('${item.id}')" class="text-xs bg-red-50 text-red-600 px-3 py-1.5 rounded hover:bg-red-100 transition border border-red-200">永久刪除</button></div></div>`;
+            }).join('');
+        };
+        window.ui.closeModal = (id) => { 
+            document.getElementById(id).classList.add('hidden');
+            if(id === 'modal-node') {
+                document.getElementById('node-title').value = ''; // Clear Title
+                document.getElementById('node-content').value = '';
+                document.getElementById('ai-suggestion-box').classList.add('hidden');
+                window.state.composer.parentId = null;
+                window.state.composer.selectedScaffold = null;
+            }
+            if (id === 'modal-addUser') { document.getElementById('new-user-name').value = ''; }
+            if (id === 'modal-topic') { 
+                window.state.tempSelectedCategories = []; 
+                window.state.editingTopicId = null;
+                window.app.renderCategorySelector(); 
+                document.getElementById('topic-name').value = ''; 
+                document.getElementById('topic-desc').value = ''; 
+            }
+        };
+        window.ui.showToast = (msg, type = 'info') => { 
+            const container = document.getElementById('toast-container');
+            const el = document.createElement('div');
+            const colors = type === 'error' ? 'bg-red-500' : (type === 'success' ? 'bg-green-600' : 'bg-slate-800');
+            el.className = `${colors} text-white px-4 py-2 rounded-lg shadow-xl text-sm flex items-center gap-2 transform transition-all translate-y-2 opacity-0`;
+            el.innerHTML = `<i class="fa-solid ${type === 'success' ? 'fa-check' : 'fa-info-circle'}"></i> ${msg}`;
+            container.appendChild(el);
+            requestAnimationFrame(() => el.classList.remove('translate-y-2', 'opacity-0'));
+            setTimeout(() => { el.classList.add('opacity-0', 'translate-x-full'); setTimeout(() => el.remove(), 300); }, 3000);
+        };
+        window.ui.confirm = (title, desc, action) => { 
+            document.querySelector('#modal-confirm h3').innerText = title;
+            document.querySelector('#modal-confirm p').innerText = desc;
+            document.getElementById('btn-confirm-action').onclick = action;
+            document.getElementById('modal-confirm').classList.remove('hidden');
+        };
+        window.ui.updateNav = (view) => { 
+            document.querySelectorAll('.nav-btn, .mobile-nav-btn').forEach(btn => {
+                if(btn.dataset.nav === view) {
+                    btn.classList.add('active');
+                    if(btn.classList.contains('mobile-nav-btn')) btn.classList.add('text-indigo-600');
+                } else {
+                    btn.classList.remove('active', 'text-indigo-600');
+                    if(btn.classList.contains('mobile-nav-btn')) btn.classList.add('text-slate-400');
+                }
+            });
+        };
+        window.ui.renderEntrance = () => { 
+            const container = document.getElementById('app-container');
+            const visibleTopics = window.state.activeFilter === '全部' 
+                ? window.state.topics 
+                : window.state.topics.filter(t => t.categories && t.categories.includes(window.state.activeFilter));
+
+            container.innerHTML = `<div class="max-w-7xl mx-auto px-4 md:px-6 py-8 h-full overflow-y-auto custom-scroll"><div class="mb-6 text-center"><h2 class="text-2xl md:text-3xl font-bold text-slate-900">知識建構論壇 Knowledge Building Forum</h2><p class="text-slate-500 text-sm">"知識建構不是追求答案，而是以改善想法為共同使命，讓社群思維持續朝向更深刻的理解。"</p></div><div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4"><div class="w-full md:w-auto category-scroll-container"><div id="category-filters" class="flex gap-2 whitespace-nowrap md:flex-wrap">${window.app.generateCategoryFilters()}</div></div>${window.state.user.role === window.ROLES.LEAD ? `<button onclick="window.app.openCreateTopic()" class="bg-indigo-600 text-white px-5 py-2 rounded-lg shadow text-sm hover:bg-indigo-700 transition flex-shrink-0"><i class="fa-solid fa-plus"></i> 新增主題</button>` : ''}</div><div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-20">${visibleTopics.length === 0 ? `<div class="col-span-full text-center text-slate-400 py-10">此分類暫無主題，點擊右上角新增一個吧！</div>` : ''}${visibleTopics.map(t => { 
+                const count = window.state.nodes.filter(n => n.topicId === t.id).length; 
+                const cats = t.categories || [t.category] || ['其他']; 
+                const tagsHtml = cats.map(c => `<span class="bg-indigo-50 text-indigo-700 px-2 py-1 rounded text-xs font-bold mr-1">${window.TOPIC_CATEGORIES[c] || c}</span>`).join(''); 
+                const adminControls = window.state.user.role === window.ROLES.LEAD ? `
+                    <div class="flex gap-2">
+                        <button onclick="event.stopPropagation(); window.app.openEditTopic('${t.id}')" class="text-slate-300 hover:text-indigo-500 transition" title="編輯主題"><i class="fa-solid fa-pen-to-square"></i></button>
+                        <button onclick="event.stopPropagation(); window.app.deleteTopic('${t.id}')" class="text-slate-300 hover:text-red-500 transition" title="刪除主題"><i class="fa-solid fa-trash"></i></button>
+                    </div>` : '';
+                return `<div onclick="window.app.enterTopic('${t.id}')" class="bg-white rounded-xl border p-5 cursor-pointer hover:shadow-lg relative overflow-hidden group transition"><div class="flex justify-between mb-3 items-start"><div class="flex flex-wrap gap-1">${tagsHtml}</div>${adminControls}</div><h3 class="font-bold text-lg mb-2 group-hover:text-indigo-600 transition">${t.name}</h3><p class="text-slate-500 text-sm mb-4 line-clamp-2">${t.desc}</p><div class="flex justify-between text-xs text-slate-400 pt-3 border-t"><span><i class="fa-solid fa-user"></i> ${window.state.userList[t.author] ? window.state.userList[t.author].name : 'Unknown'}</span><span>${count} 想法</span></div></div>`; 
+            }).join('')}</div></div>`;
+            setTimeout(() => { document.querySelectorAll('.filter-btn').forEach(button => { button.addEventListener('click', (e) => { window.app.setFilter(e.currentTarget.dataset.category); }); }); }, 0);
+        };
+        window.ui.renderCanvas = () => { 
+            const topic = window.state.topics.find(t => t.id === window.state.currentTopicId);
+            const nodes = window.state.nodes.filter(n => n.topicId === window.state.currentTopicId);
+            const container = document.getElementById('app-container');
+            
+            const isPanMode = window.state.canvas.isPanMode;
+            const modeLabel = isPanMode ? '✋ 拖曳模式' : '⬚ 選取模式';
+            const modeClass = isPanMode ? 'bg-indigo-600 text-white shadow-lg scale-105' : 'bg-white text-slate-600 border border-slate-200';
+            const modeIcon = isPanMode ? '<i class="fa-solid fa-hand"></i>' : '<i class="fa-regular fa-square"></i>';
+
+            container.innerHTML = `
+            <div class="absolute top-2 left-2 right-2 md:top-4 md:left-4 md:right-4 z-40 flex justify-between pointer-events-none">
+                <div class="bg-white/90 backdrop-blur shadow-sm border rounded-lg p-2 pointer-events-auto flex items-center gap-2 max-w-[40%] md:max-w-[50%]">
+                    <button onclick="window.app.router('entrance')" class="w-8 h-8 flex items-center justify-center rounded hover:bg-slate-100 text-slate-500"><i class="fa-solid fa-arrow-left"></i></button>
+                    <div class="h-6 w-px bg-slate-200"></div>
+                    <h2 class="font-bold text-xs md:text-sm truncate px-1">${topic.name}</h2>
+                </div>
+                <div class="flex gap-2 pointer-events-auto">
+                    <button onclick="window.app.canvas.toggleHeatmap()" id="btn-heatmap" class="${window.state.canvas.isHeatmapMode ? 'bg-orange-100 text-orange-600 border-orange-200' : 'bg-white/90 text-slate-500 border-slate-200'} backdrop-blur shadow-sm border rounded-lg px-3 py-1 text-xs font-bold flex items-center gap-1 transition-all hover:scale-105"><i class="fa-solid fa-fire ${window.state.canvas.isHeatmapMode ? 'animate-pulse' : ''}"></i> <span class="hidden md:inline">潛力熱點</span></button>
+                    <button onclick="window.app.canvas.toggleCluster()" id="btn-cluster" class="${window.state.canvas.isClusterMode ? 'bg-purple-100 text-purple-600 border-purple-200' : 'bg-white/90 text-slate-500 border-slate-200'} backdrop-blur shadow-sm border rounded-lg px-3 py-1 text-xs font-bold flex items-center gap-1 transition-all hover:scale-105"><i class="fa-solid fa-sparkles ${window.state.canvas.isClusterMode ? 'text-purple-500' : ''}"></i> <span class="hidden md:inline">語意聚類</span></button>
+                    <div class="bg-white/90 backdrop-blur shadow-sm border rounded-lg p-1 flex">
+                        <button onclick="window.app.canvas.fitView()" class="w-8 h-8 flex items-center justify-center hover:bg-slate-100"><i class="fa-solid fa-expand"></i></button>
+                        <button onclick="window.app.canvas.zoom(0.1)" class="w-8 h-8 flex items-center justify-center hover:bg-slate-100 hidden md:flex"><i class="fa-solid fa-plus"></i></button>
+                        <button onclick="window.app.canvas.zoom(-0.1)" class="w-8 h-8 flex items-center justify-center hover:bg-slate-100 hidden md:flex"><i class="fa-solid fa-minus"></i></button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-40 pointer-events-auto transition-all duration-300">
+                <button onclick="window.app.canvas.toggleMode()" class="${modeClass} pointer-events-auto cursor-pointer px-4 py-2 rounded-full shadow-md flex items-center gap-2 text-sm font-bold transition-all duration-300 hover:scale-105 active:scale-95">
+                    ${modeIcon} <span>${modeLabel}</span>
+                </button>
+            </div>
+
+            <div class="absolute bottom-6 right-4 md:bottom-8 md:right-8 z-40"> 
+                <button onclick="window.app.openComposer(null)" class="bg-indigo-600 text-white rounded-full w-12 h-12 md:w-14 md:h-14 shadow-xl flex items-center justify-center text-xl transition transform hover:scale-105"><i class="fa-solid fa-plus"></i></button>
+            </div>
+            
+            <div class="absolute bottom-24 left-4 md:bottom-8 md:left-24 z-30 pointer-events-none">
+                <div class="bg-white/80 backdrop-blur-sm border border-slate-200 p-3 rounded-lg shadow-sm text-xs text-slate-600 pointer-events-auto space-y-1">
+                    <h4 class="font-bold text-slate-700 mb-1 flex items-center gap-1"><i class="fa-solid fa-circle-question text-indigo-500"></i> 操作指南</h4>
+                    <div class="flex items-center justify-between gap-3"><span class="bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded text-[10px] font-mono text-slate-500">左鍵拖曳</span> <span>框選範圍</span></div>
+                    <div class="flex items-center justify-between gap-3"><span class="bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded text-[10px] font-mono text-slate-500">Ctrl + 拖曳</span> <span>移動畫布</span></div>
+                    <div class="flex items-center justify-between gap-3"><span class="bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded text-[10px] font-mono text-slate-500">雙擊空白</span> <span>切換 拖曳/選取</span></div>
+                    <div class="flex items-center justify-between gap-3"><span class="bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded text-[10px] font-mono text-slate-500">滾輪</span> <span>縮放視角</span></div>
+                </div>
+            </div>
+
+            <div id="canvas-wrapper" class="w-full h-full overflow-hidden relative touch-none noselect" 
+                 style="cursor: ${isPanMode ? 'grab' : 'default'}"
+                 ondblclick="window.app.canvas.handleDoubleClick(event)"
+                 onmousedown="window.app.canvas.startPan(event)" 
+                 ontouchstart="window.app.canvas.startPan(event)" 
+                 onmousemove="window.app.canvas.pan(event)" 
+                 ontouchmove="window.app.canvas.pan(event)" 
+                 onwheel="window.app.canvas.handleWheel(event)">
+                <div id="canvas-bg"></div>
+                <div id="canvas-content" class="absolute top-0 left-0 w-full h-full origin-top-left will-change-transform">
+                    <div id="cluster-labels-layer" class="absolute top-0 left-0 w-full h-full pointer-events-none z-0 transition-opacity duration-500 opacity-0"></div>
+                    <svg id="connections-layer" class="absolute top-0 left-0 w-[5000px] h-[5000px] pointer-events-none overflow-visible z-0"></svg>
+                    <div id="nodes-layer" class="z-10"></div>
+                </div>
+            </div>`;
+            
+            if (window.state.canvas.isClusterMode) {
+                const labelLayer = document.getElementById('cluster-labels-layer');
+                if (labelLayer) {
+                    labelLayer.innerHTML = Object.values(window.CLUSTER_CENTERS).map(c => `<div class="cluster-zone" style="left: ${c.x - c.width/2}px; top: ${c.y - c.height/2}px; width: ${c.width}px; height: ${c.height}px;"><div class="cluster-title">${c.title}</div></div>`).join('');
+                    labelLayer.classList.remove('opacity-0');
+                    labelLayer.style.opacity = '1';
+                }
+            }
+
+            window.ui.drawNodes(nodes);
+            setTimeout(() => window.ui.drawConnections(nodes), 0);
+            window.app.canvas.applyTransform();
+        };
+        window.ui.renderProfile = () => {
+            const container = document.getElementById('app-container');
+            const u = window.state.user;
+            container.innerHTML = `<div class="max-w-2xl mx-auto px-6 py-8 h-full overflow-y-auto custom-scroll pb-20"><div class="bg-gradient-to-br from-indigo-50 to-white rounded-2xl p-6 shadow-sm border border-indigo-100 text-center mb-6 relative overflow-hidden"><div class="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-400 via-purple-500 to-indigo-500"></div><img src="${u.avatar}" class="w-20 h-20 rounded-full mx-auto mb-3 border-4 border-white shadow-md"><h2 class="text-2xl font-bold text-slate-800">${u.name}</h2><p class="text-slate-500 text-sm mb-1">${u.role === window.ROLES.LEAD ? '首席研究員' : '協同研究員'}</p><div class="flex justify-center gap-2 mt-4"><span class="bg-white/80 border px-3 py-1 rounded-full text-xs font-bold text-slate-600 shadow-sm">ID: ${u.id}</span></div></div><div class="space-y-6"><div class="flex items-center justify-between"><h3 class="font-bold text-lg flex items-center gap-2"><i class="fa-solid fa-robot text-indigo-600"></i> 我的知識建構檔案 (KB Profile)</h3><button onclick="window.app.generateAIProfile()" id="btn-gen-profile" class="bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-slate-700 transition flex items-center gap-2"><i class="fa-solid fa-wand-magic-sparkles"></i> <span>生成分析</span></button></div><div id="ai-loading" class="hidden p-8 text-center bg-white rounded-2xl border border-slate-100"><div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mb-2"></div><p class="text-sm text-slate-500 animate-pulse">正在回顧你的知識演化軌跡...</p></div><div id="ai-profile-result" class="hidden space-y-4"></div></div></div>`;
+            if (window.state.profile && document.getElementById('ai-profile-result')) { window.ui.renderProfileContent(window.state.profile); }
+        };
+        window.ui.renderProfileContent = (data) => {
+            const result = document.getElementById('ai-profile-result');
+            result.innerHTML = `<div class="animate-fade-in bg-white p-5 rounded-xl shadow-sm border-l-4 border-indigo-500 relative overflow-hidden"><div class="absolute right-0 top-0 opacity-5 transform translate-x-4 -translate-y-4"><i class="fa-solid ${data.icon} text-9xl text-indigo-900"></i></div><h4 class="text-sm font-bold text-indigo-500 uppercase tracking-wider mb-3 flex items-center gap-2"><i class="fa-solid fa-fire"></i> 使用者知識角色</h4><div class="relative z-10"><p class="text-xl font-bold text-slate-800 mb-2">${data.role}</p><p class="text-sm text-slate-600 leading-relaxed">${data.desc}</p></div></div><div class="grid grid-cols-1 md:grid-cols-2 gap-4"><div class="animate-fade-in bg-white p-5 rounded-xl shadow-sm border-l-4 border-green-500" style="animation-delay: 0.1s"><h4 class="text-sm font-bold text-green-600 uppercase tracking-wider mb-4 flex items-center gap-2"><i class="fa-solid fa-seedling"></i> 想法演化軌跡</h4><div class="pl-2">${data.trajectoryHTML}</div></div><div class="animate-fade-in bg-white p-5 rounded-xl shadow-sm border-l-4 border-blue-500" style="animation-delay: 0.2s"><h4 class="text-sm font-bold text-blue-600 uppercase tracking-wider mb-4 flex items-center gap-2"><i class="fa-solid fa-puzzle-piece"></i> 社群推動力</h4>${data.communityHTML}</div></div><div class="animate-fade-in bg-white p-5 rounded-xl shadow-sm border-l-4 border-purple-500" style="animation-delay: 0.3s"><h4 class="text-sm font-bold text-purple-600 uppercase tracking-wider mb-4 flex items-center gap-2"><i class="fa-solid fa-chart-pie"></i> 知識建構策略分佈</h4><p class="text-xs text-slate-500 mb-4">這顯示了你在知識建構過程中所使用的認知策略多樣性 (Idea Diversity)：</p><div class="grid grid-cols-1 gap-2">${data.statsHTML}</div></div>`;
+            result.classList.remove('hidden');
+        };
+        window.ui.drawNodes = (nodes) => {
+            document.getElementById('nodes-layer').innerHTML = nodes.map(node => {
+                const s = window.SCAFFOLDS[node.type];
+                const user = Object.values(window.state.userList).find(u => u.id === node.author) || {name: '?'};
+                const canDel = window.state.user.role === window.ROLES.LEAD || node.author === window.state.user.id;
+                const isPromising = window.state.canvas.isHeatmapMode && node.promisingness > 70;
+                const heatmapClass = isPromising ? 'promising-node' : '';
+                const flameBadge = isPromising ? `<div class="absolute -top-3 -right-2 bg-orange-500 text-white text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm animate-bounce-slow z-50"><i class="fa-solid fa-fire"></i> 熱點</div>` : '';
+                const isSelected = window.state.selectedNodeIds.includes(node.id) ? 'selected-node' : '';
+                return `<div id="node-${node.id}" class="absolute node-card w-64 md:w-72 bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col overflow-visible ${heatmapClass} ${isSelected}" style="left: ${node.x}px; top: ${node.y}px;" onmousedown="event.stopPropagation(); window.app.canvas.startDrag(event, '${node.id}')" ontouchstart="event.stopPropagation(); window.app.canvas.startDrag(event, '${node.id}')" ondblclick="event.stopPropagation(); window.app.openNodeDetail('${node.id}')">${flameBadge}<div class="px-3 py-2 ${s.bgSoft} border-b ${s.border} flex justify-between items-center cursor-move rounded-t-xl"><div class="flex items-center gap-2"><span class="w-5 h-5 rounded-full ${s.color} text-white flex justify-center items-center text-xs"><i class="fa-solid ${s.icon}"></i></span><span class="text-xs font-bold ${s.text}">${s.label}</span></div><div class="flex gap-1"><button onclick="event.stopPropagation(); window.app.openNodeDetail('${node.id}')" class="w-8 h-8 rounded hover:bg-white/50 text-slate-500 flex justify-center items-center"><i class="fa-solid fa-eye"></i></button><button onclick="event.stopPropagation(); window.app.openComposer('${node.id}')" class="w-8 h-8 rounded hover:bg-white/50 text-slate-500 flex justify-center items-center"><i class="fa-solid fa-reply"></i></button>${canDel ? `<button onclick="event.stopPropagation(); window.app.deleteNode('${node.id}')" class="w-8 h-8 rounded hover:bg-white/50 text-slate-500 hover:text-red-500 flex justify-center items-center"><i class="fa-solid fa-xmark"></i></button>` : ''}</div></div><div class="p-3 text-sm text-slate-700 leading-relaxed min-h-[60px] pointer-events-none bg-white"><h4 class="font-bold mb-1 text-slate-900 block truncate text-base">${node.title || '無標題'}</h4><p class="line-clamp-2 text-slate-600">${node.content}</p></div><div class="px-3 py-2 bg-slate-50 border-t flex justify-between text-[10px] text-slate-500 items-center rounded-b-xl"><div class="flex items-center gap-2"><img src="${user.avatar}" class="w-4 h-4 rounded-full"><span>${user.name}</span></div><span>${new Date(node.date).toLocaleDateString()}</span></div></div>`;
+            }).join('');
+        };
+        window.ui.drawConnections = (nodes) => { 
+            const layer = document.getElementById('connections-layer');
+            if(!layer) return;
+            layer.innerHTML = `<defs>${Object.keys(window.SCAFFOLDS).map(k => { const c = { question: '#3b82f6', extend: '#eab308', improve: '#22c55e', counter: '#ef4444', riseabove: '#a855f7' }[k]; return `<marker id="arrow-${k}" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="${c}" /></marker>`; }).join('')}</defs>`;
+            const cardWidth = window.innerWidth < 768 ? 256 : 288;
+            const halfW = cardWidth / 2;
+            const paths = nodes.filter(n => n.parentId).map(node => {
+                const parent = window.state.nodes.find(p => p.id === node.parentId);
+                if (!parent) return '';
+                const startX = parent.x + halfW; const startY = parent.y + 140; const endX = node.x + halfW; const endY = node.y;
+                const dist = Math.sqrt(Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2));
+                let curveFactor = 0.4; if (endY < startY) curveFactor = 0.6; 
+                const cp1x = startX; const cp1y = startY + dist * curveFactor; const cp2x = endX; const cp2y = endY - dist * curveFactor;
+                const colorMap = { question: '#3b82f6', extend: '#eab308', improve: '#22c55e', counter: '#ef4444', riseabove: '#a855f7' };
+                return `<path d="M ${startX} ${startY} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${endX} ${endY}" stroke="${colorMap[node.type]}" fill="none" stroke-width="2" stroke-opacity="0.6" marker-end="url(#arrow-${node.type})" />`;
+            }).join('');
+            layer.innerHTML += paths;
+        };
+
+        window.addEventListener('DOMContentLoaded', () => {
+            if (window.ui && typeof window.ui.init === 'function') {
+                window.ui.init();
+            } else {
+                console.error("UI Init failed");
+            }
+        });
     </script>
 </body>
 </html>
