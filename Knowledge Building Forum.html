@@ -2,8 +2,8 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>知識建構協作平台 (KB Platform) - v2.29 (Title Added)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>知識建構協作平台 (KB Platform) - Mobile Optimized</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -25,13 +25,23 @@
                     },
                     animation: {
                         'bounce-slow': 'bounce 3s infinite',
+                    },
+                    padding: {
+                        'safe-bottom': 'env(safe-area-inset-bottom)',
                     }
                 }
             }
         }
     </script>
     <style>
-        body { overflow: hidden; overscroll-behavior: none; }
+        html, body { 
+            height: 100%; 
+            width: 100%; 
+            overflow: hidden; /* 防止整個頁面捲動，交由容器處理 */
+            overscroll-behavior: none; 
+            -webkit-tap-highlight-color: transparent;
+        }
+        
         #canvas-bg {
             background-color: #f8fafc;
             background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
@@ -42,7 +52,18 @@
             top: 0; left: 0;
             z-index: -1;
         }
+        
+        /* 通用滾動條樣式 */
+        .custom-scroll {
+            -webkit-overflow-scrolling: touch; /* iOS 滑順滾動 */
+        }
+        .custom-scroll::-webkit-scrollbar { width: 6px; }
+        .custom-scroll::-webkit-scrollbar-track { background: transparent; }
+        .custom-scroll::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 20px; }
+        
+        /* 隱藏滾動條但保留功能 */
         .scrollbar-hide::-webkit-scrollbar { display: none; }
+        
         .node-card {
             transition: box-shadow 0.2s, transform 0.2s; 
             user-select: none; touch-action: none; -webkit-user-select: none;
@@ -85,7 +106,6 @@
         }
         path.connection { fill: none; stroke-width: 2; transition: stroke 0.3s; pointer-events: none; }
         
-        /* Selection Box Style */
         #selection-box {
             position: fixed;
             background-color: rgba(59, 130, 246, 0.1);
@@ -123,23 +143,23 @@
         .mobile-nav-btn.active { color: #4f46e5; }
         .filter-btn { transition: background-color 0.2s, color 0.2s, border-color 0.2s; border-color: rgb(226, 232, 240); }
         .filter-btn.active { background-color: rgb(238, 242, 255); color: rgb(79, 70, 229); border-color: rgb(165, 180, 252); }
-        .custom-scroll::-webkit-scrollbar { width: 6px; }
-        .custom-scroll::-webkit-scrollbar-track { background: transparent; }
-        .custom-scroll::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 20px; }
-        #canvas-wrapper { touch-action: none; }
         
+        #canvas-wrapper { touch-action: none; }
         .category-tag { cursor: pointer; transition: all 0.2s; user-select: none; }
         .category-tag.selected { background-color: #e0e7ff; color: #4338ca; border-color: #818cf8; }
+
+        /* Mobile specific padding helper */
+        .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
     </style>
 </head>
-<body class="bg-slate-50 text-slate-800 h-screen flex flex-col font-sans">
+<body class="bg-slate-50 text-slate-800 h-full w-full flex flex-col font-sans">
 
     <!-- Top Navbar -->
     <nav class="h-14 md:h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-6 z-50 shadow-sm relative shrink-0">
         <div class="flex items-center gap-3 cursor-pointer" onclick="window.app.router('entrance')">
             <div class="w-8 h-8 md:w-10 md:h-10 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold text-lg md:text-xl shrink-0">KB</div>
             <div>
-                <h1 class="font-bold text-base md:text-lg leading-tight text-slate-800 truncate max-w-[150px] md:max-w-none">知識建構平台</h1>
+                <h1 class="font-bold text-base md:text-lg leading-tight text-slate-800 truncate max-w-[120px] md:max-w-none">知識建構平台</h1>
                 <p class="text-[10px] md:text-xs text-slate-500 hidden md:block">Knowledge Building Environment (v2.29)</p>
             </div>
         </div>
@@ -167,30 +187,34 @@
     </nav>
 
     <!-- Main Container -->
-    <main id="app-container" class="flex-1 relative overflow-hidden bg-slate-50 w-full mb-14 md:mb-0"></main>
+    <!-- Added flex-1 and overflow-hidden to ensure main content takes available space but handles its own scroll -->
+    <main id="app-container" class="flex-1 relative overflow-hidden bg-slate-50 w-full"></main>
 
     <!-- Desktop Footer -->
-    <footer class="hidden md:flex bg-white border-t border-slate-200 px-4 py-2 text-center z-40 text-[10px] md:text-xs text-slate-500 justify-center items-center gap-2 shrink-0 safe-area-bottom">
+    <footer class="hidden md:flex bg-white border-t border-slate-200 px-4 py-2 text-center z-40 text-[10px] md:text-xs text-slate-500 justify-center items-center gap-2 shrink-0">
         <i class="fa-solid fa-seedling text-green-500"></i>
         <span class="truncate">知識建構：在未完成的理解中彼此承擔責任，使想法在社群裡不斷向更好的解釋演化。</span>
     </footer>
 
-    <!-- Mobile Bottom Navigation -->
-    <div class="md:hidden fixed bottom-0 left-0 right-0 h-14 bg-white border-t border-slate-200 flex justify-around items-center z-50 pb-safe">
-        <button onclick="window.app.router('entrance')" data-nav="entrance" class="mobile-nav-btn flex flex-col items-center justify-center w-full h-full text-slate-400 hover:text-indigo-600"><i class="fa-solid fa-house text-lg mb-0.5"></i> <span class="text-[10px]">主題</span></button>
-        <button onclick="window.app.router('canvas')" data-nav="canvas" class="mobile-nav-btn flex flex-col items-center justify-center w-full h-full text-slate-400 hover:text-indigo-600"><i class="fa-solid fa-project-diagram text-lg mb-0.5"></i> <span class="text-[10px]">地圖</span></button>
-        <button onclick="window.app.router('profile')" data-nav="profile" class="mobile-nav-btn flex flex-col items-center justify-center w-full h-full text-slate-400 hover:text-indigo-600"><i class="fa-solid fa-user text-lg mb-0.5"></i> <span class="text-[10px]">檔案</span></button>
+    <!-- Mobile Bottom Navigation (Fixed at bottom) -->
+    <!-- Added padding-bottom for safe area -->
+    <div class="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 flex justify-around items-center z-50 pb-safe h-14 box-content">
+        <button onclick="window.app.router('entrance')" data-nav="entrance" class="mobile-nav-btn flex flex-col items-center justify-center w-full h-full pt-1 text-slate-400 hover:text-indigo-600"><i class="fa-solid fa-house text-lg mb-0.5"></i> <span class="text-[10px]">主題</span></button>
+        <button onclick="window.app.router('canvas')" data-nav="canvas" class="mobile-nav-btn flex flex-col items-center justify-center w-full h-full pt-1 text-slate-400 hover:text-indigo-600"><i class="fa-solid fa-project-diagram text-lg mb-0.5"></i> <span class="text-[10px]">地圖</span></button>
+        <button onclick="window.app.router('profile')" data-nav="profile" class="mobile-nav-btn flex flex-col items-center justify-center w-full h-full pt-1 text-slate-400 hover:text-indigo-600"><i class="fa-solid fa-user text-lg mb-0.5"></i> <span class="text-[10px]">檔案</span></button>
     </div>
 
-    <!-- Trash Can FAB -->
+    <!-- Trash Can FAB (Adjusted position for Mobile) -->
     <button onclick="window.app.openTrash()" id="btn-trash-fab" class="fixed bottom-20 left-4 md:bottom-8 md:left-8 z-[60] bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 rounded-full w-12 h-12 md:w-14 md:h-14 shadow-lg flex items-center justify-center text-xl transition transform hover:scale-105 group" title="資源回收桶">
         <i class="fa-solid fa-trash-can group-hover:text-red-500 transition-colors"></i>
         <span id="trash-count-badge" class="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full hidden border-2 border-white">0</span>
     </button>
 
-    <!-- Modals -->
+    <!-- Modals (Improved Mobile Responsiveness) -->
+    
+    <!-- Topic Create Modal -->
     <div id="modal-topic" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] hidden flex items-end md:items-center justify-center p-4">
-        <div class="bg-white rounded-t-xl md:rounded-xl shadow-2xl w-full max-w-lg p-6 transform transition-all scale-100 max-h-[90vh] overflow-y-auto">
+        <div class="bg-white rounded-t-xl md:rounded-xl shadow-2xl w-full max-w-lg p-6 transform transition-all scale-100 max-h-[85vh] overflow-y-auto mb-safe md:mb-0">
             <h3 id="modal-topic-title" class="text-xl font-bold mb-4 flex items-center gap-2"><i class="fa-solid fa-folder-plus text-indigo-600"></i> 開啟探究主題</h3>
             <div class="space-y-4">
                 <div>
@@ -206,57 +230,74 @@
                     <textarea id="topic-desc" rows="3" class="w-full px-4 py-2 border border-slate-300 rounded-lg outline-none focus:border-indigo-500 transition"></textarea>
                 </div>
             </div>
-            <div class="mt-6 flex justify-end gap-3">
+            <div class="mt-6 flex justify-end gap-3 pb-safe">
                 <button onclick="window.ui.closeModal('modal-topic')" class="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg">取消</button>
                 <button id="btn-topic-save" onclick="window.app.saveTopic()" class="px-4 py-2 bg-indigo-600 text-white rounded-lg shadow hover:bg-indigo-700">建立</button>
             </div>
         </div>
     </div>
 
+    <!-- Node Composer Modal -->
     <div id="modal-node" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] hidden flex items-end md:items-center justify-center sm:p-4">
-        <div class="bg-white rounded-t-xl sm:rounded-xl shadow-2xl w-full max-w-2xl p-4 sm:p-6 relative max-h-[95vh] overflow-y-auto">
-            <button onclick="window.ui.closeModal('modal-node')" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 p-2"><i class="fa-solid fa-xmark text-xl"></i></button>
-            <h3 class="text-lg md:text-xl font-bold mb-2">貢獻想法</h3>
-            <div class="grid grid-cols-3 md:grid-cols-5 gap-2 mb-4"><div id="scaffold-selector" class="contents"></div></div>
-            <div id="scaffold-desc" class="hidden"></div>
-            <!-- Added Title Input -->
-            <div class="mb-3">
-                <input type="text" id="node-title" class="w-full px-4 py-2 border border-slate-300 rounded-lg outline-none font-bold text-base md:text-lg placeholder:font-normal" placeholder="輸入想法標題 (例如：關於光線的假設)">
+        <div class="bg-white rounded-t-xl sm:rounded-xl shadow-2xl w-full max-w-2xl p-4 sm:p-6 relative max-h-[90vh] overflow-y-auto flex flex-col mb-safe md:mb-0">
+            <div class="flex justify-between items-center mb-4">
+                 <h3 class="text-lg md:text-xl font-bold">貢獻想法</h3>
+                 <button onclick="window.ui.closeModal('modal-node')" class="text-slate-400 hover:text-slate-600 p-2"><i class="fa-solid fa-xmark text-xl"></i></button>
             </div>
-            <div class="relative">
-                <textarea id="node-content" rows="4" class="w-full px-4 py-3 border border-slate-300 rounded-lg outline-none text-base" placeholder="輸入詳細內容..."></textarea>
-                <div id="ai-suggestion-box" class="hidden mt-2 md:absolute md:-bottom-16 md:left-0 md:right-0 bg-blue-50 border border-blue-100 text-blue-800 p-3 rounded-lg text-sm flex items-start gap-3 shadow-sm"><i class="fa-solid fa-lightbulb text-yellow-500 mt-1 shrink-0"></i><div><span class="font-bold block text-xs uppercase text-blue-400 mb-1">AI 建議</span><p class="text-xs md:text-sm">試著用「我的理論是...因為...」來延伸？</p></div></div>
+            
+            <div class="flex-1 overflow-y-auto custom-scroll pb-2">
+                <div class="grid grid-cols-5 gap-1 md:gap-2 mb-4"><div id="scaffold-selector" class="contents"></div></div>
+                <div id="scaffold-desc" class="hidden"></div>
+                <div class="mb-3">
+                    <input type="text" id="node-title" class="w-full px-4 py-2 border border-slate-300 rounded-lg outline-none font-bold text-base md:text-lg placeholder:font-normal" placeholder="輸入想法標題...">
+                </div>
+                <div class="relative">
+                    <textarea id="node-content" rows="4" class="w-full px-4 py-3 border border-slate-300 rounded-lg outline-none text-base" placeholder="輸入詳細內容..."></textarea>
+                </div>
+                <!-- AI Box moved inside scrollable area for mobile -->
+                <div id="ai-suggestion-box" class="hidden mt-2 bg-blue-50 border border-blue-100 text-blue-800 p-3 rounded-lg text-sm flex items-start gap-3 shadow-sm"><i class="fa-solid fa-lightbulb text-yellow-500 mt-1 shrink-0"></i><div><span class="font-bold block text-xs uppercase text-blue-400 mb-1">AI 建議</span><p class="text-xs md:text-sm">試著用「我的理論是...因為...」來延伸？</p></div></div>
             </div>
-            <div class="mt-4 md:mt-16 flex justify-end"><button onclick="window.app.submitNode()" class="px-6 py-3 md:py-2 bg-slate-900 text-white rounded-lg">發布</button></div>
+            
+            <div class="mt-4 flex justify-end shrink-0 pt-2 border-t border-slate-100">
+                <button onclick="window.app.submitNode()" class="px-6 py-2.5 bg-slate-900 text-white rounded-lg w-full md:w-auto font-bold">發布</button>
+            </div>
         </div>
     </div>
 
+    <!-- Node Detail Modal -->
     <div id="modal-detail" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-[65] hidden flex items-center justify-center p-4">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh]">
-            <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0 bg-slate-50 rounded-t-xl">
-                <div class="flex items-center gap-3"><div id="detail-scaffold-icon" class="w-10 h-10 rounded-full flex items-center justify-center text-white text-lg"></div><div><div id="detail-scaffold-label" class="text-xs font-bold uppercase mb-0.5">TYPE</div><div class="flex gap-2 text-xs text-slate-500"><span id="detail-author"></span><span>•</span><span id="detail-date"></span></div></div></div>
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[85vh]">
+            <div class="px-4 py-3 md:px-6 md:py-4 border-b border-slate-100 flex items-center justify-between shrink-0 bg-slate-50 rounded-t-xl">
+                <div class="flex items-center gap-3">
+                    <div id="detail-scaffold-icon" class="w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center text-white text-lg"></div>
+                    <div>
+                        <div id="detail-scaffold-label" class="text-xs font-bold uppercase mb-0.5">TYPE</div>
+                        <div class="flex gap-2 text-[10px] md:text-xs text-slate-500"><span id="detail-author"></span><span>•</span><span id="detail-date"></span></div>
+                    </div>
+                </div>
                 <button onclick="window.ui.closeModal('modal-detail')" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-200 text-slate-400"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
-            <div class="p-6 overflow-y-auto custom-scroll flex-1">
-                <!-- Added Title Display -->
-                <h2 id="detail-title" class="text-xl md:text-2xl font-bold mb-4 text-slate-900"></h2>
-                <p id="detail-content" class="text-base md:text-lg leading-relaxed whitespace-pre-wrap text-slate-700"></p>
+            <div class="p-4 md:p-6 overflow-y-auto custom-scroll flex-1">
+                <h2 id="detail-title" class="text-lg md:text-2xl font-bold mb-4 text-slate-900 leading-snug"></h2>
+                <p id="detail-content" class="text-sm md:text-lg leading-relaxed whitespace-pre-wrap text-slate-700"></p>
             </div>
-            <div class="p-4 border-t border-slate-100 bg-slate-50 rounded-b-xl flex justify-end gap-3 shrink-0">
-                <button id="btn-detail-reply" class="px-5 py-2 bg-indigo-600 text-white rounded-lg flex items-center gap-2"><i class="fa-solid fa-reply"></i> 延伸</button>
+            <div class="p-3 md:p-4 border-t border-slate-100 bg-slate-50 rounded-b-xl flex justify-end gap-3 shrink-0">
+                <button id="btn-detail-reply" class="px-5 py-2 bg-indigo-600 text-white rounded-lg flex items-center gap-2 text-sm font-medium w-full md:w-auto justify-center"><i class="fa-solid fa-reply"></i> 延伸</button>
             </div>
         </div>
     </div>
 
+    <!-- Confirm Modal -->
     <div id="modal-confirm" class="fixed inset-0 bg-black/50 z-[110] hidden flex items-center justify-center p-4">
         <div class="bg-white rounded-lg p-6 max-w-sm w-full shadow-xl text-center">
             <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-red-500 text-xl"><i class="fa-solid fa-triangle-exclamation"></i></div>
             <h3 class="text-lg font-bold mb-2">確定要刪除嗎？</h3>
             <p class="text-slate-500 text-sm mb-6">將連同子節點一併刪除。</p>
-            <div class="flex justify-center gap-3"><button onclick="window.ui.closeModal('modal-confirm')" class="px-4 py-2 border rounded-lg">取消</button><button id="btn-confirm-action" class="px-4 py-2 bg-red-600 text-white rounded-lg">刪除</button></div>
+            <div class="flex justify-center gap-3"><button onclick="window.ui.closeModal('modal-confirm')" class="px-4 py-2 border rounded-lg w-full">取消</button><button id="btn-confirm-action" class="px-4 py-2 bg-red-600 text-white rounded-lg w-full">刪除</button></div>
         </div>
     </div>
 
+    <!-- Add User Modal -->
     <div id="modal-addUser" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] hidden flex items-center justify-center p-4">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6">
             <h3 class="text-xl font-bold mb-4 flex items-center gap-2"><i class="fa-solid fa-user-plus text-indigo-600"></i> 新增使用者</h3>
@@ -271,15 +312,16 @@
         </div>
     </div>
 
+    <!-- Trash Modal -->
     <div id="modal-trash" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-[70] hidden flex items-center justify-center p-4">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh]">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[85vh]">
             <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0 bg-red-50 rounded-t-xl">
                 <h3 class="text-lg font-bold text-red-700 flex items-center gap-2"><i class="fa-solid fa-trash-can"></i> 資源回收桶</h3>
                 <button onclick="window.ui.closeModal('modal-trash')" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-red-100 text-red-400"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
-            <div class="p-6 overflow-y-auto custom-scroll flex-1"><div id="trash-list" class="space-y-3"></div></div>
+            <div class="p-4 md:p-6 overflow-y-auto custom-scroll flex-1"><div id="trash-list" class="space-y-3"></div></div>
             <div class="p-4 border-t border-slate-100 bg-slate-50 rounded-b-xl flex justify-between gap-3 shrink-0">
-                <button onclick="window.app.emptyTrash()" class="px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg text-sm font-bold"><i class="fa-solid fa-ban"></i> 清空回收桶</button>
+                <button onclick="window.app.emptyTrash()" class="px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg text-sm font-bold"><i class="fa-solid fa-ban"></i> 清空</button>
                 <button onclick="window.ui.closeModal('modal-trash')" class="px-5 py-2 bg-white border border-slate-300 text-slate-600 rounded-lg shadow-sm text-sm">關閉</button>
             </div>
         </div>
@@ -331,44 +373,7 @@
                 { id: 'n3', topicId: 't1', type: 'extend', title: '瑞利散射理論', content: '我的理論是瑞利散射。藍光波長短，容易被散射。', author: 'u1', x: 400, y: 400, parentId: 'n1', date: Date.now(), cluster: 'A', promisingness: 85 },
                 { id: 'n4', topicId: 't1', type: 'counter', title: '陰天與雲的例外', content: '但瑞利散射不能解釋為什麼陰天也是白色的，或是雲為什麼是白的？', author: 'u4', x: 700, y: 300, parentId: 'n3', date: Date.now(), cluster: 'A', promisingness: 90 },
                 { id: 'n5', topicId: 't1', type: 'improve', title: '米氏散射解釋雲朵', content: '雲是白色的可以用「米氏散射」解釋，因為水滴顆粒比氣體分子大很多，所有波長都散射，混合成白光。', author: 'u5', x: 900, y: 300, parentId: 'n4', date: Date.now(), cluster: 'B', promisingness: 80 },
-                { id: 'n6', topicId: 't1', type: 'riseabove', title: '散射與顆粒大小的整合模型', content: '整合觀點：天空顏色取決於「散射顆粒大小」與「光波長」的關係。微小氣體分子造成瑞利散射(藍/紅)，較大水滴造成米氏散射(白)。', author: 'u6', x: 600, y: 600, parentId: 'n5', date: Date.now(), cluster: 'C', promisingness: 95 },
-                { id: 'n2_1', topicId: 't2', type: 'question', title: 'AI 的創造力質疑', content: 'AI 真的有創造力嗎？還是只是在拼湊？', author: 'u2', x: 100, y: 300, parentId: null, date: Date.now(), cluster: 'A', promisingness: 40 },
-                { id: 'n2_2', topicId: 't2', type: 'extend', title: '生成未知的新圖像', content: '它能生成從未見過的畫作，這應該算創造吧。', author: 'u3', x: 400, y: 200, parentId: 'n2_1', date: Date.now(), cluster: 'B', promisingness: 50 },
-                { id: 'n2_3', topicId: 't2', type: 'counter', title: '缺乏靈魂的機率分佈', content: '但那些「畫作」只是基於訓練資料的機率分布，它沒有靈魂或意圖。', author: 'u4', x: 600, y: 200, parentId: 'n2_2', date: Date.now(), cluster: 'A', promisingness: 60 },
-                { id: 'n2_4', topicId: 't2', type: 'improve', title: '重新定義創造力', content: '我們該定義什麼是創造力：通常包含「新穎性」與「價值」。AI 確實能產出新穎且有價值的東西。', author: 'u1', x: 800, y: 200, parentId: 'n2_3', date: Date.now(), cluster: 'B', promisingness: 75 },
-                { id: 'n2_5', topicId: 't2', type: 'extend', title: 'AlphaGo 的第 37 手', content: '像 AlphaGo 的第 37 手，連人類棋王都沒想過，這絕對是超越模仿的創造。', author: 'u5', x: 800, y: 400, parentId: 'n2_4', date: Date.now(), cluster: 'B', promisingness: 80 },
-                { id: 'n2_6', topicId: 't2', type: 'riseabove', title: '組合式 vs 變革式創造力', content: 'AI 擁有「組合式創造力」(Combinatorial Creativity)，但目前可能還缺乏「變革式創造力」(Transformational Creativity)。它是人類創造力的強大延伸工具。', author: 'u6', x: 500, y: 600, parentId: 'n2_5', date: Date.now(), cluster: 'C', promisingness: 95 },
-                { id: 'n3_1', topicId: 't3', type: 'question', title: '艾連的自由意志', content: '艾連到底是自由的，還是被命運束縛的奴隸？', author: 'u2', x: 100, y: 300, parentId: null, date: Date.now(), cluster: 'A', promisingness: 50 },
-                { id: 'n3_2', topicId: 't3', type: 'extend', title: '自由的奴隸諷刺', content: '他為了追求自由，反而成為了自由的奴隸，這是一種諷刺。', author: 'u3', x: 300, y: 200, parentId: 'n3_1', date: Date.now(), cluster: 'B', promisingness: 60 },
-                { id: 'n3_3', topicId: 't3', type: 'counter', title: '看見未來的宿命論', content: '他看見了未來，如果未來是註定的，那他就沒有選擇，也就沒有自由意志。', author: 'u4', x: 500, y: 300, parentId: 'n3_1', date: Date.now(), cluster: 'A', promisingness: 70 },
-                { id: 'n3_4', topicId: 't3', type: 'improve', title: '願望與未來的重合', content: '或許未來之所以那樣發生，正是因為那是他「想要」的結果？這也是一種自由選擇？', author: 'u5', x: 700, y: 300, parentId: 'n3_3', date: Date.now(), cluster: 'B', promisingness: 80 },
-                { id: 'n3_5', topicId: 't3', type: 'riseabove', title: '相容論的解釋', content: '相容論 (Compatibilism)：命運的必然性與個人的自由意志可能共存。艾連的性格決定了他的選擇，而他的選擇造就了註定的未來。', author: 'u1', x: 500, y: 600, parentId: 'n3_4', date: Date.now(), cluster: 'C', promisingness: 90 },
-                { id: 'n4_1', topicId: 't4', type: 'question', title: 'Discord Bot 入門', content: '我想做一個 Discord Bot，但不知道怎麼開始？', author: 'u3', x: 100, y: 300, parentId: null, date: Date.now(), cluster: 'A', promisingness: 30 },
-                { id: 'n4_2', topicId: 't4', type: 'extend', title: '推薦 discord.py', content: '你可以用 `discord.py` 這個函式庫，官方文件很詳細。', author: 'u4', x: 300, y: 200, parentId: 'n4_1', date: Date.now(), cluster: 'B', promisingness: 50 },
-                { id: 'n4_3', topicId: 't4', type: 'question', title: '24小時託管問題', content: '那要怎麼讓它 24 小時一直跑？我家電腦不能一直開著。', author: 'u2', x: 500, y: 200, parentId: 'n4_2', date: Date.now(), cluster: 'A', promisingness: 60 },
-                { id: 'n4_4', topicId: 't4', type: 'improve', title: 'Replit 免費方案', content: '可以用 Replit + UptimeRobot，這是免費方案。', author: 'u5', x: 700, y: 200, parentId: 'n4_3', date: Date.now(), cluster: 'B', promisingness: 70 },
-                { id: 'n4_5', topicId: 't4', type: 'counter', title: 'Replit 休眠問題', content: 'Replit 現在會休眠了，不推薦。建議用 Heroku 或是租一個便宜的 VPS (如 Linode)。', author: 'u6', x: 900, y: 200, parentId: 'n4_4', date: Date.now(), cluster: 'B', promisingness: 80 },
-                { id: 'n4_6', topicId: 't4', type: 'riseabove', title: '託管方案階層建議', content: '託管方案階層：練習用本機 -> 小型專案用免費雲 (限制多) -> 長期穩定服務建議用付費 VPS。根據需求選擇最適合的。', author: 'u1', x: 600, y: 500, parentId: 'n4_5', date: Date.now(), cluster: 'C', promisingness: 90 },
-                { id: 'n5_1', topicId: 't5', type: 'question', title: '文藝復興的地點之謎', content: '為什麼文藝復興偏偏發生在義大利？', author: 'u1', x: 100, y: 300, parentId: null, date: Date.now(), cluster: 'A', promisingness: 40 },
-                { id: 'n5_2', topicId: 't5', type: 'extend', title: '羅馬遺跡的靈感', content: '因為羅馬帝國的遺跡就在那裡，容易獲得靈感。', author: 'u2', x: 300, y: 200, parentId: 'n5_1', date: Date.now(), cluster: 'B', promisingness: 50 },
-                { id: 'n5_3', topicId: 't5', type: 'extend', title: '梅第奇家族贊助', content: '還有梅第奇家族 (Medici) 的贊助，有錢才能養藝術家。', author: 'u3', x: 300, y: 400, parentId: 'n5_1', date: Date.now(), cluster: 'B', promisingness: 55 },
-                { id: 'n5_4', topicId: 't5', type: 'improve', title: '古希臘知識回流', content: '別忘了君士坦丁堡陷落，學者帶著古希臘典籍逃到義大利，帶回了失傳的知識。', author: 'u4', x: 600, y: 300, parentId: 'n5_2', date: Date.now(), cluster: 'B', promisingness: 70 },
-                { id: 'n5_5', topicId: 't5', type: 'riseabove', title: '完美風暴理論', content: '這是一個「完美風暴」：經濟富裕 (貿易/贊助) + 文化底蘊 (羅馬遺跡) + 知識回流 (學者避難)，三者缺一不可。', author: 'u5', x: 600, y: 600, parentId: 'n5_4', date: Date.now(), cluster: 'C', promisingness: 90 },
-                { id: 'n7_1', topicId: 't7', type: 'question', title: '口說文法焦慮', content: '我每次開口說英文都很怕文法講錯，怎麼辦？', author: 'u3', x: 100, y: 300, parentId: null, date: Date.now(), cluster: 'A', promisingness: 40 },
-                { id: 'n7_2', topicId: 't7', type: 'extend', title: '語言交換', content: '找個語言交換夥伴，練習多了就不怕了。', author: 'u4', x: 300, y: 200, parentId: 'n7_1', date: Date.now(), cluster: 'B', promisingness: 50 },
-                { id: 'n7_3', topicId: 't7', type: 'counter', title: '人際恐懼', content: '但我就是怕在「人」面前講錯很丟臉啊！', author: 'u2', x: 500, y: 200, parentId: 'n7_2', date: Date.now(), cluster: 'A', promisingness: 60 },
-                { id: 'n7_4', topicId: 't7', type: 'improve', title: 'AI 對話練習', content: '那先跟 AI (ChatGPT 語音或 Siri) 練習？它們不會取笑你。', author: 'u5', x: 700, y: 200, parentId: 'n7_3', date: Date.now(), cluster: 'B', promisingness: 75 },
-                { id: 'n7_5', topicId: 't7', type: 'riseabove', title: '情意濾網理論應用', content: '降低「情意濾網」(Affective Filter)：先在低壓環境 (AI) 建立信心，再過渡到真人對話。重點是「溝通」而非「完美」。', author: 'u6', x: 500, y: 500, parentId: 'n7_4', date: Date.now(), cluster: 'C', promisingness: 90 },
-                { id: 'n8_1', topicId: 't8', type: 'question', title: '病毒的生命定義', content: '病毒到底算不算是生物？這好像很有爭議。', author: 'u4', x: 100, y: 300, parentId: null, date: Date.now(), cluster: 'A', promisingness: 50 },
-                { id: 'n8_2', topicId: 't8', type: 'extend', title: '遺傳物質論', content: '它們有遺傳物質 (DNA或RNA)，還會演化，應該算生物吧？', author: 'u2', x: 300, y: 200, parentId: 'n8_1', date: Date.now(), cluster: 'B', promisingness: 60 },
-                { id: 'n8_3', topicId: 't8', type: 'counter', title: '絕對寄生論', content: '可是它們離開宿主就完全不會動，也不會新陳代謝，像石頭一樣結晶化，不算是生物。', author: 'u3', x: 500, y: 200, parentId: 'n8_2', date: Date.now(), cluster: 'A', promisingness: 70 },
-                { id: 'n8_4', topicId: 't8', type: 'improve', title: '生物殭屍比喻', content: '或許它們像是「生物殭屍」？介於兩者之間？', author: 'u5', x: 700, y: 200, parentId: 'n8_3', date: Date.now(), cluster: 'B', promisingness: 65 },
-                { id: 'n8_5', topicId: 't8', type: 'riseabove', title: '生命光譜說', content: '科學定義是「絕對寄生」。生命可能不是非黑即白的二分法，而是一個光譜。病毒位於「生命邊緣」，挑戰了我們對生命的定義。', author: 'u1', x: 500, y: 500, parentId: 'n8_4', date: Date.now(), cluster: 'C', promisingness: 95 },
-                { id: 'n9_1', topicId: 't9', type: 'question', title: '數學的本體論', content: '數學原本就存在於宇宙中，還是人類發明出來的？', author: 'u6', x: 100, y: 300, parentId: null, date: Date.now(), cluster: 'A', promisingness: 50 },
-                { id: 'n9_2', topicId: 't9', type: 'extend', title: '發現說 (Platonism)', content: '我覺得是被發現的。像圓周率 Pi，不管在外星系還是地球都是一樣的。', author: 'u2', x: 300, y: 200, parentId: 'n9_1', date: Date.now(), cluster: 'B', promisingness: 60 },
-                { id: 'n9_3', topicId: 't9', type: 'counter', title: '發明說 (Formalism)', content: '但是「數字符號」和「十進位」是我們發明的啊！', author: 'u4', x: 500, y: 200, parentId: 'n9_2', date: Date.now(), cluster: 'A', promisingness: 65 },
-                { id: 'n9_4', topicId: 't9', type: 'improve', title: '概念與語言的區分', content: '或許「概念」是被發現的，但「描述語言」是被發明的？', author: 'u3', x: 700, y: 200, parentId: 'n9_3', date: Date.now(), cluster: 'B', promisingness: 80 },
-                { id: 'n9_5', topicId: 't9', type: 'riseabove', title: '主客觀交織論', content: '數學是人類發明的「語言」，用來描述我們發現的「宇宙規律」。兩者並不互斥，這是一種主客觀的交織。', author: 'u1', x: 500, y: 500, parentId: 'n9_4', date: Date.now(), cluster: 'C', promisingness: 95 }
+                { id: 'n6', topicId: 't1', type: 'riseabove', title: '散射與顆粒大小的整合模型', content: '整合觀點：天空顏色取決於「散射顆粒大小」與「光波長」的關係。微小氣體分子造成瑞利散射(藍/紅)，較大水滴造成米氏散射(白)。', author: 'u6', x: 600, y: 600, parentId: 'n5', date: Date.now(), cluster: 'C', promisingness: 95 }
             ]
         };
 
@@ -383,7 +388,9 @@
                 animFrame: null,
                 // Selection Box State
                 isSelecting: false, selectionStart: {x: 0, y: 0}, selectionCurrent: {x: 0, y: 0},
-                isPanMode: false 
+                isPanMode: false,
+                // Pinch Zoom State
+                isPinching: false, lastPinchDist: 0, startPinchScale: 1
             },
             selectedNodeIds: [],
             composer: { parentId: null, selectedScaffold: null }, profile: null
@@ -589,8 +596,8 @@
             window.state.composer.parentId = pid;
             document.getElementById('scaffold-selector').innerHTML = Object.values(window.SCAFFOLDS).map(s => `
                 <button onclick="window.app.selectScaffold('${s.id}')" id="btn-scaffold-${s.id}" class="flex flex-col items-center justify-center p-2 rounded-lg border-2 border-slate-100 opacity-60 transition hover:opacity-80">
-                    <div class="w-8 h-8 rounded-full ${s.color} text-white flex justify-center items-center mb-1"><i class="fa-solid ${s.icon}"></i></div>
-                    <span class="text-xs font-bold text-slate-600">${s.label}</span>
+                    <div class="w-8 h-8 md:w-8 md:h-8 rounded-full ${s.color} text-white flex justify-center items-center mb-1"><i class="fa-solid ${s.icon}"></i></div>
+                    <span class="text-[10px] md:text-xs font-bold text-slate-600">${s.label}</span>
                 </button>`).join('');
             const descEl = document.getElementById('scaffold-desc');
             if(descEl) { descEl.innerHTML = ''; descEl.className = 'hidden'; }
@@ -607,7 +614,7 @@
             const descEl = document.getElementById('scaffold-desc');
             if(descEl) {
                 descEl.innerHTML = `<i class="fa-solid fa-circle-info mr-2"></i><span>${s.desc}</span>`;
-                descEl.className = `text-sm mb-4 px-4 py-3 rounded-lg border flex items-start animate-fade-in ${s.bgSoft} ${s.text} ${s.border}`;
+                descEl.className = `text-xs md:text-sm mb-4 px-3 py-2 md:px-4 md:py-3 rounded-lg border flex items-start animate-fade-in ${s.bgSoft} ${s.text} ${s.border}`;
                 descEl.classList.remove('hidden');
             }
         };
@@ -655,7 +662,7 @@
             const n = window.state.nodes.find(x => x.id === id); if(!n) return;
             const s = window.SCAFFOLDS[n.type]; const u = Object.values(window.state.userList).find(u => u.id === n.author);
             const icon = document.getElementById('detail-scaffold-icon');
-            icon.className = `w-10 h-10 rounded-full flex justify-center items-center text-white text-lg ${s.color}`;
+            icon.className = `w-8 h-8 md:w-10 md:h-10 rounded-full flex justify-center items-center text-white text-lg ${s.color}`;
             icon.innerHTML = `<i class="fa-solid ${s.icon}"></i>`;
             document.getElementById('detail-scaffold-label').innerText = s.label;
             document.getElementById('detail-scaffold-label').className = `text-xs font-bold uppercase mb-0.5 ${s.text}`;
@@ -718,6 +725,12 @@
                 if(bg) bg.style.backgroundPosition = `${window.state.canvas.offsetX}px ${window.state.canvas.offsetY}px`;
             },
             getCoords: (e) => (e.touches && e.touches.length > 0) ? {x: e.touches[0].clientX, y: e.touches[0].clientY} : {x: e.clientX, y: e.clientY},
+            getDistance: (touches) => {
+                return Math.hypot(
+                    touches[0].clientX - touches[1].clientX,
+                    touches[0].clientY - touches[1].clientY
+                );
+            },
             
             toggleMode: () => {
                 window.state.canvas.isPanMode = !window.state.canvas.isPanMode;
@@ -741,6 +754,14 @@
             },
 
             startPan: (e) => {
+                // Pinch to Zoom Logic
+                if (e.touches && e.touches.length === 2) {
+                    window.state.canvas.isPinching = true;
+                    window.state.canvas.lastPinchDist = window.app.canvas.getDistance(e.touches);
+                    window.state.canvas.startPinchScale = window.state.canvas.scale;
+                    return; // Don't start pan if pinching
+                }
+
                 if(e.target.closest('.node-card')) {
                     const nodeId = e.target.closest('.node-card').id.replace('node-', '');
                     if (!e.shiftKey && !e.ctrlKey && !window.state.selectedNodeIds.includes(nodeId)) {
@@ -781,6 +802,16 @@
                 }
             },
             pan: (e) => {
+                // Pinch to Zoom Logic
+                if (window.state.canvas.isPinching && e.touches && e.touches.length === 2) {
+                    const dist = window.app.canvas.getDistance(e.touches);
+                    const zoomFactor = dist / window.state.canvas.lastPinchDist;
+                    const newScale = window.state.canvas.startPinchScale * zoomFactor;
+                    window.state.canvas.scale = Math.min(Math.max(0.2, newScale), 3);
+                    window.app.canvas.applyTransform();
+                    return;
+                }
+
                 const c = window.app.canvas.getCoords(e);
                 if(window.state.canvas.isDragging) {
                     window.state.canvas.offsetX += c.x - window.state.canvas.lastX;
@@ -826,7 +857,12 @@
                     box.style.height = h + 'px';
                 }
             },
-            handleEnd: () => {
+            handleEnd: (e) => {
+                // Pinch End Logic
+                if (window.state.canvas.isPinching && (!e.touches || e.touches.length < 2)) {
+                    window.state.canvas.isPinching = false;
+                }
+
                 if (window.state.canvas.isDragging) {
                     window.state.canvas.isDragging = false;
                     const cursor = window.state.canvas.isPanMode ? 'grab' : 'default'; 
@@ -1070,8 +1106,9 @@
             const visibleTopics = window.state.activeFilter === '全部' 
                 ? window.state.topics 
                 : window.state.topics.filter(t => t.categories && t.categories.includes(window.state.activeFilter));
-
-            container.innerHTML = `<div class="max-w-7xl mx-auto px-4 md:px-6 py-8 h-full overflow-y-auto custom-scroll"><div class="mb-6 text-center"><h2 class="text-2xl md:text-3xl font-bold text-slate-900">知識建構論壇 Knowledge Building Forum</h2><p class="text-slate-500 text-sm">"知識建構不是追求答案，而是以改善想法為共同使命，讓社群思維持續朝向更深刻的理解。"</p></div><div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4"><div class="w-full md:w-auto category-scroll-container"><div id="category-filters" class="flex gap-2 whitespace-nowrap md:flex-wrap">${window.app.generateCategoryFilters()}</div></div>${window.state.user.role === window.ROLES.LEAD ? `<button onclick="window.app.openCreateTopic()" class="bg-indigo-600 text-white px-5 py-2 rounded-lg shadow text-sm hover:bg-indigo-700 transition flex-shrink-0"><i class="fa-solid fa-plus"></i> 新增主題</button>` : ''}</div><div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-20">${visibleTopics.length === 0 ? `<div class="col-span-full text-center text-slate-400 py-10">此分類暫無主題，點擊右上角新增一個吧！</div>` : ''}${visibleTopics.map(t => { 
+            
+            // Added pb-24 to ensure content clears mobile bottom nav
+            container.innerHTML = `<div class="max-w-7xl mx-auto px-4 md:px-6 py-8 h-full overflow-y-auto custom-scroll pb-24"><div class="mb-6 text-center"><h2 class="text-2xl md:text-3xl font-bold text-slate-900">知識建構論壇 Knowledge Building Forum</h2><p class="text-slate-500 text-sm">"知識建構不是追求答案，而是以改善想法為共同使命，讓社群思維持續朝向更深刻的理解。"</p></div><div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4"><div class="w-full md:w-auto category-scroll-container"><div id="category-filters" class="flex gap-2 whitespace-nowrap md:flex-wrap">${window.app.generateCategoryFilters()}</div></div>${window.state.user.role === window.ROLES.LEAD ? `<button onclick="window.app.openCreateTopic()" class="bg-indigo-600 text-white px-5 py-2 rounded-lg shadow text-sm hover:bg-indigo-700 transition flex-shrink-0"><i class="fa-solid fa-plus"></i> 新增主題</button>` : ''}</div><div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-4">${visibleTopics.length === 0 ? `<div class="col-span-full text-center text-slate-400 py-10">此分類暫無主題，點擊右上角新增一個吧！</div>` : ''}${visibleTopics.map(t => { 
                 const count = window.state.nodes.filter(n => n.topicId === t.id).length; 
                 const cats = t.categories || [t.category] || ['其他']; 
                 const tagsHtml = cats.map(c => `<span class="bg-indigo-50 text-indigo-700 px-2 py-1 rounded text-xs font-bold mr-1">${window.TOPIC_CATEGORIES[c] || c}</span>`).join(''); 
@@ -1090,7 +1127,7 @@
             const container = document.getElementById('app-container');
             
             const isPanMode = window.state.canvas.isPanMode;
-            const modeLabel = isPanMode ? '✋ 拖曳模式' : '⬚ 選取模式';
+            const modeLabel = isPanMode ? '✋ 拖曳' : '⬚ 選取';
             const modeClass = isPanMode ? 'bg-indigo-600 text-white shadow-lg scale-105' : 'bg-white text-slate-600 border border-slate-200';
             const modeIcon = isPanMode ? '<i class="fa-solid fa-hand"></i>' : '<i class="fa-regular fa-square"></i>';
 
@@ -1102,8 +1139,8 @@
                     <h2 class="font-bold text-xs md:text-sm truncate px-1">${topic.name}</h2>
                 </div>
                 <div class="flex gap-2 pointer-events-auto">
-                    <button onclick="window.app.canvas.toggleHeatmap()" id="btn-heatmap" class="${window.state.canvas.isHeatmapMode ? 'bg-orange-100 text-orange-600 border-orange-200' : 'bg-white/90 text-slate-500 border-slate-200'} backdrop-blur shadow-sm border rounded-lg px-3 py-1 text-xs font-bold flex items-center gap-1 transition-all hover:scale-105"><i class="fa-solid fa-fire ${window.state.canvas.isHeatmapMode ? 'animate-pulse' : ''}"></i> <span class="hidden md:inline">潛力熱點</span></button>
-                    <button onclick="window.app.canvas.toggleCluster()" id="btn-cluster" class="${window.state.canvas.isClusterMode ? 'bg-purple-100 text-purple-600 border-purple-200' : 'bg-white/90 text-slate-500 border-slate-200'} backdrop-blur shadow-sm border rounded-lg px-3 py-1 text-xs font-bold flex items-center gap-1 transition-all hover:scale-105"><i class="fa-solid fa-sparkles ${window.state.canvas.isClusterMode ? 'text-purple-500' : ''}"></i> <span class="hidden md:inline">語意聚類</span></button>
+                    <button onclick="window.app.canvas.toggleHeatmap()" id="btn-heatmap" class="${window.state.canvas.isHeatmapMode ? 'bg-orange-100 text-orange-600 border-orange-200' : 'bg-white/90 text-slate-500 border-slate-200'} backdrop-blur shadow-sm border rounded-lg px-3 py-1 text-xs font-bold flex items-center gap-1 transition-all hover:scale-105"><i class="fa-solid fa-fire ${window.state.canvas.isHeatmapMode ? 'animate-pulse' : ''}"></i> <span class="text-[10px] md:text-xs">潛力熱點</span></button>
+                    <button onclick="window.app.canvas.toggleCluster()" id="btn-cluster" class="${window.state.canvas.isClusterMode ? 'bg-purple-100 text-purple-600 border-purple-200' : 'bg-white/90 text-slate-500 border-slate-200'} backdrop-blur shadow-sm border rounded-lg px-3 py-1 text-xs font-bold flex items-center gap-1 transition-all hover:scale-105"><i class="fa-solid fa-sparkles ${window.state.canvas.isClusterMode ? 'text-purple-500' : ''}"></i> <span class="text-[10px] md:text-xs">語意聚類</span></button>
                     <div class="bg-white/90 backdrop-blur shadow-sm border rounded-lg p-1 flex">
                         <button onclick="window.app.canvas.fitView()" class="w-8 h-8 flex items-center justify-center hover:bg-slate-100"><i class="fa-solid fa-expand"></i></button>
                         <button onclick="window.app.canvas.zoom(0.1)" class="w-8 h-8 flex items-center justify-center hover:bg-slate-100 hidden md:flex"><i class="fa-solid fa-plus"></i></button>
@@ -1112,17 +1149,17 @@
                 </div>
             </div>
             
-            <div class="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-40 pointer-events-auto transition-all duration-300">
+            <div class="absolute bottom-20 md:bottom-6 left-1/2 transform -translate-x-1/2 z-40 pointer-events-auto transition-all duration-300">
                 <button onclick="window.app.canvas.toggleMode()" class="${modeClass} pointer-events-auto cursor-pointer px-4 py-2 rounded-full shadow-md flex items-center gap-2 text-sm font-bold transition-all duration-300 hover:scale-105 active:scale-95">
                     ${modeIcon} <span>${modeLabel}</span>
                 </button>
             </div>
 
-            <div class="absolute bottom-6 right-4 md:bottom-8 md:right-8 z-40"> 
+            <div class="absolute bottom-20 right-4 md:bottom-8 md:right-8 z-40"> 
                 <button onclick="window.app.openComposer(null)" class="bg-indigo-600 text-white rounded-full w-12 h-12 md:w-14 md:h-14 shadow-xl flex items-center justify-center text-xl transition transform hover:scale-105"><i class="fa-solid fa-plus"></i></button>
             </div>
             
-            <div class="absolute bottom-24 left-4 md:bottom-8 md:left-24 z-30 pointer-events-none">
+            <div class="hidden md:block absolute bottom-24 left-4 md:bottom-8 md:left-24 z-30 pointer-events-none">
                 <div class="bg-white/80 backdrop-blur-sm border border-slate-200 p-3 rounded-lg shadow-sm text-xs text-slate-600 pointer-events-auto space-y-1">
                     <h4 class="font-bold text-slate-700 mb-1 flex items-center gap-1"><i class="fa-solid fa-circle-question text-indigo-500"></i> 操作指南</h4>
                     <div class="flex items-center justify-between gap-3"><span class="bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded text-[10px] font-mono text-slate-500">左鍵拖曳</span> <span>框選範圍</span></div>
@@ -1164,7 +1201,8 @@
         window.ui.renderProfile = () => {
             const container = document.getElementById('app-container');
             const u = window.state.user;
-            container.innerHTML = `<div class="max-w-2xl mx-auto px-6 py-8 h-full overflow-y-auto custom-scroll pb-20"><div class="bg-gradient-to-br from-indigo-50 to-white rounded-2xl p-6 shadow-sm border border-indigo-100 text-center mb-6 relative overflow-hidden"><div class="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-400 via-purple-500 to-indigo-500"></div><img src="${u.avatar}" class="w-20 h-20 rounded-full mx-auto mb-3 border-4 border-white shadow-md"><h2 class="text-2xl font-bold text-slate-800">${u.name}</h2><p class="text-slate-500 text-sm mb-1">${u.role === window.ROLES.LEAD ? '首席研究員' : '協同研究員'}</p><div class="flex justify-center gap-2 mt-4"><span class="bg-white/80 border px-3 py-1 rounded-full text-xs font-bold text-slate-600 shadow-sm">ID: ${u.id}</span></div></div><div class="space-y-6"><div class="flex items-center justify-between"><h3 class="font-bold text-lg flex items-center gap-2"><i class="fa-solid fa-robot text-indigo-600"></i> 我的知識建構檔案 (KB Profile)</h3><button onclick="window.app.generateAIProfile()" id="btn-gen-profile" class="bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-slate-700 transition flex items-center gap-2"><i class="fa-solid fa-wand-magic-sparkles"></i> <span>生成分析</span></button></div><div id="ai-loading" class="hidden p-8 text-center bg-white rounded-2xl border border-slate-100"><div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mb-2"></div><p class="text-sm text-slate-500 animate-pulse">正在回顧你的知識演化軌跡...</p></div><div id="ai-profile-result" class="hidden space-y-4"></div></div></div>`;
+            // Added pb-24 for mobile nav clearance
+            container.innerHTML = `<div class="max-w-2xl mx-auto px-6 py-8 h-full overflow-y-auto custom-scroll pb-24"><div class="bg-gradient-to-br from-indigo-50 to-white rounded-2xl p-6 shadow-sm border border-indigo-100 text-center mb-6 relative overflow-hidden"><div class="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-400 via-purple-500 to-indigo-500"></div><img src="${u.avatar}" class="w-20 h-20 rounded-full mx-auto mb-3 border-4 border-white shadow-md"><h2 class="text-2xl font-bold text-slate-800">${u.name}</h2><p class="text-slate-500 text-sm mb-1">${u.role === window.ROLES.LEAD ? '首席研究員' : '協同研究員'}</p><div class="flex justify-center gap-2 mt-4"><span class="bg-white/80 border px-3 py-1 rounded-full text-xs font-bold text-slate-600 shadow-sm">ID: ${u.id}</span></div></div><div class="space-y-6"><div class="flex items-center justify-between"><h3 class="font-bold text-lg flex items-center gap-2"><i class="fa-solid fa-robot text-indigo-600"></i> 我的知識建構檔案 (KB Profile)</h3><button onclick="window.app.generateAIProfile()" id="btn-gen-profile" class="bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-slate-700 transition flex items-center gap-2"><i class="fa-solid fa-wand-magic-sparkles"></i> <span>生成分析</span></button></div><div id="ai-loading" class="hidden p-8 text-center bg-white rounded-2xl border border-slate-100"><div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mb-2"></div><p class="text-sm text-slate-500 animate-pulse">正在回顧你的知識演化軌跡...</p></div><div id="ai-profile-result" class="hidden space-y-4"></div></div></div>`;
             if (window.state.profile && document.getElementById('ai-profile-result')) { window.ui.renderProfileContent(window.state.profile); }
         };
         window.ui.renderProfileContent = (data) => {
