@@ -156,18 +156,32 @@
 
     <!-- Top Navbar -->
     <nav class="h-14 md:h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-6 z-50 shadow-sm relative shrink-0">
-        <div class="flex items-center gap-3 cursor-pointer" onclick="window.app.router('entrance')">
+        <div class="flex items-center gap-3 cursor-pointer" onclick="window.location.href='index.html'">
             <div class="w-8 h-8 md:w-10 md:h-10 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold text-lg md:text-xl shrink-0">KB</div>
             <div>
                 <h1 class="font-bold text-base md:text-lg leading-tight text-slate-800 truncate max-w-[120px] md:max-w-none">知識建構平台</h1>
                 <p class="text-[10px] md:text-xs text-slate-500 hidden md:block">Knowledge Building Environment (v2.29)</p>
             </div>
         </div>
-        <div class="hidden md:flex items-center bg-slate-100 p-1 rounded-lg">
-            <button onclick="window.app.router('entrance')" data-nav="entrance" class="nav-btn px-4 py-1.5 text-sm font-medium rounded-md text-slate-500 hover:text-slate-900 transition">主題入口</button>
-            <button onclick="window.app.router('canvas')" data-nav="canvas" class="nav-btn px-4 py-1.5 text-sm font-medium rounded-md text-slate-500 hover:text-slate-900 transition">知識地圖</button>
-            <button onclick="window.app.router('profile')" data-nav="profile" class="nav-btn px-4 py-1.5 text-sm font-medium rounded-md text-slate-500 hover:text-slate-900 transition">我的檔案</button>
+        
+        <!-- Desktop Nav -->
+        <div class="hidden md:flex items-center bg-slate-100 p-1 rounded-lg gap-1">
+            <button onclick="window.location.href='index.html'" class="nav-btn px-4 py-1.5 text-sm font-medium rounded-md text-slate-500 hover:text-slate-900 transition flex items-center gap-1"><i class="fa-solid fa-home"></i> 首頁</button>
+            <button onclick="window.app.router('entrance')" data-nav="entrance" class="nav-btn px-4 py-1.5 text-sm font-medium rounded-md text-slate-500 hover:text-slate-900 transition flex items-center gap-1"><i class="fa-solid fa-layer-group"></i> 論壇入口</button>
+            <button onclick="window.app.router('canvas')" data-nav="canvas" class="nav-btn px-4 py-1.5 text-sm font-medium rounded-md text-slate-500 hover:text-slate-900 transition flex items-center gap-1"><i class="fa-solid fa-project-diagram"></i> 知識地圖</button>
+            
+            <!-- External Links Dropdown -->
+            <div class="relative group">
+                <button class="nav-btn px-4 py-1.5 text-sm font-medium rounded-md text-slate-500 hover:text-slate-900 transition flex items-center gap-1">
+                    <i class="fa-solid fa-chart-line"></i> 分析中樞 <i class="fa-solid fa-chevron-down text-[10px] ml-1"></i>
+                </button>
+                <div class="absolute top-full right-0 mt-1 w-48 bg-white rounded-lg shadow-lg border border-slate-100 hidden group-hover:block overflow-hidden z-50">
+                    <a href="ANALYTICS-student.html" class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-indigo-600"><i class="fa-solid fa-user-graduate mr-2"></i> 學生儀表板</a>
+                    <a href="ANALYTICS-teacher.html" class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-indigo-600"><i class="fa-solid fa-chalkboard-user mr-2"></i> 老師儀表板</a>
+                </div>
+            </div>
         </div>
+
         <div class="flex items-center gap-2 md:gap-4">
             <div id="ai-persona-indicator" class="hidden md:flex items-center gap-2 px-3 py-1 bg-indigo-50 text-indigo-700 rounded-full text-xs font-medium border border-indigo-100">
                 <i class="fa-solid fa-robot ai-pulse"></i>
@@ -187,7 +201,6 @@
     </nav>
 
     <!-- Main Container -->
-    <!-- Added flex-1 and overflow-hidden to ensure main content takes available space but handles its own scroll -->
     <main id="app-container" class="flex-1 relative overflow-hidden bg-slate-50 w-full"></main>
 
     <!-- Desktop Footer -->
@@ -199,9 +212,26 @@
     <!-- Mobile Bottom Navigation (Fixed at bottom) -->
     <!-- Added padding-bottom for safe area -->
     <div class="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 flex justify-around items-center z-50 pb-safe h-14 box-content">
-        <button onclick="window.app.router('entrance')" data-nav="entrance" class="mobile-nav-btn flex flex-col items-center justify-center w-full h-full pt-1 text-slate-400 hover:text-indigo-600"><i class="fa-solid fa-house text-lg mb-0.5"></i> <span class="text-[10px]">主題</span></button>
+        <button onclick="window.location.href='index.html'" class="mobile-nav-btn flex flex-col items-center justify-center w-full h-full pt-1 text-slate-400 hover:text-indigo-600"><i class="fa-solid fa-home text-lg mb-0.5"></i> <span class="text-[10px]">首頁</span></button>
+        <button onclick="window.app.router('entrance')" data-nav="entrance" class="mobile-nav-btn flex flex-col items-center justify-center w-full h-full pt-1 text-slate-400 hover:text-indigo-600"><i class="fa-solid fa-layer-group text-lg mb-0.5"></i> <span class="text-[10px]">論壇</span></button>
         <button onclick="window.app.router('canvas')" data-nav="canvas" class="mobile-nav-btn flex flex-col items-center justify-center w-full h-full pt-1 text-slate-400 hover:text-indigo-600"><i class="fa-solid fa-project-diagram text-lg mb-0.5"></i> <span class="text-[10px]">地圖</span></button>
-        <button onclick="window.app.router('profile')" data-nav="profile" class="mobile-nav-btn flex flex-col items-center justify-center w-full h-full pt-1 text-slate-400 hover:text-indigo-600"><i class="fa-solid fa-user text-lg mb-0.5"></i> <span class="text-[10px]">檔案</span></button>
+        <button onclick="window.app.openAnalyticsMenu()" class="mobile-nav-btn flex flex-col items-center justify-center w-full h-full pt-1 text-slate-400 hover:text-indigo-600"><i class="fa-solid fa-chart-line text-lg mb-0.5"></i> <span class="text-[10px]">分析</span></button>
+    </div>
+
+    <!-- Mobile Analytics Menu Modal -->
+    <div id="modal-analytics-menu" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] hidden flex items-end justify-center">
+        <div class="bg-white w-full rounded-t-xl p-6 pb-10 space-y-4 animate-fade-in-up">
+            <h3 class="text-lg font-bold text-slate-800 border-b pb-2 mb-2">前往分析中樞</h3>
+            <a href="ANALYTICS-student.html" class="flex items-center gap-3 p-4 bg-indigo-50 text-indigo-700 rounded-xl font-bold hover:bg-indigo-100 transition">
+                <div class="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm text-xl"><i class="fa-solid fa-user-graduate"></i></div>
+                <span>學生儀表板 (Student)</span>
+            </a>
+            <a href="ANALYTICS-teacher.html" class="flex items-center gap-3 p-4 bg-emerald-50 text-emerald-700 rounded-xl font-bold hover:bg-emerald-100 transition">
+                <div class="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm text-xl"><i class="fa-solid fa-chalkboard-user"></i></div>
+                <span>老師儀表板 (Teacher)</span>
+            </a>
+            <button onclick="window.ui.closeModal('modal-analytics-menu')" class="w-full py-3 bg-slate-100 text-slate-600 font-bold rounded-xl mt-2">取消</button>
+        </div>
     </div>
 
     <!-- Trash Can FAB (Adjusted position for Mobile) -->
@@ -467,6 +497,12 @@
             else if(view === 'canvas') { window.ui.renderCanvas(); }
             else if(view === 'profile') { window.ui.renderProfile(); }
         };
+        
+        // Add Mobile Analytics Menu Opener
+        window.app.openAnalyticsMenu = () => {
+            document.getElementById('modal-analytics-menu').classList.remove('hidden');
+        };
+
         window.app.toggleUserMenu = () => document.getElementById('user-menu').classList.toggle('hidden');
         window.app.openAddUserModal = () => { document.getElementById('modal-addUser').classList.remove('hidden'); document.getElementById('user-menu').classList.add('hidden'); document.getElementById('new-user-name').focus(); };
         window.app.createNewUser = () => {
@@ -1006,7 +1042,7 @@
             // NEW: Escape key to close modals
             window.addEventListener('keydown', (e) => {
                 if (e.key === 'Escape') {
-                    const modals = ['modal-topic', 'modal-node', 'modal-detail', 'modal-confirm', 'modal-addUser', 'modal-trash'];
+                    const modals = ['modal-topic', 'modal-node', 'modal-detail', 'modal-confirm', 'modal-addUser', 'modal-trash', 'modal-analytics-menu'];
                     modals.forEach(id => {
                         const el = document.getElementById(id);
                         if (el && !el.classList.contains('hidden')) {
