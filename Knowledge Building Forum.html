@@ -7,390 +7,65 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: {
-                        sans: ['Noto Sans TC', 'sans-serif'],
-                    },
-                    colors: {
-                        kb: {
-                            blue: '#3b82f6',
-                            yellow: '#eab308',
-                            green: '#22c55e',
-                            red: '#ef4444',
-                            purple: '#a855f7',
-                        }
-                    },
-                    animation: {
-                        'bounce-slow': 'bounce 3s infinite',
-                    },
-                    padding: {
-                        'safe-bottom': 'env(safe-area-inset-bottom)',
-                    }
-                }
-            }
-        }
-    </script>
-    <style>
-        html, body { 
-            height: 100%; 
-            width: 100%; 
-            overflow: hidden; /* 防止整個頁面捲動，交由容器處理 */
-            overscroll-behavior: none; 
-            -webkit-tap-highlight-color: transparent;
-        }
-        
-        #canvas-bg {
-            background-color: #f8fafc;
-            background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
-            background-size: 20px 20px;
-            width: 100%;
-            height: 100%;
-            position: absolute;
-            top: 0; left: 0;
-            z-index: -1;
-        }
-        
-        /* 通用滾動條樣式 */
-        .custom-scroll {
-            -webkit-overflow-scrolling: touch; /* iOS 滑順滾動 */
-        }
-        .custom-scroll::-webkit-scrollbar { width: 6px; }
-        .custom-scroll::-webkit-scrollbar-track { background: transparent; }
-        .custom-scroll::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 20px; }
-        
-        /* 隱藏滾動條但保留功能 */
-        .scrollbar-hide::-webkit-scrollbar { display: none; }
-        
-        .node-card {
-            transition: box-shadow 0.2s, transform 0.2s; 
-            user-select: none; touch-action: none; -webkit-user-select: none;
-            will-change: left, top; 
-        }
-        .node-card:hover {
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-            z-index: 50;
-        }
-        .node-card.selected-node {
-            box-shadow: 0 0 0 3px #3b82f6, 0 10px 15px -3px rgba(59, 130, 246, 0.2);
-            border-color: #3b82f6;
-            z-index: 60;
-        }
-        .promising-node {
-            box-shadow: 0 0 0 4px rgba(251, 146, 60, 0.3), 0 0 20px rgba(251, 146, 60, 0.4);
-            border-color: #f97316 !important;
-        }
-        .cluster-zone {
-            position: absolute;
-            border: 2px dashed rgba(203, 213, 225, 0.6);
-            border-radius: 24px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding-top: 1rem;
-            pointer-events: none;
-            transition: all 0.5s ease-in-out;
-            background: rgba(255, 255, 255, 0.4);
-        }
-        .cluster-title {
-            font-weight: 700;
-            font-size: 1rem;
-            padding: 0.5rem 1.5rem;
-            border-radius: 9999px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-            background: white;
-            color: #475569;
-            border: 1px solid #e2e8f0;
-        }
-        path.connection { fill: none; stroke-width: 2; transition: stroke 0.3s; pointer-events: none; }
-        
-        #selection-box {
-            position: fixed;
-            background-color: rgba(59, 130, 246, 0.1);
-            border: 1px solid rgba(59, 130, 246, 0.5);
-            pointer-events: none;
-            z-index: 100;
-            display: none;
-        }
-
-        .noselect {
-            -webkit-touch-callout: none;
-            -webkit-user-select: none;
-            -khtml-user-select: none;
-            -moz-user-select: none;
-            -ms-user-select: none;
-            user-select: none;
-        }
-
-        @keyframes pulse-gentle { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
-        .ai-pulse { animation: pulse-gentle 2s infinite; }
-        @keyframes fade-in-up { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .animate-fade-in { animation: fade-in-up 0.5s ease-out forwards; }
-        
-        .category-scroll-container {
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
-            scrollbar-width: none;
-        }
-        .category-scroll-container::-webkit-scrollbar { display: none; }
-        @media (min-width: 768px) {
-            .category-scroll-container { overflow-x: visible; }
-        }
-
-        .nav-btn.active { color: #4f46e5; background-color: #e0e7ff; }
-        .mobile-nav-btn.active { color: #4f46e5; }
-        .filter-btn { transition: background-color 0.2s, color 0.2s, border-color 0.2s; border-color: rgb(226, 232, 240); }
-        .filter-btn.active { background-color: rgb(238, 242, 255); color: rgb(79, 70, 229); border-color: rgb(165, 180, 252); }
-        
-        #canvas-wrapper { touch-action: none; }
-        .category-tag { cursor: pointer; transition: all 0.2s; user-select: none; }
-        .category-tag.selected { background-color: #e0e7ff; color: #4338ca; border-color: #818cf8; }
-
-        /* Mobile specific padding helper */
-        .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
-    </style>
-</head>
-<body class="bg-slate-50 text-slate-800 h-full w-full flex flex-col font-sans">
-
-    <!-- Top Navbar -->
-    <nav class="h-14 md:h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-6 z-50 shadow-sm relative shrink-0">
-        <div class="flex items-center gap-3 cursor-pointer" onclick="window.location.href='index.html'">
-            <div class="w-8 h-8 md:w-10 md:h-10 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold text-lg md:text-xl shrink-0">KB</div>
-            <div>
-                <h1 class="font-bold text-base md:text-lg leading-tight text-slate-800 truncate max-w-[120px] md:max-w-none">知識建構平台</h1>
-                <p class="text-[10px] md:text-xs text-slate-500 hidden md:block">Knowledge Building Environment (v2.29)</p>
-            </div>
-        </div>
-        
-        <!-- Desktop Nav -->
-        <div class="hidden md:flex items-center bg-slate-100 p-1 rounded-lg gap-1">
-            <button onclick="window.location.href='index.html'" class="nav-btn px-4 py-1.5 text-sm font-medium rounded-md text-slate-500 hover:text-slate-900 transition flex items-center gap-1"><i class="fa-solid fa-home"></i> 首頁</button>
-            <button onclick="window.app.router('entrance')" data-nav="entrance" class="nav-btn px-4 py-1.5 text-sm font-medium rounded-md text-slate-500 hover:text-slate-900 transition flex items-center gap-1"><i class="fa-solid fa-layer-group"></i> 論壇入口</button>
-            <button onclick="window.app.router('canvas')" data-nav="canvas" class="nav-btn px-4 py-1.5 text-sm font-medium rounded-md text-slate-500 hover:text-slate-900 transition flex items-center gap-1"><i class="fa-solid fa-project-diagram"></i> 知識地圖</button>
-            
-            <!-- External Links Dropdown -->
-            <div class="relative group">
-                <button class="nav-btn px-4 py-1.5 text-sm font-medium rounded-md text-slate-500 hover:text-slate-900 transition flex items-center gap-1">
-                    <i class="fa-solid fa-chart-line"></i> 分析中樞 <i class="fa-solid fa-chevron-down text-[10px] ml-1"></i>
-                </button>
-                <div class="absolute top-full right-0 mt-1 w-48 bg-white rounded-lg shadow-lg border border-slate-100 hidden group-hover:block overflow-hidden z-50">
-                    <a href="ANALYTICS-student.html" class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-indigo-600"><i class="fa-solid fa-user-graduate mr-2"></i> 學生儀表板</a>
-                    <a href="ANALYTICS-teacher.html" class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-indigo-600"><i class="fa-solid fa-chalkboard-user mr-2"></i> 老師儀表板</a>
-                </div>
-            </div>
-        </div>
-
-        <div class="flex items-center gap-2 md:gap-4">
-            <div id="ai-persona-indicator" class="hidden md:flex items-center gap-2 px-3 py-1 bg-indigo-50 text-indigo-700 rounded-full text-xs font-medium border border-indigo-100">
-                <i class="fa-solid fa-robot ai-pulse"></i>
-                <span id="active-ai-role">AI 協作中</span>
-            </div>
-            <div class="h-6 w-px bg-slate-200 mx-1 md:mx-2 hidden md:block"></div>
-            <div class="flex items-center gap-2 group relative">
-                <img id="user-avatar" src="" class="w-8 h-8 rounded-full bg-slate-200 object-cover border border-slate-300 shrink-0">
-                <div class="text-right hidden sm:block">
-                    <div id="user-name" class="text-sm font-semibold">User</div>
-                    <div id="user-role" class="text-xs text-slate-500">Role</div>
-                </div>
-                <button onclick="window.app.toggleUserMenu()" class="ml-1 md:ml-2 text-slate-400 hover:text-indigo-600 p-1"><i class="fa-solid fa-chevron-down"></i></button>
-                <div id="user-menu" class="absolute top-full right-0 mt-2 w-56 bg-white rounded-lg shadow-xl border border-slate-100 hidden overflow-hidden z-[100]"></div>
-            </div>
-        </div>
-    </nav>
-
-    <!-- Main Container -->
-    <main id="app-container" class="flex-1 relative overflow-hidden bg-slate-50 w-full"></main>
-
-    <!-- Desktop Footer -->
-    <footer class="hidden md:flex bg-white border-t border-slate-200 px-4 py-2 text-center z-40 text-[10px] md:text-xs text-slate-500 justify-center items-center gap-2 shrink-0">
-        <i class="fa-solid fa-seedling text-green-500"></i>
-        <span class="truncate">知識建構：在未完成的理解中彼此承擔責任，使想法在社群裡不斷向更好的解釋演化。</span>
-    </footer>
-
-    <!-- Mobile Bottom Navigation (Fixed at bottom) -->
-    <!-- Added padding-bottom for safe area -->
-    <div class="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 flex justify-around items-center z-50 pb-safe h-14 box-content">
-        <button onclick="window.location.href='index.html'" class="mobile-nav-btn flex flex-col items-center justify-center w-full h-full pt-1 text-slate-400 hover:text-indigo-600"><i class="fa-solid fa-home text-lg mb-0.5"></i> <span class="text-[10px]">首頁</span></button>
-        <button onclick="window.app.router('entrance')" data-nav="entrance" class="mobile-nav-btn flex flex-col items-center justify-center w-full h-full pt-1 text-slate-400 hover:text-indigo-600"><i class="fa-solid fa-layer-group text-lg mb-0.5"></i> <span class="text-[10px]">論壇</span></button>
-        <button onclick="window.app.router('canvas')" data-nav="canvas" class="mobile-nav-btn flex flex-col items-center justify-center w-full h-full pt-1 text-slate-400 hover:text-indigo-600"><i class="fa-solid fa-project-diagram text-lg mb-0.5"></i> <span class="text-[10px]">地圖</span></button>
-        <button onclick="window.app.openAnalyticsMenu()" class="mobile-nav-btn flex flex-col items-center justify-center w-full h-full pt-1 text-slate-400 hover:text-indigo-600"><i class="fa-solid fa-chart-line text-lg mb-0.5"></i> <span class="text-[10px]">分析</span></button>
-    </div>
-
-    <!-- Mobile Analytics Menu Modal -->
-    <div id="modal-analytics-menu" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] hidden flex items-end justify-center">
-        <div class="bg-white w-full rounded-t-xl p-6 pb-10 space-y-4 animate-fade-in-up">
-            <h3 class="text-lg font-bold text-slate-800 border-b pb-2 mb-2">前往分析中樞</h3>
-            <a href="ANALYTICS-student.html" class="flex items-center gap-3 p-4 bg-indigo-50 text-indigo-700 rounded-xl font-bold hover:bg-indigo-100 transition">
-                <div class="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm text-xl"><i class="fa-solid fa-user-graduate"></i></div>
-                <span>學生儀表板 (Student)</span>
-            </a>
-            <a href="ANALYTICS-teacher.html" class="flex items-center gap-3 p-4 bg-emerald-50 text-emerald-700 rounded-xl font-bold hover:bg-emerald-100 transition">
-                <div class="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm text-xl"><i class="fa-solid fa-chalkboard-user"></i></div>
-                <span>老師儀表板 (Teacher)</span>
-            </a>
-            <button onclick="window.ui.closeModal('modal-analytics-menu')" class="w-full py-3 bg-slate-100 text-slate-600 font-bold rounded-xl mt-2">取消</button>
-        </div>
-    </div>
-
-    <!-- Trash Can FAB (Adjusted position for Mobile) -->
-    <button onclick="window.app.openTrash()" id="btn-trash-fab" class="fixed bottom-20 left-4 md:bottom-8 md:left-8 z-[60] bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 rounded-full w-12 h-12 md:w-14 md:h-14 shadow-lg flex items-center justify-center text-xl transition transform hover:scale-105 group" title="資源回收桶">
-        <i class="fa-solid fa-trash-can group-hover:text-red-500 transition-colors"></i>
-        <span id="trash-count-badge" class="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full hidden border-2 border-white">0</span>
-    </button>
-
-    <!-- Modals (Improved Mobile Responsiveness) -->
-    
-    <!-- Topic Create Modal -->
-    <div id="modal-topic" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] hidden flex items-end md:items-center justify-center p-4">
-        <div class="bg-white rounded-t-xl md:rounded-xl shadow-2xl w-full max-w-lg p-6 transform transition-all scale-100 max-h-[85vh] overflow-y-auto mb-safe md:mb-0">
-            <h3 id="modal-topic-title" class="text-xl font-bold mb-4 flex items-center gap-2"><i class="fa-solid fa-folder-plus text-indigo-600"></i> 開啟探究主題</h3>
-            <div class="space-y-4">
-                <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">核心問題</label>
-                    <input type="text" id="topic-name" placeholder="例如：為什麼天空是藍色的？" class="w-full px-4 py-2 border border-slate-300 rounded-lg outline-none focus:border-indigo-500 transition">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-2">類別 (可複選)</label>
-                    <div id="topic-category-selector" class="flex flex-wrap gap-2 max-h-32 overflow-y-auto custom-scroll p-1"></div>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">背景說明</label>
-                    <textarea id="topic-desc" rows="3" class="w-full px-4 py-2 border border-slate-300 rounded-lg outline-none focus:border-indigo-500 transition"></textarea>
-                </div>
-            </div>
-            <div class="mt-6 flex justify-end gap-3 pb-safe">
-                <button onclick="window.ui.closeModal('modal-topic')" class="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg">取消</button>
-                <button id="btn-topic-save" onclick="window.app.saveTopic()" class="px-4 py-2 bg-indigo-600 text-white rounded-lg shadow hover:bg-indigo-700">建立</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Node Composer Modal -->
-    <div id="modal-node" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] hidden flex items-end md:items-center justify-center sm:p-4">
-        <div class="bg-white rounded-t-xl sm:rounded-xl shadow-2xl w-full max-w-2xl p-4 sm:p-6 relative max-h-[90vh] overflow-y-auto flex flex-col mb-safe md:mb-0">
-            <div class="flex justify-between items-center mb-4">
-                 <h3 class="text-lg md:text-xl font-bold">貢獻想法</h3>
-                 <button onclick="window.ui.closeModal('modal-node')" class="text-slate-400 hover:text-slate-600 p-2"><i class="fa-solid fa-xmark text-xl"></i></button>
-            </div>
-            
-            <div class="flex-1 overflow-y-auto custom-scroll pb-2">
-                <div class="grid grid-cols-5 gap-1 md:gap-2 mb-4"><div id="scaffold-selector" class="contents"></div></div>
-                <div id="scaffold-desc" class="hidden"></div>
-                <div class="mb-3">
-                    <input type="text" id="node-title" class="w-full px-4 py-2 border border-slate-300 rounded-lg outline-none font-bold text-base md:text-lg placeholder:font-normal" placeholder="輸入想法標題...">
-                </div>
-                <div class="relative">
-                    <textarea id="node-content" rows="4" class="w-full px-4 py-3 border border-slate-300 rounded-lg outline-none text-base" placeholder="輸入詳細內容..."></textarea>
-                </div>
-                <!-- AI Box moved inside scrollable area for mobile -->
-                <div id="ai-suggestion-box" class="hidden mt-2 bg-blue-50 border border-blue-100 text-blue-800 p-3 rounded-lg text-sm flex items-start gap-3 shadow-sm"><i class="fa-solid fa-lightbulb text-yellow-500 mt-1 shrink-0"></i><div><span class="font-bold block text-xs uppercase text-blue-400 mb-1">AI 建議</span><p class="text-xs md:text-sm">試著用「我的理論是...因為...」來延伸？</p></div></div>
-            </div>
-            
-            <div class="mt-4 flex justify-end shrink-0 pt-2 border-t border-slate-100">
-                <button onclick="window.app.submitNode()" class="px-6 py-2.5 bg-slate-900 text-white rounded-lg w-full md:w-auto font-bold">發布</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Node Detail Modal -->
-    <div id="modal-detail" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-[65] hidden flex items-center justify-center p-4">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[85vh]">
-            <div class="px-4 py-3 md:px-6 md:py-4 border-b border-slate-100 flex items-center justify-between shrink-0 bg-slate-50 rounded-t-xl">
-                <div class="flex items-center gap-3">
-                    <div id="detail-scaffold-icon" class="w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center text-white text-lg"></div>
-                    <div>
-                        <div id="detail-scaffold-label" class="text-xs font-bold uppercase mb-0.5">TYPE</div>
-                        <div class="flex gap-2 text-[10px] md:text-xs text-slate-500"><span id="detail-author"></span><span>•</span><span id="detail-date"></span></div>
-                    </div>
-                </div>
-                <button onclick="window.ui.closeModal('modal-detail')" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-200 text-slate-400"><i class="fa-solid fa-xmark text-lg"></i></button>
-            </div>
-            <div class="p-4 md:p-6 overflow-y-auto custom-scroll flex-1">
-                <h2 id="detail-title" class="text-lg md:text-2xl font-bold mb-4 text-slate-900 leading-snug"></h2>
-                <p id="detail-content" class="text-sm md:text-lg leading-relaxed whitespace-pre-wrap text-slate-700"></p>
-            </div>
-            <div class="p-3 md:p-4 border-t border-slate-100 bg-slate-50 rounded-b-xl flex justify-end gap-3 shrink-0">
-                <button id="btn-detail-reply" class="px-5 py-2 bg-indigo-600 text-white rounded-lg flex items-center gap-2 text-sm font-medium w-full md:w-auto justify-center"><i class="fa-solid fa-reply"></i> 延伸</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Confirm Modal -->
-    <div id="modal-confirm" class="fixed inset-0 bg-black/50 z-[110] hidden flex items-center justify-center p-4">
-        <div class="bg-white rounded-lg p-6 max-w-sm w-full shadow-xl text-center">
-            <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-red-500 text-xl"><i class="fa-solid fa-triangle-exclamation"></i></div>
-            <h3 class="text-lg font-bold mb-2">確定要刪除嗎？</h3>
-            <p class="text-slate-500 text-sm mb-6">將連同子節點一併刪除。</p>
-            <div class="flex justify-center gap-3"><button onclick="window.ui.closeModal('modal-confirm')" class="px-4 py-2 border rounded-lg w-full">取消</button><button id="btn-confirm-action" class="px-4 py-2 bg-red-600 text-white rounded-lg w-full">刪除</button></div>
-        </div>
-    </div>
-
-    <!-- Add User Modal -->
-    <div id="modal-addUser" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] hidden flex items-center justify-center p-4">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6">
-            <h3 class="text-xl font-bold mb-4 flex items-center gap-2"><i class="fa-solid fa-user-plus text-indigo-600"></i> 新增使用者</h3>
-            <div class="space-y-4">
-                <div><label class="block text-sm font-medium text-slate-700 mb-1">暱稱 (Nickname)</label><input type="text" id="new-user-name" placeholder="例如：小明" class="w-full px-4 py-2 border border-slate-300 rounded-lg outline-none"></div>
-                <div><label class="block text-sm font-medium text-slate-700 mb-1">角色</label><select id="new-user-role" class="w-full px-4 py-2 border border-slate-300 rounded-lg outline-none bg-white"><option value="student">協同研究員 (學生)</option><option value="teacher">首席研究員 (老師)</option></select></div>
-            </div>
-            <div class="mt-6 flex justify-end gap-3">
-                <button onclick="window.ui.closeModal('modal-addUser')" class="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg">取消</button>
-                <button onclick="window.app.createNewUser()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-sm">新增</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Trash Modal -->
-    <div id="modal-trash" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-[70] hidden flex items-center justify-center p-4">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[85vh]">
-            <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0 bg-red-50 rounded-t-xl">
-                <h3 class="text-lg font-bold text-red-700 flex items-center gap-2"><i class="fa-solid fa-trash-can"></i> 資源回收桶</h3>
-                <button onclick="window.ui.closeModal('modal-trash')" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-red-100 text-red-400"><i class="fa-solid fa-xmark text-lg"></i></button>
-            </div>
-            <div class="p-4 md:p-6 overflow-y-auto custom-scroll flex-1"><div id="trash-list" class="space-y-3"></div></div>
-            <div class="p-4 border-t border-slate-100 bg-slate-50 rounded-b-xl flex justify-between gap-3 shrink-0">
-                <button onclick="window.app.emptyTrash()" class="px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg text-sm font-bold"><i class="fa-solid fa-ban"></i> 清空</button>
-                <button onclick="window.ui.closeModal('modal-trash')" class="px-5 py-2 bg-white border border-slate-300 text-slate-600 rounded-lg shadow-sm text-sm">關閉</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="selection-box"></div>
-    <div id="toast-container" class="fixed bottom-20 md:bottom-10 right-4 md:right-6 z-[120] flex flex-col gap-2 pointer-events-none w-full max-w-[300px] md:w-auto items-end"></div>
-
-    
-       <script type="module">
-    // ----------------------------------------------------
-    // [PART 1] Firebase 設定區 (請填入您的 Config)
-    // ----------------------------------------------------
+    <script type="module">
+    // ==========================================
+    // [PART 1] Firebase 雲端設定區
+    // ==========================================
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getDatabase, ref, set, onValue, push } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+    import { getDatabase, ref, set, onValue, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-    const firebaseConfig = {
-  apiKey: "AIzaSyDPjtxtf656JHVVlj1o4cLwSylo1jDBFAc",
-  authDomain: "kb-platform-1.firebaseapp.com",
-  databaseURL: "https://kb-platform-1-default-rtdb.firebaseio.com",
-  projectId: "kb-platform-1",
-  storageBucket: "kb-platform-1.firebasestorage.app",
-  messagingSenderId: "230026226847",
-  appId: "1:230026226847:web:49e6f09ddfc3de0ef046aa"
-    };
+    // ⚠️ 請在此處貼上您的 Firebase Config (從後台複製的那一整段)
+const firebaseConfig = { 
+  apiKey ："AIzaSyDPjtxtf656JHVVlj1o4cLwSylo1jDBFAc" , 
+  authDomain : "kb-platform-1.firebaseapp.com" , 
+  databaseURL : "https://kb-platform-1-default-rtdb.firebaseio.com" , 
+  projectId : "kb-platform-1" , 
+  storageBucket : "kb-platform-1.firebasestorage.app" , 
+  messagingSenderId : "230026226847" , 
+  appId : "1:230026226847:web:49e6f09ddfc3de0ef046aa" 
+};
 
-    // 初始化雲端連線
+    // 初始化雲端
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
-    const dbRef = ref(db, 'kb_forum_data_v1'); // 資料庫存取點
+    const dbRef = ref(db, 'kb_forum_data_v1');
 
-    // ----------------------------------------------------
-    // [PART 2] 核心資料管理器 (Data Manager) - 改為雲端版
-    // ----------------------------------------------------
+    // 將 Firebase 模組掛載到 window，讓下方的舊程式碼可以呼叫
+    window.firebaseModules = { db, ref, set, update };
+
+    console.log("☁️ 雲端模組已載入...");
+
+    // ==========================================
+    // [PART 2] 核心資料管理器 (已改寫為雲端版)
+    // ==========================================
+    
+    // 定義預設資料 (避免雲端是空的時發生錯誤)
+    window.SEED_DATA = {
+        userList: {
+            teacher: { id: 'u1', name: '王教授', role: 'teacher', avatar: 'https://api.dicebear.com/9.x/notionists/svg?seed=Felix' },
+            student1: { id: 'u2', name: '小美', role: 'student', avatar: 'https://api.dicebear.com/9.x/notionists/svg?seed=S1' },
+            student2: { id: 'u3', name: '大華', role: 'student', avatar: 'https://api.dicebear.com/9.x/notionists/svg?seed=S2' }
+        },
+        topics: [
+            { id: 't1', name: '範例主題：為什麼天空是藍色的？', categories: ['科學'], desc: '這是一個測試主題', author: 'u1', date: Date.now() }
+        ],
+        nodes: [],
+        trash: []
+    };
+
+    // 初始化全域狀態
+    window.state = {
+        user: null, userList: {}, topics: [], nodes: [], trash: [], 
+        currentView: 'entrance', currentTopicId: null,
+        activeFilter: '全部', tempSelectedCategories: [], editingTopicId: null,
+        canvas: { scale: 1, offsetX: 0, offsetY: 0, isDragging: false, lastX: 0, lastY: 0, draggedNodeId: null, isClusterMode: false, isHeatmapMode: false, isPinching: false, lastPinchDist: 0, startPinchScale: 1, isPanMode: false, isSelecting: false, selectionStart: {x:0, y:0}, selectionCurrent: {x:0, y:0} },
+        selectedNodeIds: [], composer: { parentId: null, selectedScaffold: null }, profile: null
+    };
+
+    // 重新定義 dataManager
     window.dataManager = {
         save: () => {
-            // 在 Firebase 中，我們通常不需要手動 Save 整個大物件
-            // 而是針對單一節點做更新。但為了相容您的舊架構，我們先做「整包更新」
-            // 注意：不儲存 currentView 或 user 狀態，這些是個人的
+            // 儲存至雲端
             const exportData = {
                 userList: window.state.userList,
                 topics: window.state.topics,
@@ -398,64 +73,440 @@
                 trash: window.state.trash
             };
             set(dbRef, exportData).catch(err => console.error("雲端儲存失敗:", err));
+            
+            // 另外儲存個人的「當前使用者」狀態在本地，這樣重整網頁才不會登出
+            if(window.state.user) {
+                localStorage.setItem('kb_local_user_id', window.state.user.id);
+            }
+        },
+        load: () => {
+            // 空函式，因為我們改用下方的即時監聽 (onValue)
+            console.log("等待雲端數據同步...");
         },
         reset: () => {
-            if(confirm("確定要清空雲端所有資料嗎？此操作無法復原！")) {
+            if(confirm("確定要清空雲端所有資料嗎？")) {
                 set(dbRef, null).then(() => window.location.reload());
             }
         }
     };
 
-    // ----------------------------------------------------
-    // [PART 3] 即時監聽器 (Real-time Listener)
-    // ----------------------------------------------------
-    // 當雲端資料有變動時，這個函式會自動被觸發
+    // ==========================================
+    // [PART 3] 啟動引擎 (監聽雲端數據 + 啟動 UI)
+    // ==========================================
+    
+    // 當雲端數據改變時，自動更新畫面
     onValue(dbRef, (snapshot) => {
         const cloudData = snapshot.val();
         
         if (cloudData) {
-            console.log("☁️ 收到雲端最新資料！");
-            // 更新本地狀態
+            console.log("📥 收到雲端數據，正在更新畫面...");
             window.state.userList = cloudData.userList || window.SEED_DATA.userList;
             window.state.topics = cloudData.topics || window.SEED_DATA.topics;
             window.state.nodes = cloudData.nodes || window.SEED_DATA.nodes;
             window.state.trash = cloudData.trash || [];
         } else {
-            console.log("☁️ 雲端無資料，使用預設種子資料初始化...");
-            // 如果是全新的資料庫，把種子資料推上去
-            window.dataManager.save();
+            console.log("✨ 雲端無資料，初始化中...");
+            window.state.userList = window.SEED_DATA.userList;
+            window.state.topics = window.SEED_DATA.topics;
+            window.dataManager.save(); // 上傳種子資料
         }
 
-        // 重新渲染畫面 (Re-render UI)
-        if (window.ui && window.ui.init) {
-             // 判斷是否為初次載入
-             if (!window.appInitialized) {
-                 window.ui.init();
-                 window.appInitialized = true;
-             } else {
-                 // 如果只是資料更新，只需刷新當前視圖
-                 if(window.state.currentView === 'entrance') window.ui.renderEntrance();
-                 if(window.state.currentView === 'canvas') window.ui.renderCanvas();
-                 if(window.state.currentView === 'profile') window.ui.renderProfile();
-                 window.ui.renderUserInfo();
-                 window.ui.renderTrashList();
-             }
+        // 恢復使用者登入狀態
+        const savedUserId = localStorage.getItem('kb_local_user_id');
+        const currentUserKey = Object.keys(window.state.userList).find(k => window.state.userList[k].id === savedUserId);
+        
+        if (currentUserKey) {
+            window.state.user = window.state.userList[currentUserKey];
+        } else {
+            // 預設登入第一位老師
+            const firstUserKey = Object.keys(window.state.userList)[0];
+            window.state.user = window.state.userList[firstUserKey];
+        }
+
+        // 強制刷新 UI (如果 UI 已經準備好)
+        if (window.ui && window.ui.renderEntrance) {
+            // 判斷目前在哪個頁面，就刷新哪個
+            if(window.state.currentView === 'canvas') window.ui.renderCanvas();
+            else if(window.state.currentView === 'profile') window.ui.renderProfile();
+            else window.ui.renderEntrance();
+            
+            window.ui.renderUserInfo();
+            window.ui.renderUserMenu();
+            window.app.updateTrashBadge();
         }
     });
 
-    // ----------------------------------------------------
-    // [PART 4] 保留原本的邏輯與 UI 代碼
-    // ----------------------------------------------------
+    // ==========================================
+    // [PART 4] 您原本的 UI 邏輯 (我幫您保留在這裡)
+    // ==========================================
     
-    // (這裡需要接上您原本 window.state, window.ui 等代碼，
-    // 但請刪除原本 window.dataManager.load() 的呼叫，因為現在由 onValue 接管了)
+    // 全域常數
+    window.ROLES = { LEAD: 'teacher', CO: 'student' };
+    window.SCAFFOLDS = {
+        question: { id: 'question', label: 'Question', icon: 'fa-circle-question', color: 'bg-blue-500', border: 'border-blue-500', bgSoft: 'bg-blue-50', text: 'text-blue-700', desc: '提出你感興趣的問題或目前的困惑。' },
+        extend: { id: 'extend', label: 'Build on', icon: 'fa-plus', color: 'bg-yellow-500', border: 'border-yellow-500', bgSoft: 'bg-yellow-50', text: 'text-yellow-700', desc: '補充更多資訊或接續討論。' },
+        improve: { id: 'improve', label: 'Improve', icon: 'fa-bolt', color: 'bg-green-500', border: 'border-green-500', bgSoft: 'bg-green-50', text: 'text-green-700', desc: '修正觀點或提出更好的解釋。' },
+        counter: { id: 'counter', label: 'Counter', icon: 'fa-triangle-exclamation', color: 'bg-red-500', border: 'border-red-500', bgSoft: 'bg-red-50', text: 'text-red-700', desc: '提出不同的看法或反例。' },
+        riseabove: { id: 'riseabove', label: 'Rise Above', icon: 'fa-rocket', color: 'bg-purple-500', border: 'border-purple-500', bgSoft: 'bg-purple-50', text: 'text-purple-700', desc: '整合討論，提出更高層次的結論。' }
+    };
+    window.TOPIC_CATEGORIES = { '科學': '🔬 科學', 'STEAM': '💡 STEAM', '專題課': '🎓 專題課', '電機電子': '📡 電機電子', 'AI': '🤖 AI', '語言學習': '📙 語言學習', '文學': '📖 文學', '社會議題': '☁️ 社會議題', '物理': '⚛️ 物理學', '動漫': '🎨 動漫', '程式': '💻 程式設計', '歷史': '📜 歷史', '哲學': '🤔 哲學', '藝術': '🎭 藝術', '其他': '📦 其他' };
+    window.CLUSTER_CENTERS = { 'A': {x: 250, y: 300, title: '核心問題探究區', width: 600, height: 600}, 'B': {x: 1050, y: 300, title: '延伸變因討論區', width: 600, height: 600}, 'C': {x: 650, y: 1000, title: '知識昇華整合區', width: 800, height: 500} };
+
+    window.app = {};
+    window.app.generateCategoryFilters = () => {
+        let html = `<button class="px-4 py-1.5 rounded-full text-sm font-medium filter-btn transition ${window.state.activeFilter === '全部' ? 'active bg-slate-200 text-slate-900 border-slate-300' : 'bg-white text-slate-500 border border-slate-200'}" data-category="全部">所有主題</button>`;
+        html += Object.keys(window.TOPIC_CATEGORIES).map(key => {
+            const isActive = window.state.activeFilter === key;
+            return `<button class="px-4 py-1.5 rounded-full text-sm font-medium filter-btn transition ${isActive ? 'active bg-indigo-50 text-indigo-700 border-indigo-200' : 'bg-white text-slate-500 border border-slate-200'}" data-category="${key}">${window.TOPIC_CATEGORIES[key]}</button>`;
+        }).join('');
+        return html;
+    };
+    window.app.setFilter = (category) => { window.state.activeFilter = category; window.ui.renderEntrance(); };
+    window.app.renderCategorySelector = () => {
+        const container = document.getElementById('topic-category-selector'); if(!container) return;
+        container.innerHTML = Object.keys(window.TOPIC_CATEGORIES).map(key => {
+            const isSelected = window.state.tempSelectedCategories.includes(key);
+            return `<span onclick="window.app.toggleTempCategory('${key}')" class="category-tag px-3 py-1 rounded-full text-xs font-bold border ${isSelected ? 'selected' : 'bg-white text-slate-500 border-slate-200'}">${window.TOPIC_CATEGORIES[key]}</span>`;
+        }).join('');
+    };
+    window.app.toggleTempCategory = (key) => {
+        if (window.state.tempSelectedCategories.includes(key)) { window.state.tempSelectedCategories = window.state.tempSelectedCategories.filter(c => c !== key); } else { window.state.tempSelectedCategories.push(key); }
+        window.app.renderCategorySelector();
+    };
     
-    // ... 請將您原本 Knowledge Building Forum.html 中
-    // 從 window.ROLES 開始，一直到最後的 window.ui 代碼都貼在下面 ...
+    // 路由與使用者功能
+    window.app.router = (view) => {
+        if (view === 'canvas' && !window.state.currentTopicId) { window.ui.showToast('請先選擇一個主題', 'error'); window.app.router('entrance'); return; }
+        window.state.currentView = view;
+        if(view === 'entrance') window.state.currentTopicId = null;
+        window.dataManager.save(); // 同步狀態
+        window.ui.updateNav(view);
+        document.getElementById('user-menu').classList.add('hidden');
+        if(view === 'entrance') window.ui.renderEntrance();
+        else if(view === 'canvas') window.ui.renderCanvas();
+        else if(view === 'profile') window.ui.renderProfile();
+    };
+    window.app.toggleUserMenu = () => document.getElementById('user-menu').classList.toggle('hidden');
+    window.app.openAddUserModal = () => { document.getElementById('modal-addUser').classList.remove('hidden'); document.getElementById('user-menu').classList.add('hidden'); };
+    window.app.createNewUser = () => {
+        const name = document.getElementById('new-user-name').value.trim();
+        const role = document.getElementById('new-user-role').value;
+        if (!name) return window.ui.showToast('暱稱不能為空', 'error');
+        const newKey = `user${Date.now()}`;
+        window.state.userList[newKey] = { id: `u${Date.now()}`, name, role, avatar: `https://api.dicebear.com/9.x/notionists/svg?seed=${name}` };
+        window.dataManager.save();
+        window.ui.closeModal('modal-addUser');
+        window.app.switchUser(newKey);
+    };
+    window.app.deleteUser = (key) => {
+        if(confirm("確定刪除此使用者？")) {
+            delete window.state.userList[key];
+            window.dataManager.save();
+            window.ui.renderUserMenu();
+        }
+    };
+    window.app.switchUser = (userKey) => {
+        if (!window.state.userList[userKey]) return;
+        window.state.user = window.state.userList[userKey];
+        window.dataManager.save();
+        window.ui.renderUserInfo();
+        window.ui.renderUserMenu();
+        window.ui.showToast(`已切換：${window.state.user.name}`);
+        document.getElementById('user-menu').classList.add('hidden');
+    };
+
+    // 主題與筆記功能
+    window.app.openCreateTopic = () => {
+        window.state.editingTopicId = null;
+        document.getElementById('topic-name').value = '';
+        document.getElementById('topic-desc').value = '';
+        window.state.tempSelectedCategories = [];
+        window.app.renderCategorySelector();
+        document.getElementById('modal-topic').classList.remove('hidden');
+    };
+    window.app.openEditTopic = (id) => {
+        const t = window.state.topics.find(t => t.id === id);
+        if(!t) return;
+        window.state.editingTopicId = id;
+        document.getElementById('topic-name').value = t.name;
+        document.getElementById('topic-desc').value = t.desc;
+        window.state.tempSelectedCategories = t.categories || [];
+        window.app.renderCategorySelector();
+        document.getElementById('modal-topic').classList.remove('hidden');
+    };
+    window.app.saveTopic = () => {
+        const name = document.getElementById('topic-name').value;
+        const desc = document.getElementById('topic-desc').value;
+        if(!name) return window.ui.showToast('請輸入主題名稱', 'error');
+        
+        if(window.state.editingTopicId) {
+            const t = window.state.topics.find(t => t.id === window.state.editingTopicId);
+            if(t) { t.name = name; t.desc = desc; t.categories = window.state.tempSelectedCategories; }
+        } else {
+            window.state.topics.unshift({
+                id: 't'+Date.now(), name, desc, categories: window.state.tempSelectedCategories, author: window.state.user.id, date: Date.now()
+            });
+        }
+        window.dataManager.save();
+        window.ui.closeModal('modal-topic');
+        window.ui.renderEntrance();
+    };
+    window.app.deleteTopic = (id) => {
+        if(confirm("確定刪除此主題？")) {
+            window.state.topics = window.state.topics.filter(t => t.id !== id);
+            window.state.nodes = window.state.nodes.filter(n => n.topicId !== id);
+            window.dataManager.save();
+            window.ui.renderEntrance();
+        }
+    };
+    window.app.enterTopic = (id) => {
+        window.state.currentTopicId = id;
+        window.app.router('canvas');
+    };
     
-    // 為了方便您，我將關鍵的全域變數與 helper 放在這裡，
-    // 您只需確保 window.ui.init() 不要再手動呼叫 dataManager.load() 即可。
+    // Canvas & Nodes
+    window.app.openComposer = (pid) => {
+        window.state.composer.parentId = pid;
+        document.getElementById('scaffold-selector').innerHTML = Object.values(window.SCAFFOLDS).map(s => `
+            <button onclick="window.app.selectScaffold('${s.id}')" id="btn-scaffold-${s.id}" class="flex flex-col items-center justify-center p-2 rounded-lg border-2 border-slate-100 opacity-60 transition hover:opacity-80">
+                <div class="w-8 h-8 rounded-full ${s.color} text-white flex justify-center items-center mb-1"><i class="fa-solid ${s.icon}"></i></div>
+                <span class="text-xs font-bold text-slate-600">${s.label}</span>
+            </button>`).join('');
+        document.getElementById('node-title').value = '';
+        document.getElementById('node-content').value = '';
+        document.getElementById('modal-node').classList.remove('hidden');
+    };
+    window.app.selectScaffold = (id) => {
+        window.state.composer.selectedScaffold = id;
+        Object.values(window.SCAFFOLDS).forEach(s => {
+            const btn = document.getElementById(`btn-scaffold-${s.id}`);
+            if(s.id === id) { btn.classList.remove('opacity-60','border-slate-100'); btn.classList.add('opacity-100',s.border,s.bgSoft); }
+            else { btn.classList.add('opacity-60','border-slate-100'); btn.classList.remove('opacity-100',s.border,s.bgSoft); }
+        });
+    };
+    window.app.submitNode = () => {
+        if(!window.state.composer.selectedScaffold) return window.ui.showToast('請選擇類型', 'error');
+        const title = document.getElementById('node-title').value;
+        const content = document.getElementById('node-content').value;
+        if(!title || !content) return window.ui.showToast('內容不完整', 'error');
+        
+        let nx, ny;
+        if(window.state.composer.parentId) {
+            const p = window.state.nodes.find(n => n.id === window.state.composer.parentId);
+            nx = p.x + (Math.random()*100 - 50); ny = p.y + 200;
+        } else {
+            const wrap = document.getElementById('canvas-wrapper');
+            nx = -window.state.canvas.offsetX + wrap.clientWidth/2 - 140;
+            ny = -window.state.canvas.offsetY + wrap.clientHeight/2 - 100;
+        }
+
+        window.state.nodes.push({
+            id: 'n'+Date.now(), topicId: window.state.currentTopicId,
+            type: window.state.composer.selectedScaffold, title, content,
+            author: window.state.user.id, date: Date.now(), x: nx, y: ny, parentId: window.state.composer.parentId,
+            cluster: ['A','B','C'][Math.floor(Math.random()*3)], promisingness: Math.floor(Math.random()*100)
+        });
+        window.dataManager.save();
+        window.ui.closeModal('modal-node');
+        window.ui.renderCanvas();
+    };
+    
+    // Trash
+    window.app.openTrash = () => { window.ui.renderTrashList(); document.getElementById('modal-trash').classList.remove('hidden'); };
+    window.app.emptyTrash = () => { window.state.trash = []; window.dataManager.save(); window.ui.renderTrashList(); window.app.updateTrashBadge(); };
+    window.app.updateTrashBadge = () => {
+        const badge = document.getElementById('trash-count-badge');
+        if(badge) {
+            badge.innerText = window.state.trash.length;
+            if(window.state.trash.length > 0) badge.classList.remove('hidden'); else badge.classList.add('hidden');
+        }
+    };
+
+    // Canvas Interaction Module
+    window.app.canvas = {
+        applyTransform: () => {
+            const el = document.getElementById('canvas-content');
+            if(el) el.style.transform = `translate(${window.state.canvas.offsetX}px, ${window.state.canvas.offsetY}px) scale(${window.state.canvas.scale})`;
+            const bg = document.getElementById('canvas-bg');
+            if(bg) bg.style.backgroundPosition = `${window.state.canvas.offsetX}px ${window.state.canvas.offsetY}px`;
+        },
+        toggleMode: () => {
+            window.state.canvas.isPanMode = !window.state.canvas.isPanMode;
+            window.ui.renderCanvas();
+            window.ui.showToast(window.state.canvas.isPanMode ? '已切換為：拖曳模式' : '已切換為：選取模式');
+        },
+        startPan: (e) => {
+            if(e.target.closest('.node-card')) return;
+            window.state.canvas.isDragging = true;
+            window.state.canvas.lastX = e.clientX || e.touches[0].clientX;
+            window.state.canvas.lastY = e.clientY || e.touches[0].clientY;
+        },
+        pan: (e) => {
+            if(!window.state.canvas.isDragging) return;
+            const cx = e.clientX || e.touches[0].clientX;
+            const cy = e.clientY || e.touches[0].clientY;
+            window.state.canvas.offsetX += cx - window.state.canvas.lastX;
+            window.state.canvas.offsetY += cy - window.state.canvas.lastY;
+            window.state.canvas.lastX = cx; window.state.canvas.lastY = cy;
+            window.app.canvas.applyTransform();
+        },
+        endPan: () => { window.state.canvas.isDragging = false; },
+        startDragNode: (e, id) => {
+            window.state.canvas.draggedNodeId = id;
+            window.state.canvas.lastX = e.clientX || e.touches[0].clientX;
+            window.state.canvas.lastY = e.clientY || e.touches[0].clientY;
+        },
+        zoom: (delta) => {
+            window.state.canvas.scale = Math.min(Math.max(0.2, window.state.canvas.scale + delta), 3);
+            window.app.canvas.applyTransform();
+        }
+    };
+
+    // ==========================================
+    // [PART 5] UI 渲染邏輯 (View)
+    // ==========================================
+    window.ui = {};
+    window.ui.init = () => {
+        // 初始路由由 onValue 決定，這裡先掛載事件
+        window.addEventListener('resize', () => { if(window.state.currentView === 'canvas') window.ui.renderCanvas(); });
+    };
+    
+    window.ui.renderUserInfo = () => {
+        if(!window.state.user) return;
+        const u = window.state.user;
+        document.getElementById('user-avatar').src = u.avatar;
+        document.getElementById('user-name').innerText = u.name;
+        document.getElementById('user-role').innerText = u.role === 'teacher' ? '首席' : '協同';
+    };
+    
+    window.ui.renderUserMenu = () => {
+        const list = Object.entries(window.state.userList).map(([k, u]) => `
+            <div class="flex items-center hover:bg-slate-50 border-b border-slate-50 p-2">
+                <button onclick="window.app.switchUser('${k}')" class="flex-1 text-left flex items-center gap-2">
+                    <img src="${u.avatar}" class="w-6 h-6 rounded-full"> <span>${u.name}</span>
+                </button>
+                ${window.state.user.role === 'teacher' ? `<button onclick="window.app.deleteUser('${k}')" class="text-red-400"><i class="fa-solid fa-trash"></i></button>` : ''}
+            </div>`).join('');
+        document.getElementById('user-menu').innerHTML = `<div class="p-2">${list}</div><div class="p-2 border-t"><button onclick="window.app.openAddUserModal()" class="w-full text-center text-blue-600 font-bold">新增使用者</button><button onclick="window.dataManager.reset()" class="w-full text-center text-red-400 text-xs mt-2">重置系統</button></div>`;
+    };
+
+    window.ui.renderEntrance = () => {
+        const container = document.getElementById('app-container');
+        const visibleTopics = window.state.activeFilter === '全部' ? window.state.topics : window.state.topics.filter(t => t.categories.includes(window.state.activeFilter));
+        
+        container.innerHTML = `
+        <div class="max-w-7xl mx-auto px-6 py-8 h-full overflow-y-auto pb-24">
+            <div class="mb-6 text-center"><h2 class="text-3xl font-bold text-slate-900">知識建構論壇</h2></div>
+            <div class="flex justify-between items-center mb-6">
+                <div id="category-filters" class="flex gap-2 overflow-x-auto">${window.app.generateCategoryFilters()}</div>
+                ${window.state.user.role === 'teacher' ? `<button onclick="window.app.openCreateTopic()" class="bg-indigo-600 text-white px-5 py-2 rounded-lg shadow"><i class="fa-solid fa-plus"></i> 新增主題</button>` : ''}
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                ${visibleTopics.map(t => `
+                <div onclick="window.app.enterTopic('${t.id}')" class="bg-white rounded-xl border p-5 cursor-pointer hover:shadow-lg transition relative group">
+                    <h3 class="font-bold text-lg mb-2 group-hover:text-indigo-600">${t.name}</h3>
+                    <p class="text-slate-500 text-sm mb-4 line-clamp-2">${t.desc}</p>
+                    <div class="flex justify-between text-xs text-slate-400 pt-3 border-t">
+                        <span><i class="fa-solid fa-user"></i> ${window.state.userList[t.author]?.name || 'Unknown'}</span>
+                        ${window.state.user.role === 'teacher' ? `<button onclick="event.stopPropagation(); window.app.deleteTopic('${t.id}')" class="hover:text-red-500"><i class="fa-solid fa-trash"></i></button>` : ''}
+                    </div>
+                </div>`).join('')}
+            </div>
+        </div>`;
+        
+        // 綁定 filter 按鈕事件
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => window.app.setFilter(e.target.dataset.category));
+        });
+    };
+
+    window.ui.renderCanvas = () => {
+        const topic = window.state.topics.find(t => t.id === window.state.currentTopicId);
+        if(!topic) return window.app.router('entrance');
+        const nodes = window.state.nodes.filter(n => n.topicId === topic.id);
+        const container = document.getElementById('app-container');
+        
+        container.innerHTML = `
+        <div class="absolute top-4 left-4 z-40 flex gap-2">
+            <button onclick="window.app.router('entrance')" class="bg-white px-3 py-2 rounded shadow text-slate-600"><i class="fa-solid fa-arrow-left"></i></button>
+            <div class="bg-white px-4 py-2 rounded shadow font-bold text-slate-700">${topic.name}</div>
+        </div>
+        <div class="absolute bottom-8 left-1/2 transform -translate-x-1/2 z-40">
+            <button onclick="window.app.canvas.toggleMode()" class="bg-white px-4 py-2 rounded-full shadow text-sm font-bold flex items-center gap-2">
+                ${window.state.canvas.isPanMode ? '<i class="fa-solid fa-hand"></i> 拖曳模式' : '<i class="fa-regular fa-square"></i> 選取模式'}
+            </button>
+        </div>
+        <div class="absolute bottom-8 right-8 z-40">
+            <button onclick="window.app.openComposer(null)" class="bg-indigo-600 text-white w-14 h-14 rounded-full shadow-lg text-xl hover:scale-105 transition"><i class="fa-solid fa-plus"></i></button>
+        </div>
+        
+        <div id="canvas-wrapper" class="w-full h-full overflow-hidden relative bg-slate-50"
+             onmousedown="window.app.canvas.startPan(event)" onmousemove="window.app.canvas.pan(event)" onmouseup="window.app.canvas.endPan(event)">
+            <div id="canvas-bg" style="position:absolute; width:100%; height:100%; background-image:radial-gradient(#cbd5e1 1px, transparent 1px); background-size:20px 20px;"></div>
+            <div id="canvas-content" class="absolute top-0 left-0 w-full h-full origin-top-left">
+                <svg id="connections-layer" class="absolute top-0 left-0 w-[5000px] h-[5000px] pointer-events-none z-0"></svg>
+                <div id="nodes-layer" class="z-10">
+                    ${nodes.map(n => {
+                        const s = window.SCAFFOLDS[n.type];
+                        return `<div id="node-${n.id}" class="absolute w-72 bg-white rounded-xl shadow-md border border-slate-200 flex flex-col" style="left:${n.x}px; top:${n.y}px;"
+                                onmousedown="event.stopPropagation(); window.app.canvas.startDragNode(event, '${n.id}')">
+                            <div class="px-3 py-2 ${s.bgSoft} border-b ${s.border} flex items-center gap-2 rounded-t-xl cursor-move">
+                                <span class="w-5 h-5 rounded-full ${s.color} text-white flex justify-center items-center text-xs"><i class="fa-solid ${s.icon}"></i></span>
+                                <span class="text-xs font-bold ${s.text}">${s.label}</span>
+                            </div>
+                            <div class="p-3 text-sm text-slate-700 bg-white"><h4 class="font-bold mb-1 truncate">${n.title}</h4><p class="line-clamp-2 text-xs text-slate-500">${n.content}</p></div>
+                            <div class="px-3 py-2 bg-slate-50 border-t flex justify-between text-xs text-slate-400 rounded-b-xl">
+                                <span>${window.state.userList[n.author]?.name}</span>
+                                <div class="flex gap-2">
+                                    <button onclick="window.app.openComposer('${n.id}')"><i class="fa-solid fa-reply"></i></button>
+                                </div>
+                            </div>
+                        </div>`
+                    }).join('')}
+                </div>
+            </div>
+        </div>`;
+        
+        // 繪製連線
+        setTimeout(() => {
+            const layer = document.getElementById('connections-layer');
+            const paths = nodes.filter(n => n.parentId).map(n => {
+                const p = nodes.find(x => x.id === n.parentId);
+                if(!p) return '';
+                // 簡單計算中心點連線
+                const sx = p.x + 144, sy = p.y + 100, ex = n.x + 144, ey = n.y;
+                return `<path d="M ${sx} ${sy} L ${ex} ${ey}" stroke="#cbd5e1" stroke-width="2" fill="none" />`;
+            }).join('');
+            if(layer) layer.innerHTML = paths;
+            window.app.canvas.applyTransform();
+        }, 0);
+    };
+
+    window.ui.closeModal = (id) => document.getElementById(id).classList.add('hidden');
+    window.ui.showToast = (msg) => {
+        const div = document.createElement('div');
+        div.className = "fixed bottom-10 right-10 bg-slate-800 text-white px-4 py-2 rounded shadow-lg z-50";
+        div.innerText = msg;
+        document.body.appendChild(div);
+        setTimeout(() => div.remove(), 3000);
+    };
+    window.ui.updateNav = (view) => {
+        document.querySelectorAll('.nav-btn, .mobile-nav-btn').forEach(btn => {
+            if(btn.dataset.nav === view) btn.classList.add('active','text-indigo-600');
+            else btn.classList.remove('active','text-indigo-600');
+        });
+    };
+    
+    // 垃圾桶介面 (簡化版)
+    window.ui.renderTrashList = () => {
+        const list = document.getElementById('trash-list');
+        if(!list) return;
+        list.innerHTML = window.state.trash.length === 0 ? '<div class="text-center p-4 text-slate-400">回收桶是空的</div>' : 
+            window.state.trash.map(t => `<div class="p-2 border-b">${t.type} deleted</div>`).join('');
+    };
+
+    // 啟動監聽 (初始化)
+    console.log("🚀 KB Platform Ready. Waiting for Firebase...");
 </script>
-  
 </body>
 </html>
