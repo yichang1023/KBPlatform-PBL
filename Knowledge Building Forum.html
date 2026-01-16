@@ -4,14 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>知識建構協作平台 (KB Platform) - Mobile Optimized</title>
+    
+    <!-- [新增] Firebase 核心 (使用相容版以確保不衝突) -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <!-- [Project AETHER] Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
-
     <script>
         tailwind.config = {
             theme: {
@@ -366,7 +366,7 @@
     <div id="toast-container" class="fixed bottom-20 md:bottom-10 right-4 md:right-6 z-[120] flex flex-col gap-2 pointer-events-none w-full max-w-[300px] md:w-auto items-end"></div>
 
     <script>
-        // [Project AETHER] 1. Firebase Initialization
+        // --- 0. [修改] 雲端設定區 ---
         const firebaseConfig = {
             apiKey: "AIzaSyDPjtxtf656JHVVlj1o4cLwSylo1jDBFAc",
             authDomain: "kb-platform-1.firebaseapp.com",
@@ -376,10 +376,12 @@
             messagingSenderId: "230026226847",
             appId: "1:230026226847:web:49e6f09ddfc3de0ef046aa"
         };
-        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        // 初始化 Firebase (使用全域變數模式，不影響原本代碼)
+        firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
+        const DOC_ID = "kb_platform_data"; // 資料儲存位置
 
-        // --- 2. Global Constants ---
+        // --- 1. Global Constants ---
         window.ROLES = { LEAD: 'teacher', CO: 'student' };
         window.SCAFFOLDS = {
             question: { id: 'question', label: 'Question', icon: 'fa-circle-question', color: 'bg-blue-500', border: 'border-blue-500', bgSoft: 'bg-blue-50', text: 'text-blue-700', desc: '提出你感興趣的問題或目前的困惑，邀請夥伴們一起探索答案。' },
@@ -416,109 +418,12 @@
                 { id: 't9', name: '數學是被發現的還是被發明的？', categories: ['哲學', '科學'], desc: '數學是宇宙的語言還是人類的工具？', author: 'u1', date: '2023-10-22' }
             ],
             nodes: [
-                // T1: 天空顏色 (Physics)
                 { id: 'n1', topicId: 't1', type: 'question', title: '晴天與夕陽的顏色差異', content: '我好奇為什麼只有晴天是藍色，夕陽卻是紅色？', author: 'u2', x: 100, y: 300, parentId: null, date: Date.now(), cluster: 'A', promisingness: 30 },
                 { id: 'n2', topicId: 't1', type: 'improve', title: '距離與顏色的關係', content: '這應該跟光線穿過大氣層的距離有關。距離越長，留下的光越紅。', author: 'u3', x: 400, y: 200, parentId: 'n1', date: Date.now(), cluster: 'B', promisingness: 45 },
                 { id: 'n3', topicId: 't1', type: 'extend', title: '瑞利散射理論', content: '我的理論是瑞利散射。藍光波長短，容易被散射。', author: 'u1', x: 400, y: 400, parentId: 'n1', date: Date.now(), cluster: 'A', promisingness: 85 },
                 { id: 'n4', topicId: 't1', type: 'counter', title: '陰天與雲的例外', content: '但瑞利散射不能解釋為什麼陰天也是白色的，或是雲為什麼是白的？', author: 'u4', x: 700, y: 300, parentId: 'n3', date: Date.now(), cluster: 'A', promisingness: 90 },
                 { id: 'n5', topicId: 't1', type: 'improve', title: '米氏散射解釋雲朵', content: '雲是白色的可以用「米氏散射」解釋，因為水滴顆粒比氣體分子大很多，所有波長都散射，混合成白光。', author: 'u5', x: 900, y: 300, parentId: 'n4', date: Date.now(), cluster: 'B', promisingness: 80 },
-                { id: 'n6', topicId: 't1', type: 'riseabove', title: '散射與顆粒大小的整合模型', content: '整合觀點：天空顏色取決於「散射顆粒大小」與「光波長」的關係。微小氣體分子造成瑞利散射(藍/紅)，較大水滴造成米氏散射(白)。', author: 'u6', x: 600, y: 600, parentId: 'n5', date: Date.now(), cluster: 'C', promisingness: 95 },
-                // T1 Expansion
-                { id: 'n41', topicId: 't1', type: 'question', title: '為何不是紫色？', content: '根據光譜，紫光波長比藍光更短，散射應該更強，為什麼天空不是紫色的？', author: 'u2', x: 200, y: 500, parentId: 'n3', date: Date.now(), cluster: 'A', promisingness: 65 },
-                { id: 'n42', topicId: 't1', type: 'extend', title: '人眼敏感度', content: '這可能跟我們眼睛的構造有關。視錐細胞對藍光比對紫光更敏感。', author: 'u3', x: 300, y: 600, parentId: 'n41', date: Date.now(), cluster: 'B', promisingness: 70 },
-                { id: 'n43', topicId: 't1', type: 'improve', title: '太陽光譜分佈', content: '除了人眼，太陽發出的光譜中，紫光本身的能量就比藍光少。', author: 'u5', x: 450, y: 550, parentId: 'n41', date: Date.now(), cluster: 'B', promisingness: 75 },
-                { id: 'n44', topicId: 't1', type: 'extend', title: '火星的天空', content: '那火星的天空呢？聽說是紅色的，這是不是因為大氣成分不同？', author: 'u4', x: 800, y: 400, parentId: 'n1', date: Date.now(), cluster: 'A', promisingness: 50 },
-                { id: 'n45', topicId: 't1', type: 'improve', title: '氧化鐵粉塵', content: '火星大氣充滿了紅色的氧化鐵粉塵，這是「吸收」與「反射」的問題，而不僅是散射。', author: 'u1', x: 950, y: 450, parentId: 'n44', date: Date.now(), cluster: 'B', promisingness: 80 },
-                { id: 'n46', topicId: 't1', type: 'riseabove', title: '大氣光學的綜合視角', content: '我們要綜合考慮：光源光譜(太陽)、介質特性(氣體/粉塵/水滴)、以及接收者(人眼)的敏感度。這是一個多因素系統。', author: 'u6', x: 750, y: 700, parentId: 'n43', date: Date.now(), cluster: 'C', promisingness: 98 },
-
-                // T2: AI 創造力 (Philosophy/Tech)
-                { id: 'n7', topicId: 't2', type: 'question', title: 'AI 產生的藝術算創作嗎？', content: 'AI 生成的畫作很美，但這是它「想」出來的，還是只是模仿數據庫？', author: 'u4', x: 150, y: 300, parentId: null, date: Date.now(), cluster: 'A', promisingness: 40 },
-                { id: 'n8', topicId: 't2', type: 'counter', title: '只是機率的拼貼', content: '我認為不算。AI 只是根據機率預測下一個像素，它沒有「意圖 (Intentionality)」。', author: 'u2', x: 400, y: 200, parentId: 'n7', date: Date.now(), cluster: 'A', promisingness: 50 },
-                { id: 'n9', topicId: 't2', type: 'improve', title: '人類也是拼貼？', content: '可是人類的靈感也是來自過去的經驗拼貼。如果結果是新的，過程重要嗎？', author: 'u3', x: 400, y: 400, parentId: 'n8', date: Date.now(), cluster: 'B', promisingness: 60 },
-                { id: 'n10', topicId: 't2', type: 'extend', title: '輔助創造力 vs 自主創造力', content: '我們或許可以區分：AI 作為人類的工具（輔助），以及 AI 獨立創作。目前主要是前者。', author: 'u5', x: 700, y: 300, parentId: 'n7', date: Date.now(), cluster: 'B', promisingness: 70 },
-                { id: 'n11', topicId: 't2', type: 'riseabove', title: '重新定義創造力', content: '我們需要重新定義創造力：不只是「無中生有」，而是「在現有數據中發現未曾見過的關聯」。AI 具備這種連結能力。', author: 'u1', x: 600, y: 600, parentId: 'n9', date: Date.now(), cluster: 'C', promisingness: 90 },
-                // T2 Expansion
-                { id: 'n47', topicId: 't2', type: 'extend', title: 'Boden 的三種創造力', content: '認知科學家 Margaret Boden 提出創造力有三種：組合性、探索性、變革性。AI 目前擅長組合，但能做到變革嗎？', author: 'u1', x: 250, y: 500, parentId: 'n11', date: Date.now(), cluster: 'B', promisingness: 85 },
-                { id: 'n48', topicId: 't2', type: 'question', title: '痛苦與藝術', content: '很多偉大的藝術來自痛苦。AI 不會感到痛苦，它的作品能有靈魂嗎？', author: 'u6', x: 100, y: 600, parentId: 'n7', date: Date.now(), cluster: 'A', promisingness: 60 },
-                { id: 'n49', topicId: 't2', type: 'counter', title: 'AlphaGo 的第 37 手', content: 'AlphaGo 下出了人類千年圍棋史未曾見過的步數，這難道不是一種變革性的創造力嗎？', author: 'u3', x: 500, y: 500, parentId: 'n47', date: Date.now(), cluster: 'B', promisingness: 88 },
-                { id: 'n50', topicId: 't2', type: 'improve', title: '觀賞者的主觀詮釋', content: '「靈魂」或許不在創作者，而在觀賞者的詮釋。如果 AI 的畫讓你感動，那對你來說它就有意義。', author: 'u5', x: 300, y: 700, parentId: 'n48', date: Date.now(), cluster: 'C', promisingness: 75 },
-                { id: 'n51', topicId: 't2', type: 'question', title: '法律與版權的挑戰', content: '如果 AI 算創作者，那版權歸誰？訓練數據的提供者應該分潤嗎？', author: 'u2', x: 800, y: 400, parentId: 'n10', date: Date.now(), cluster: 'A', promisingness: 65 },
-                { id: 'n52', topicId: 't2', type: 'riseabove', title: '人機共創的新時代', content: '未來的定義可能不是 AI 取代人類，而是「人+AI」作為一個新的創作主體 (Cybernetic Artist)。法律與倫理都需要為此重寫。', author: 'u4', x: 700, y: 750, parentId: 'n51', date: Date.now(), cluster: 'C', promisingness: 95 },
-
-                // T3: 進擊的巨人 (Anime/Philosophy)
-                { id: 'n12', topicId: 't3', type: 'question', title: '艾連真的有自由意志嗎？', content: '既然他看見了未來，並且按照未來行動，那他是否只是劇本的奴隸？', author: 'u2', x: 200, y: 300, parentId: null, date: Date.now(), cluster: 'A', promisingness: 50 },
-                { id: 'n13', topicId: 't3', type: 'extend', title: '宿命論的觀點', content: '同意。這就像希臘悲劇，伊底帕斯越想逃離命運，越是走向命運。', author: 'u4', x: 450, y: 250, parentId: 'n12', date: Date.now(), cluster: 'A', promisingness: 60 },
-                { id: 'n14', topicId: 't3', type: 'counter', title: '那是他「想要」的未來', content: '不同意。未來之所以那樣發生，是因為那就是艾連本質上渴望的選擇。', author: 'u5', x: 450, y: 450, parentId: 'n12', date: Date.now(), cluster: 'B', promisingness: 75 },
-                { id: 'n15', topicId: 't3', type: 'improve', title: '相容論 (Compatibilism)', content: '這可以用哲學的「相容論」解釋：自由意志與決定論不衝突。只要行動出自於自身慾望，就是自由，即使結果已定。', author: 'u6', x: 750, y: 350, parentId: 'n14', date: Date.now(), cluster: 'B', promisingness: 85 },
-                { id: 'n16', topicId: 't3', type: 'riseabove', title: '自由的代價', content: '作品的核心可能不在於有沒有選擇，而在於「為了追求自由，願意犧牲多少人性」。這是一種存在主義式的自由。', author: 'u1', x: 700, y: 600, parentId: 'n15', date: Date.now(), cluster: 'C', promisingness: 95 },
-                // T3 Expansion
-                { id: 'n53', topicId: 't3', type: 'extend', title: '道路與集體潛意識', content: '「道路」連結了所有尤米爾子民，這很像榮格的「集體潛意識」。艾連的意志或許受到歷代進擊的巨人的影響。', author: 'u3', x: 150, y: 500, parentId: 'n12', date: Date.now(), cluster: 'B', promisingness: 65 },
-                { id: 'n54', topicId: 't3', type: 'question', title: '無知是自由嗎？', content: '牆內王為了和平消除了記憶。活在虛假的樂園裡，算不算是另一種自由（免於恐懼）？', author: 'u2', x: 300, y: 600, parentId: 'n16', date: Date.now(), cluster: 'A', promisingness: 70 },
-                { id: 'n55', topicId: 't3', type: 'counter', title: '積極自由 vs 消極自由', content: '以撒·柏林的觀點：牆內是「消極自由」(免於...)，艾連追求的是「積極自由」(去做...)。兩者本質衝突。', author: 'u1', x: 550, y: 650, parentId: 'n54', date: Date.now(), cluster: 'B', promisingness: 90 },
-                { id: 'n56', topicId: 't3', type: 'improve', title: '暴力的循環', content: '加比與艾連的對照顯示，如果不跳脫仇恨的連鎖，無論怎麼選都不是自由，只是被歷史推著走。', author: 'u5', x: 850, y: 450, parentId: 'n16', date: Date.now(), cluster: 'C', promisingness: 80 },
-                { id: 'n57', topicId: 't3', type: 'riseabove', title: '理解與溝通的失敗', content: '整部作品其實是「巴別塔」的隱喻。巨人之力消失後，人類還是互相爭鬥，證明問題不在力量，而在於無法互相理解的人心。真正的自由可能在於「對話」。', author: 'u6', x: 700, y: 800, parentId: 'n56', date: Date.now(), cluster: 'C', promisingness: 95 },
-
-                // T4: Python Discord Bot (Coding)
-                { id: 'n17', topicId: 't4', type: 'question', title: '機器人如何持續運行？', content: '我寫好程式碼了，但關掉電腦機器人就下線了。要怎麼讓它 24 小時運作？', author: 'u3', x: 150, y: 300, parentId: null, date: Date.now(), cluster: 'A', promisingness: 40 },
-                { id: 'n18', topicId: 't4', type: 'extend', title: '使用雲端主機', content: '你需要把程式碼部署到雲端服務，像 Heroku, Replit 或 AWS。', author: 'u2', x: 400, y: 250, parentId: 'n17', date: Date.now(), cluster: 'B', promisingness: 60 },
-                { id: 'n19', topicId: 't4', type: 'improve', title: 'Replit 的限制', content: 'Replit 免費版現在會休眠，建議用 Fly.io 或是自己架設樹莓派 (Raspberry Pi)。', author: 'u5', x: 650, y: 250, parentId: 'n18', date: Date.now(), cluster: 'B', promisingness: 70 },
-                { id: 'n20', topicId: 't4', type: 'question', title: '非同步概念 (Async/Await)', content: '另外，為什麼所有的指令都要加 `await`？不能直接跑嗎？', author: 'u3', x: 400, y: 450, parentId: 'n17', date: Date.now(), cluster: 'A', promisingness: 55 },
-                { id: 'n21', topicId: 't4', type: 'riseabove', title: '事件驅動架構', content: '這涉及到「事件驅動 (Event-driven)」的核心。Discord Bot 要同時處理多個人的訊息，不能被單一任務卡住 (Blocking)，所以需要非同步處理。', author: 'u1', x: 700, y: 500, parentId: 'n20', date: Date.now(), cluster: 'C', promisingness: 90 },
-                // T4 Expansion
-                { id: 'n58', topicId: 't4', type: 'question', title: '斜線指令 (Slash Commands)', content: '以前用 `!` 當前綴，現在好像都改用 `/` 斜線指令了，這有什麼差別？', author: 'u4', x: 200, y: 600, parentId: 'n17', date: Date.now(), cluster: 'A', promisingness: 50 },
-                { id: 'n59', topicId: 't4', type: 'extend', title: '使用者體驗 UX', content: '斜線指令會自動跳出參數提示，對使用者更友善，不用死記指令格式。', author: 'u2', x: 450, y: 600, parentId: 'n58', date: Date.now(), cluster: 'B', promisingness: 65 },
-                { id: 'n60', topicId: 't4', type: 'improve', title: '安全性考量', content: '要注意 Token 絕對不能上傳到 GitHub！一定要用 `.env` 環境變數來管理金鑰。', author: 'u6', x: 650, y: 650, parentId: 'n18', date: Date.now(), cluster: 'C', promisingness: 95 },
-                { id: 'n61', topicId: 't4', type: 'extend', title: '資料庫串接', content: '如果要讓機器人記住使用者的等級或錢包，就需要串接資料庫。新手推薦用 SQLite，進階可以用 MongoDB。', author: 'u5', x: 850, y: 300, parentId: 'n19', date: Date.now(), cluster: 'B', promisingness: 75 },
-                { id: 'n62', topicId: 't4', type: 'riseabove', title: '狀態管理與擴展性', content: '當機器人變大，就需要考慮 Sharding (分片) 和 Load Balancing (負載平衡)。從寫 Code 到架構設計，這是一個完整的軟體工程縮影。', author: 'u1', x: 900, y: 500, parentId: 'n61', date: Date.now(), cluster: 'C', promisingness: 90 },
-
-                // T5: 文藝復興 (History/Art)
-                { id: 'n22', topicId: 't5', type: 'question', title: '為何透視法這麼重要？', content: '文藝復興強調透視法，這只是一種繪圖技巧嗎？還是有更深的意義？', author: 'u6', x: 150, y: 300, parentId: null, date: Date.now(), cluster: 'A', promisingness: 40 },
-                { id: 'n23', topicId: 't5', type: 'extend', title: '科學精神的展現', content: '透視法代表藝術家開始用幾何學和數學來觀察世界，這是科學精神進入藝術的開端。', author: 'u4', x: 400, y: 250, parentId: 'n22', date: Date.now(), cluster: 'B', promisingness: 60 },
-                { id: 'n24', topicId: 't5', type: 'improve', title: '從「神」到「人」的視角', content: '中世紀畫作是「神的視角」(平面、大小代表地位)，透視法則是「人的視角」(所見即所得)。這反映了人文主義的興起。', author: 'u5', x: 650, y: 300, parentId: 'n23', date: Date.now(), cluster: 'B', promisingness: 80 },
-                { id: 'n25', topicId: 't5', type: 'extend', title: '達文西的解剖學', content: '不只透視，達文西解剖人體也是為了畫得更像「人」，這也是人文主義的體現。', author: 'u2', x: 400, y: 450, parentId: 'n22', date: Date.now(), cluster: 'A', promisingness: 65 },
-                { id: 'n26', topicId: 't5', type: 'riseabove', title: '理性與感性的結合', content: '總結：文藝復興的影響在於將「客觀理性 (科學/透視)」引入「主觀感性 (藝術)」，確立了以人為本位來觀察和解釋世界的典範。', author: 'u1', x: 700, y: 550, parentId: 'n24', date: Date.now(), cluster: 'C', promisingness: 95 },
-                // T5 Expansion
-                { id: 'n63', topicId: 't5', type: 'extend', title: '贊助者的轉變', content: '除了技法，贊助者從教會轉變為梅迪奇家族(Medici)這樣的商人，這讓題材從宗教轉向了希臘羅馬神話與肖像。', author: 'u3', x: 200, y: 500, parentId: 'n22', date: Date.now(), cluster: 'A', promisingness: 70 },
-                { id: 'n64', topicId: 't5', type: 'improve', title: '油畫顏料的發明', content: '北方的凡艾克改良了油畫顏料，讓細節和光影(Chiaroscuro)表現變得可能，這也是技術推動藝術的例子。', author: 'u2', x: 450, y: 600, parentId: 'n23', date: Date.now(), cluster: 'B', promisingness: 75 },
-                { id: 'n65', topicId: 't5', type: 'extend', title: '暈塗法 (Sfumato)', content: '達文西的蒙娜麗莎使用了暈塗法，模糊了輪廓線。這種「模糊性」反而邀請觀者參與詮釋，這是藝術心理學的先驅。', author: 'u6', x: 600, y: 700, parentId: 'n25', date: Date.now(), cluster: 'B', promisingness: 85 },
-                { id: 'n66', topicId: 't5', type: 'counter', title: '對中世紀的誤解', content: '我們常認為中世紀是黑暗的，但哥德式教堂的垂直線條展現的是對「超越性」的追求，這與文藝復興的「世俗性」是不同的價值觀，而非優劣之分。', author: 'u1', x: 800, y: 400, parentId: 'n24', date: Date.now(), cluster: 'C', promisingness: 88 },
-                { id: 'n67', topicId: 't5', type: 'riseabove', title: '現代個人的誕生', content: '文藝復興真正的遺產是「個人主義」的誕生。藝術家不再是無名的工匠，而開始在作品上簽名。這是現代自我意識的起源。', author: 'u4', x: 850, y: 600, parentId: 'n26', date: Date.now(), cluster: 'C', promisingness: 98 },
-
-                // T7: 英文口說 (Language)
-                { id: 'n27', topicId: 't7', type: 'question', title: '如何克服開口恐懼？', content: '我單字量夠，但看到外國人就腦袋一片空白，怎麼辦？', author: 'u3', x: 150, y: 300, parentId: null, date: Date.now(), cluster: 'A', promisingness: 50 },
-                { id: 'n28', topicId: 't7', type: 'extend', title: '跟讀法 (Shadowing)', content: '推薦 Shadowing，模仿影集的語調。自己練比較沒壓力。', author: 'u2', x: 400, y: 200, parentId: 'n27', date: Date.now(), cluster: 'B', promisingness: 60 },
-                { id: 'n29', topicId: 't7', type: 'improve', title: '利用 AI 對話', content: '現在可以用 ChatGPT 的語音功能練習。它不會評價你，可以降低焦慮感。', author: 'u4', x: 400, y: 400, parentId: 'n27', date: Date.now(), cluster: 'B', promisingness: 75 },
-                { id: 'n30', topicId: 't7', type: 'riseabove', title: '情意濾網假說 (Affective Filter)', content: '這在語言學叫「情意濾網」。焦慮會阻擋輸入。降低焦慮（如跟機器人說話）能有效打開學習濾網。', author: 'u1', x: 700, y: 400, parentId: 'n29', date: Date.now(), cluster: 'C', promisingness: 90 },
-                // T7 Expansion
-                { id: 'n68', topicId: 't7', type: 'extend', title: '迂迴策略 (Circumlocution)', content: '遇到不會的單字不要卡住，試著用「描述」的方式繞過去。例如忘了 umbrella，就說 tool for rain。', author: 'u5', x: 250, y: 500, parentId: 'n27', date: Date.now(), cluster: 'A', promisingness: 70 },
-                { id: 'n69', topicId: 't7', type: 'improve', title: '停止腦中翻譯', content: '腦中翻譯會造成延遲。試著直接用英文思考，哪怕是很簡單的句子。看圖直接說英文單字是個好練習。', author: 'u6', x: 450, y: 550, parentId: 'n27', date: Date.now(), cluster: 'B', promisingness: 75 },
-                { id: 'n70', topicId: 't7', type: 'question', title: '發音重要嗎？', content: '我有口音，這會影響溝通嗎？還是文法對比較重要？', author: 'u3', x: 600, y: 250, parentId: 'n28', date: Date.now(), cluster: 'A', promisingness: 55 },
-                { id: 'n71', topicId: 't7', type: 'extend', title: '語調 (Intonation) > 發音', content: '研究顯示，語調和重音比單個音素的發音更影響理解。', author: 'u1', x: 800, y: 300, parentId: 'n70', date: Date.now(), cluster: 'B', promisingness: 80 },
-                { id: 'n72', topicId: 't7', type: 'riseabove', title: '語言是文化的載體', content: '不要只學語言，要學文化。了解高語境(High context)與低語境文化的差異，能幫助你理解為什麼外國人這樣說話。語言學習最終是跨文化溝通。', author: 'u4', x: 900, y: 500, parentId: 'n30', date: Date.now(), cluster: 'C', promisingness: 95 },
-
-                // T8: 病毒 (Biology)
-                { id: 'n31', topicId: 't8', type: 'question', title: '病毒到底是不是生物？', content: '它有遺傳物質，但不能自己繁殖，這樣算活著嗎？', author: 'u5', x: 150, y: 300, parentId: null, date: Date.now(), cluster: 'A', promisingness: 45 },
-                { id: 'n32', topicId: 't8', type: 'counter', title: '絕對寄生性', content: '教科書定義生物要有新陳代謝。病毒像是一個裝了基因的隨身碟，沒插上電腦(宿主)就是死物。', author: 'u6', x: 400, y: 250, parentId: 'n31', date: Date.now(), cluster: 'B', promisingness: 65 },
-                { id: 'n33', topicId: 't8', type: 'improve', title: '它是「生物的邊緣」', content: '或許我們不該用二分法。它處於化學物質與生命體的模糊邊界。', author: 'u2', x: 400, y: 450, parentId: 'n31', date: Date.now(), cluster: 'B', promisingness: 70 },
-                { id: 'n34', topicId: 't8', type: 'extend', title: '巨型病毒的發現', content: '最近發現的擬菌病毒 (Mimivirus) 體積很大，甚至有自己的代謝基因，這挑戰了傳統定義。', author: 'u4', x: 650, y: 350, parentId: 'n32', date: Date.now(), cluster: 'A', promisingness: 85 },
-                { id: 'n35', topicId: 't8', type: 'riseabove', title: '生命的定義需要修正', content: '與其爭論它「是」什麼，不如看它「做」什麼。病毒驅動了演化（轉座子），是地球生命系統不可或缺的一部分，即使它不完全符合傳統生命定義。', author: 'u1', x: 800, y: 500, parentId: 'n34', date: Date.now(), cluster: 'C', promisingness: 95 },
-                // T8 Expansion
-                { id: 'n73', topicId: 't8', type: 'extend', title: '普利昂蛋白 (Prions)', content: '如果病毒很邊緣，那 Prions (狂牛症病原) 呢？它只有蛋白質連 DNA 都沒有，卻能自我複製。生命的定義下限在哪？', author: 'u3', x: 250, y: 550, parentId: 'n31', date: Date.now(), cluster: 'A', promisingness: 75 },
-                { id: 'n74', topicId: 't8', type: 'improve', title: '水平基因轉移', content: '病毒是自然界的基因工程師。人類基因組中有 8% 是來自古代病毒的殘留，這對演化至關重要。', author: 'u5', x: 500, y: 600, parentId: 'n35', date: Date.now(), cluster: 'B', promisingness: 88 },
-                { id: 'n75', topicId: 't8', type: 'extend', title: '噬菌體療法', content: '既然病毒專殺細菌，我們可以用「噬菌體」來對抗超級細菌，這是一種「以毒攻毒」的智慧。', author: 'u2', x: 650, y: 200, parentId: 'n32', date: Date.now(), cluster: 'B', promisingness: 80 },
-                { id: 'n76', topicId: 't8', type: 'riseabove', title: '數位生命的類比', content: '如果我們看電腦病毒，它在數位生態系中也能繁殖、變異。這是否暗示「生命」其實是一種資訊處理的模式，而不一定要依賴碳基？', author: 'u6', x: 850, y: 650, parentId: 'n73', date: Date.now(), cluster: 'C', promisingness: 92 },
-
-                // T9: 數學 (Philosophy of Science)
-                { id: 'n36', topicId: 't9', type: 'question', title: '數學是發現還是發明？', content: '1+1=2 是宇宙真理，還是人類定義的規則？', author: 'u3', x: 150, y: 300, parentId: null, date: Date.now(), cluster: 'A', promisingness: 50 },
-                { id: 'n37', topicId: 't9', type: 'extend', title: '發現論 (柏拉圖主義)', content: '我覺得是發現。費波那契數列出現在花瓣、海螺裡，這是自然界原本就有的規律。', author: 'u5', x: 400, y: 200, parentId: 'n36', date: Date.now(), cluster: 'B', promisingness: 60 },
-                { id: 'n38', topicId: 't9', type: 'counter', title: '發明論 (形式主義)', content: '但像「虛數 i」現實中不存在，是我們為了計算方便「發明」出來的工具。', author: 'u6', x: 400, y: 400, parentId: 'n36', date: Date.now(), cluster: 'B', promisingness: 70 },
-                { id: 'n39', topicId: 't9', type: 'improve', title: '工具與真理的結合', content: '也許符號是發明的，但符號背後的邏輯關係是發現的？', author: 'u2', x: 650, y: 300, parentId: 'n38', date: Date.now(), cluster: 'A', promisingness: 80 },
-                { id: 'n40', topicId: 't9', type: 'riseabove', title: '不合理的有效性', content: '這就是 Wigner 說的「數學不合理的有效性」。我們發明了遊戲規則（公理），卻發現這套規則竟然能完美描述宇宙（物理）。這顯示人類思維結構可能與宇宙結構有某種同構性。', author: 'u1', x: 800, y: 500, parentId: 'n39', date: Date.now(), cluster: 'C', promisingness: 98 },
-                // T9 Expansion
-                { id: 'n77', topicId: 't9', type: 'extend', title: '非歐幾何的例子', content: '黎曼發明非歐幾何時只是純數學遊戲，結果愛因斯坦後來發現它正好能描述廣義相對論的時空彎曲。先發明，後發現？', author: 'u4', x: 300, y: 600, parentId: 'n38', date: Date.now(), cluster: 'B', promisingness: 85 },
-                { id: 'n78', topicId: 't9', type: 'question', title: '哥德爾不完備定理', content: '哥德爾證明了數學系統內總有無法證明的真理。這是否代表數學本身是有極限的，就像人類語言一樣？', author: 'u1', x: 550, y: 650, parentId: 'n40', date: Date.now(), cluster: 'C', promisingness: 92 },
-                { id: 'n79', topicId: 't9', type: 'extend', title: '歐拉恆等式的美感', content: 'e^(i*pi) + 1 = 0。五個最重要常數的完美結合。數學家常說「美」是真理的指引，這種美感是主觀的還是客觀的？', author: 'u5', x: 700, y: 200, parentId: 'n37', date: Date.now(), cluster: 'A', promisingness: 75 },
-                { id: 'n80', topicId: 't9', type: 'riseabove', title: '文化數學 (Ethnomathematics)', content: '我們習慣的數學是西方的。但在其他文化（如印加的結繩記事）有不同的數學形式。數學既是普世的，也是文化的產物。', author: 'u2', x: 850, y: 600, parentId: 'n36', date: Date.now(), cluster: 'C', promisingness: 88 }
+                { id: 'n6', topicId: 't1', type: 'riseabove', title: '散射與顆粒大小的整合模型', content: '整合觀點：天空顏色取決於「散射顆粒大小」與「光波長」的關係。微小氣體分子造成瑞利散射(藍/紅)，較大水滴造成米氏散射(白)。', author: 'u6', x: 600, y: 600, parentId: 'n5', date: Date.now(), cluster: 'C', promisingness: 95 }
             ]
         };
 
@@ -541,34 +446,109 @@
             composer: { parentId: null, selectedScaffold: null }, profile: null
         };
         
+        // --- 2. [修改] DataManager 替換為 Firebase 混合模式 ---
+        let lastJson = ''; // 用於防止資料重複刷新
         window.dataManager = {
-            save: () => { localStorage.setItem(window.STORAGE_KEY, JSON.stringify({ userList: window.state.userList, topics: window.state.topics, nodes: window.state.nodes, trash: window.state.trash, currentUserKey: Object.keys(window.state.userList).find(key => window.state.userList[key].id === window.state.user.id) || 'teacher', currentView: window.state.currentView, currentTopicId: window.state.currentTopicId })); },
-            load: () => {
-                const saved = localStorage.getItem(window.STORAGE_KEY);
-                if (saved) {
-                    try {
-                        const parsed = JSON.parse(saved);
-                        window.state.userList = parsed.userList || window.SEED_DATA.userList;
-                        window.state.topics = parsed.topics || window.SEED_DATA.topics;
-                        window.state.topics.forEach(t => { if (!t.categories) t.categories = t.category ? [t.category] : ['其他']; });
-                        window.state.nodes = parsed.nodes || window.SEED_DATA.nodes;
-                        window.state.trash = parsed.trash || [];
-                        window.state.currentView = parsed.currentView || 'entrance';
-                        window.state.currentTopicId = parsed.currentTopicId || null;
-                        const key = parsed.currentUserKey;
-                        window.state.user = (key && window.state.userList[key]) ? window.state.userList[key] : window.state.userList['teacher'];
-                        return;
-                    } catch (e) {}
-                }
-                window.state.userList = JSON.parse(JSON.stringify(window.SEED_DATA.userList));
-                window.state.topics = JSON.parse(JSON.stringify(window.SEED_DATA.topics));
-                window.state.nodes = JSON.parse(JSON.stringify(window.SEED_DATA.nodes));
-                window.state.trash = [];
-                window.state.user = window.state.userList['teacher'];
-                window.state.currentView = 'entrance';
-                window.dataManager.save();
+            save: () => { 
+                // [雲端] 儲存共享資料到 Firebase
+                const sharedData = {
+                    userList: window.state.userList,
+                    topics: window.state.topics,
+                    nodes: window.state.nodes,
+                    trash: window.state.trash
+                };
+                db.collection('schools').doc(DOC_ID).set(sharedData, {merge: true})
+                    .then(() => console.log("Cloud Saved"))
+                    .catch(e => console.error("Save Error", e));
+
+                // [本機] 儲存個人狀態 (當前是誰)
+                const localData = {
+                    currentUserKey: Object.keys(window.state.userList).find(key => window.state.userList[key].id === window.state.user.id) || 'teacher',
+                    // currentView 與 TopicId 不存雲端，避免多人干擾
+                };
+                localStorage.setItem('kb_local_prefs', JSON.stringify(localData));
             },
-            reset: () => { localStorage.removeItem(window.STORAGE_KEY); window.location.reload(); }
+            load: () => {
+                console.log("Connecting to Cloud...");
+                // [雲端] 監聽資料庫
+                db.collection('schools').doc(DOC_ID).onSnapshot((doc) => {
+                    if (doc.exists) {
+                        const data = doc.data();
+                        
+                        // [新增] 智慧防抖動：如果雲端資料跟本地資料「完全一樣」，代表這是我剛存上去的，不要重繪！
+                        // 我們只比較「雲端會存的那幾項」
+                        const localStateSnapshot = {
+                            userList: window.state.userList,
+                            topics: window.state.topics,
+                            nodes: window.state.nodes,
+                            trash: window.state.trash
+                        };
+                        
+                        // 比較雲端 vs 本地 (忽略 UI 狀態)
+                        if(JSON.stringify(data) === JSON.stringify(localStateSnapshot)) {
+                            console.log("Cloud Data matches Local State (Echo). Skipping Render.");
+                            return;
+                        }
+
+                        console.log("New Cloud Data Received, Rendering...");
+
+                        // 更新全域狀態
+                        window.state.userList = data.userList || window.SEED_DATA.userList;
+                        window.state.topics = data.topics || window.SEED_DATA.topics;
+                        window.state.nodes = data.nodes || window.SEED_DATA.nodes;
+                        window.state.trash = data.trash || [];
+                        
+                        // [本機] 讀取個人狀態
+                        const localPrefRaw = localStorage.getItem('kb_local_prefs');
+                        let localKey = 'teacher';
+                        if(localPrefRaw) {
+                            try { localKey = JSON.parse(localPrefRaw).currentUserKey; } catch(e){}
+                        }
+                        
+                        // 還原使用者身分
+                        if(window.state.userList[localKey]) {
+                            window.state.user = window.state.userList[localKey];
+                        } else {
+                            window.state.user = window.state.userList['teacher']; // Fallback
+                        }
+
+                        // 刷新 UI (保留原本的邏輯)
+                        if(window.state.currentView === 'entrance') window.ui.renderEntrance();
+                        else if(window.state.currentView === 'canvas') window.ui.renderCanvas();
+                        else if(window.state.currentView === 'profile') window.ui.renderProfile();
+                        
+                        window.ui.renderUserInfo();
+                        window.ui.renderUserMenu();
+                        window.app.updateTrashBadge();
+
+                    } else {
+                        console.log("No Cloud Data, Initializing...");
+                        // 如果雲端是空的，寫入預設資料
+                        window.state.userList = window.SEED_DATA.userList;
+                        window.state.topics = window.SEED_DATA.topics;
+                        window.state.nodes = window.SEED_DATA.nodes;
+                        window.state.user = window.state.userList['teacher'];
+                        window.dataManager.save();
+                    }
+                });
+            },
+            reset: () => { 
+                // 重置功能 (清空雲端)
+                window.ui.confirm('確定重置所有資料？', '這將清空雲端資料庫，恢復到預設狀態。', () => {
+                    const resetData = {
+                        userList: window.SEED_DATA.userList,
+                        topics: window.SEED_DATA.topics,
+                        nodes: window.SEED_DATA.nodes,
+                        trash: []
+                    };
+                    db.collection('schools').doc(DOC_ID).set(resetData)
+                        .then(() => {
+                            window.ui.showToast('系統已重置');
+                            window.ui.closeModal('modal-confirm');
+                            setTimeout(() => window.location.reload(), 1000);
+                        });
+                });
+            }
         };
 
         window.app = {};
@@ -605,7 +585,7 @@
             if (view === 'canvas' && !window.state.currentTopicId) { window.ui.showToast('請先從主題入口選擇一個探究主題', 'error'); window.app.router('entrance'); return; }
             window.state.currentView = view;
             if(view === 'entrance') { window.state.currentTopicId = null; }
-            window.dataManager.save();
+            // Router 不觸發存檔，避免頻繁寫入雲端，僅切換視圖
             window.ui.updateNav(view);
             document.getElementById('user-menu').classList.add('hidden');
             if(view === 'entrance') { window.ui.renderEntrance(); }
@@ -913,6 +893,9 @@
                     return; // Don't start pan if pinching
                 }
 
+                // [Fix] Add preventDefault to stop native text selection/drag which causes missed mouseup events
+                if (e.type === 'mousedown') e.preventDefault();
+
                 if(e.target.closest('.node-card')) {
                     const nodeId = e.target.closest('.node-card').id.replace('node-', '');
                     if (!e.shiftKey && !e.ctrlKey && !window.state.selectedNodeIds.includes(nodeId)) {
@@ -928,6 +911,7 @@
                     }
                     return; 
                 }
+                
                 if (e.ctrlKey || window.state.canvas.isPanMode) {
                     window.state.canvas.isDragging = true;
                     const c = window.app.canvas.getCoords(e);
@@ -1021,6 +1005,8 @@
                 }
                 if (window.state.canvas.draggedNodeId) {
                     window.state.canvas.draggedNodeId = null;
+                    // End drag - save to cloud
+                    window.dataManager.save();
                 }
                 if (window.state.canvas.isSelecting) {
                     const start = window.state.canvas.selectionStart;
@@ -1045,9 +1031,20 @@
                         }
                     });
                     newSelectedIds.forEach(id => { if (!window.state.selectedNodeIds.includes(id)) window.state.selectedNodeIds.push(id); });
+                    
+                    // 重置選取狀態
                     window.state.canvas.isSelecting = false;
                     document.getElementById('selection-box').style.display = 'none';
-                    window.ui.renderCanvas(); 
+                    
+                    // [修正] 改用 CSS 類別更新 (Soft Update)，避免 renderCanvas() 重毀 DOM 導致事件失效
+                    document.querySelectorAll('.node-card').forEach(card => {
+                        const id = card.id.replace('node-', '');
+                        if (window.state.selectedNodeIds.includes(id)) {
+                            card.classList.add('selected-node');
+                        } else {
+                            card.classList.remove('selected-node');
+                        }
+                    });
                 }
             },
             handleWheel: (e) => {
@@ -1140,14 +1137,18 @@
         window.ui = {};
         window.ui.init = () => {
             console.log("Initializing UI...");
-            window.dataManager.load();
+            
+            // [Fix] 顯示載入中狀態，避免直接渲染導致 user null 錯誤
+            const container = document.getElementById('app-container');
+            if(container) container.innerHTML = '<div class="w-full h-full flex flex-col items-center justify-center text-slate-400"><i class="fa-solid fa-circle-notch fa-spin text-3xl mb-3 text-indigo-500"></i><p>正在連接雲端知識庫...</p></div>';
+
+            window.dataManager.load(); // 這裡啟動雲端監聽
             window.app.updateTrashBadge();
             window.app.initCategorySelector();
-            window.ui.renderUserInfo();
-            window.ui.renderUserMenu();
-            if (window.state.currentView === 'canvas' && window.state.currentTopicId && window.state.topics.find(t => t.id === window.state.currentTopicId)) { window.app.router('canvas'); }
-            else if (window.state.currentView === 'profile') { window.app.router('profile'); }
-            else { window.app.router('entrance'); }
+            
+            // [Fix] 移除這裡的直接渲染，改由 dataManager.load 回調觸發
+            // window.ui.renderUserInfo();
+            // window.ui.renderUserMenu();
             
             // Global Listeners for Canvas Interaction
             window.addEventListener('mouseup', window.app.canvas.handleEnd);
@@ -1173,6 +1174,7 @@
         
         window.ui.renderUserInfo = () => {
             const u = window.state.user;
+            if (!u) return; // [Fix] Add Safety Check
             const avatarEl = document.getElementById('user-avatar');
             if(avatarEl) avatarEl.src = u.avatar;
             const nameEl = document.getElementById('user-name');
@@ -1182,6 +1184,7 @@
         };
         
         window.ui.renderUserMenu = () => { 
+            if (!window.state.user) return; // [Fix] Add Safety Check
             const userList = window.state.userList;
             const menuContent = Object.entries(userList).map(([key, u]) => {
                 const isCurrentUser = window.state.user.id === u.id;
@@ -1254,6 +1257,8 @@
         };
         window.ui.renderEntrance = () => { 
             const container = document.getElementById('app-container');
+            if (!window.state.user) return; // [Fix] Add Safety Check
+
             const visibleTopics = window.state.activeFilter === '全部' 
                 ? window.state.topics 
                 : window.state.topics.filter(t => t.categories && t.categories.includes(window.state.activeFilter));
@@ -1273,9 +1278,11 @@
             setTimeout(() => { document.querySelectorAll('.filter-btn').forEach(button => { button.addEventListener('click', (e) => { window.app.setFilter(e.currentTarget.dataset.category); }); }); }, 0);
         };
         window.ui.renderCanvas = () => { 
+            const container = document.getElementById('app-container');
+            if (!window.state.user) return; // [Fix] Add Safety Check
+
             const topic = window.state.topics.find(t => t.id === window.state.currentTopicId);
             const nodes = window.state.nodes.filter(n => n.topicId === window.state.currentTopicId);
-            const container = document.getElementById('app-container');
             
             const isPanMode = window.state.canvas.isPanMode;
             const modeLabel = isPanMode ? '✋ 拖曳' : '⬚ 選取';
@@ -1351,6 +1358,8 @@
         };
         window.ui.renderProfile = () => {
             const container = document.getElementById('app-container');
+            if (!window.state.user) return; // [Fix] Add Safety Check
+
             const u = window.state.user;
             // Added pb-24 for mobile nav clearance
             container.innerHTML = `<div class="max-w-2xl mx-auto px-6 py-8 h-full overflow-y-auto custom-scroll pb-24"><div class="bg-gradient-to-br from-indigo-50 to-white rounded-2xl p-6 shadow-sm border border-indigo-100 text-center mb-6 relative overflow-hidden"><div class="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-400 via-purple-500 to-indigo-500"></div><img src="${u.avatar}" class="w-20 h-20 rounded-full mx-auto mb-3 border-4 border-white shadow-md"><h2 class="text-2xl font-bold text-slate-800">${u.name}</h2><p class="text-slate-500 text-sm mb-1">${u.role === window.ROLES.LEAD ? '首席研究員' : '協同研究員'}</p><div class="flex justify-center gap-2 mt-4"><span class="bg-white/80 border px-3 py-1 rounded-full text-xs font-bold text-slate-600 shadow-sm">ID: ${u.id}</span></div></div><div class="space-y-6"><div class="flex items-center justify-between"><h3 class="font-bold text-lg flex items-center gap-2"><i class="fa-solid fa-robot text-indigo-600"></i> 我的知識建構檔案 (KB Profile)</h3><button onclick="window.app.generateAIProfile()" id="btn-gen-profile" class="bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-slate-700 transition flex items-center gap-2"><i class="fa-solid fa-wand-magic-sparkles"></i> <span>生成分析</span></button></div><div id="ai-loading" class="hidden p-8 text-center bg-white rounded-2xl border border-slate-100"><div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mb-2"></div><p class="text-sm text-slate-500 animate-pulse">正在回顧你的知識演化軌跡...</p></div><div id="ai-profile-result" class="hidden space-y-4"></div></div></div>`;
