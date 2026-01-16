@@ -8,9 +8,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
-    <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <!-- [Project AETHER] Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
 
     <script>
         tailwind.config = {
@@ -42,7 +42,7 @@
         html, body { 
             height: 100%; 
             width: 100%; 
-            overflow: hidden; /* 防止整個頁面捲動 */
+            overflow: hidden; /* 防止整個頁面捲動，交由容器處理 */
             overscroll-behavior: none; 
             -webkit-tap-highlight-color: transparent;
         }
@@ -58,12 +58,15 @@
             z-index: -1;
         }
         
+        /* 通用滾動條樣式 */
         .custom-scroll {
-            -webkit-overflow-scrolling: touch;
+            -webkit-overflow-scrolling: touch; /* iOS 滑順滾動 */
         }
         .custom-scroll::-webkit-scrollbar { width: 6px; }
         .custom-scroll::-webkit-scrollbar-track { background: transparent; }
         .custom-scroll::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 20px; }
+        
+        /* 隱藏滾動條但保留功能 */
         .scrollbar-hide::-webkit-scrollbar { display: none; }
         
         .node-card {
@@ -75,7 +78,6 @@
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
             z-index: 50;
         }
-        /* 選取樣式優化 */
         .node-card.selected-node {
             box-shadow: 0 0 0 3px #3b82f6, 0 10px 15px -3px rgba(59, 130, 246, 0.2);
             border-color: #3b82f6;
@@ -121,6 +123,9 @@
         .noselect {
             -webkit-touch-callout: none;
             -webkit-user-select: none;
+            -khtml-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
             user-select: none;
         }
 
@@ -147,6 +152,8 @@
         #canvas-wrapper { touch-action: none; }
         .category-tag { cursor: pointer; transition: all 0.2s; user-select: none; }
         .category-tag.selected { background-color: #e0e7ff; color: #4338ca; border-color: #818cf8; }
+
+        /* Mobile specific padding helper */
         .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
     </style>
 </head>
@@ -162,10 +169,13 @@
             </div>
         </div>
         
+        <!-- Desktop Nav -->
         <div class="hidden md:flex items-center bg-slate-100 p-1 rounded-lg gap-1">
             <button onclick="window.location.href='index.html'" class="nav-btn px-4 py-1.5 text-sm font-medium rounded-md text-slate-500 hover:text-slate-900 transition flex items-center gap-1"><i class="fa-solid fa-home"></i> 首頁</button>
             <button onclick="window.app.router('entrance')" data-nav="entrance" class="nav-btn px-4 py-1.5 text-sm font-medium rounded-md text-slate-500 hover:text-slate-900 transition flex items-center gap-1"><i class="fa-solid fa-layer-group"></i> 論壇入口</button>
             <button onclick="window.app.router('canvas')" data-nav="canvas" class="nav-btn px-4 py-1.5 text-sm font-medium rounded-md text-slate-500 hover:text-slate-900 transition flex items-center gap-1"><i class="fa-solid fa-project-diagram"></i> 知識地圖</button>
+            
+            <!-- External Links Dropdown -->
             <div class="relative group">
                 <button class="nav-btn px-4 py-1.5 text-sm font-medium rounded-md text-slate-500 hover:text-slate-900 transition flex items-center gap-1">
                     <i class="fa-solid fa-chart-line"></i> 分析中樞 <i class="fa-solid fa-chevron-down text-[10px] ml-1"></i>
@@ -195,13 +205,17 @@
         </div>
     </nav>
 
+    <!-- Main Container -->
     <main id="app-container" class="flex-1 relative overflow-hidden bg-slate-50 w-full"></main>
 
+    <!-- Desktop Footer -->
     <footer class="hidden md:flex bg-white border-t border-slate-200 px-4 py-2 text-center z-40 text-[10px] md:text-xs text-slate-500 justify-center items-center gap-2 shrink-0">
         <i class="fa-solid fa-seedling text-green-500"></i>
         <span class="truncate">知識建構：在未完成的理解中彼此承擔責任，使想法在社群裡不斷向更好的解釋演化。</span>
     </footer>
 
+    <!-- Mobile Bottom Navigation (Fixed at bottom) -->
+    <!-- Added padding-bottom for safe area -->
     <div class="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 flex justify-around items-center z-50 pb-safe h-14 box-content">
         <button onclick="window.location.href='index.html'" class="mobile-nav-btn flex flex-col items-center justify-center w-full h-full pt-1 text-slate-400 hover:text-indigo-600"><i class="fa-solid fa-home text-lg mb-0.5"></i> <span class="text-[10px]">首頁</span></button>
         <button onclick="window.app.router('entrance')" data-nav="entrance" class="mobile-nav-btn flex flex-col items-center justify-center w-full h-full pt-1 text-slate-400 hover:text-indigo-600"><i class="fa-solid fa-layer-group text-lg mb-0.5"></i> <span class="text-[10px]">論壇</span></button>
@@ -209,7 +223,7 @@
         <button onclick="window.app.openAnalyticsMenu()" class="mobile-nav-btn flex flex-col items-center justify-center w-full h-full pt-1 text-slate-400 hover:text-indigo-600"><i class="fa-solid fa-chart-line text-lg mb-0.5"></i> <span class="text-[10px]">分析</span></button>
     </div>
 
-    <!-- Modals & Overlays -->
+    <!-- Mobile Analytics Menu Modal -->
     <div id="modal-analytics-menu" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] hidden flex items-end justify-center">
         <div class="bg-white w-full rounded-t-xl p-6 pb-10 space-y-4 animate-fade-in-up">
             <h3 class="text-lg font-bold text-slate-800 border-b pb-2 mb-2">前往分析中樞</h3>
@@ -225,11 +239,15 @@
         </div>
     </div>
 
+    <!-- Trash Can FAB (Adjusted position for Mobile) -->
     <button onclick="window.app.openTrash()" id="btn-trash-fab" class="fixed bottom-20 left-4 md:bottom-8 md:left-8 z-[60] bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 rounded-full w-12 h-12 md:w-14 md:h-14 shadow-lg flex items-center justify-center text-xl transition transform hover:scale-105 group" title="資源回收桶">
         <i class="fa-solid fa-trash-can group-hover:text-red-500 transition-colors"></i>
         <span id="trash-count-badge" class="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full hidden border-2 border-white">0</span>
     </button>
 
+    <!-- Modals (Improved Mobile Responsiveness) -->
+    
+    <!-- Topic Create Modal -->
     <div id="modal-topic" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] hidden flex items-end md:items-center justify-center p-4">
         <div class="bg-white rounded-t-xl md:rounded-xl shadow-2xl w-full max-w-lg p-6 transform transition-all scale-100 max-h-[85vh] overflow-y-auto mb-safe md:mb-0">
             <h3 id="modal-topic-title" class="text-xl font-bold mb-4 flex items-center gap-2"><i class="fa-solid fa-folder-plus text-indigo-600"></i> 開啟探究主題</h3>
@@ -254,6 +272,7 @@
         </div>
     </div>
 
+    <!-- Node Composer Modal -->
     <div id="modal-node" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] hidden flex items-end md:items-center justify-center sm:p-4">
         <div class="bg-white rounded-t-xl sm:rounded-xl shadow-2xl w-full max-w-2xl p-4 sm:p-6 relative max-h-[90vh] overflow-y-auto flex flex-col mb-safe md:mb-0">
             <div class="flex justify-between items-center mb-4">
@@ -270,6 +289,7 @@
                 <div class="relative">
                     <textarea id="node-content" rows="4" class="w-full px-4 py-3 border border-slate-300 rounded-lg outline-none text-base" placeholder="輸入詳細內容..."></textarea>
                 </div>
+                <!-- AI Box moved inside scrollable area for mobile -->
                 <div id="ai-suggestion-box" class="hidden mt-2 bg-blue-50 border border-blue-100 text-blue-800 p-3 rounded-lg text-sm flex items-start gap-3 shadow-sm"><i class="fa-solid fa-lightbulb text-yellow-500 mt-1 shrink-0"></i><div><span class="font-bold block text-xs uppercase text-blue-400 mb-1">AI 建議</span><p class="text-xs md:text-sm">試著用「我的理論是...因為...」來延伸？</p></div></div>
             </div>
             
@@ -279,6 +299,7 @@
         </div>
     </div>
 
+    <!-- Node Detail Modal -->
     <div id="modal-detail" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-[65] hidden flex items-center justify-center p-4">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[85vh]">
             <div class="px-4 py-3 md:px-6 md:py-4 border-b border-slate-100 flex items-center justify-between shrink-0 bg-slate-50 rounded-t-xl">
@@ -301,6 +322,7 @@
         </div>
     </div>
 
+    <!-- Confirm Modal -->
     <div id="modal-confirm" class="fixed inset-0 bg-black/50 z-[110] hidden flex items-center justify-center p-4">
         <div class="bg-white rounded-lg p-6 max-w-sm w-full shadow-xl text-center">
             <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-red-500 text-xl"><i class="fa-solid fa-triangle-exclamation"></i></div>
@@ -310,6 +332,7 @@
         </div>
     </div>
 
+    <!-- Add User Modal -->
     <div id="modal-addUser" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] hidden flex items-center justify-center p-4">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6">
             <h3 class="text-xl font-bold mb-4 flex items-center gap-2"><i class="fa-solid fa-user-plus text-indigo-600"></i> 新增使用者</h3>
@@ -324,6 +347,7 @@
         </div>
     </div>
 
+    <!-- Trash Modal -->
     <div id="modal-trash" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-[70] hidden flex items-center justify-center p-4">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[85vh]">
             <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0 bg-red-50 rounded-t-xl">
@@ -342,6 +366,7 @@
     <div id="toast-container" class="fixed bottom-20 md:bottom-10 right-4 md:right-6 z-[120] flex flex-col gap-2 pointer-events-none w-full max-w-[300px] md:w-auto items-end"></div>
 
     <script>
+        // [Project AETHER] 1. Firebase Initialization
         const firebaseConfig = {
             apiKey: "AIzaSyDPjtxtf656JHVVlj1o4cLwSylo1jDBFAc",
             authDomain: "kb-platform-1.firebaseapp.com",
@@ -351,9 +376,10 @@
             messagingSenderId: "230026226847",
             appId: "1:230026226847:web:49e6f09ddfc3de0ef046aa"
         };
-        firebase.initializeApp(firebaseConfig);
+        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
 
+        // --- 2. Global Constants ---
         window.ROLES = { LEAD: 'teacher', CO: 'student' };
         window.SCAFFOLDS = {
             question: { id: 'question', label: 'Question', icon: 'fa-circle-question', color: 'bg-blue-500', border: 'border-blue-500', bgSoft: 'bg-blue-50', text: 'text-blue-700', desc: '提出你感興趣的問題或目前的困惑，邀請夥伴們一起探索答案。' },
@@ -381,106 +407,185 @@
             },
             topics: [
                 { id: 't1', name: '為什麼天空是藍色的？', categories: ['科學', '物理'], desc: '探討光線散射。', author: 'u1', date: '2023-10-01' },
-                { id: 't2', name: 'AI 是否具有創造力？', categories: ['AI', '社會議題', '哲學'], desc: '定義創造力與機器智慧。', author: 'u1', date: '2023-10-05' }
+                { id: 't2', name: 'AI 是否具有創造力？', categories: ['AI', '社會議題', '哲學'], desc: '定義創造力與機器智慧。', author: 'u1', date: '2023-10-05' },
+                { id: 't3', name: '進擊的巨人中的自由意志', categories: ['動漫', '哲學', '文學'], desc: '艾連的選擇是自由的嗎？', author: 'u2', date: '2023-10-08' },
+                { id: 't4', name: '如何用 Python 製作 Discord Bot', categories: ['程式', 'STEAM'], desc: '新手入門教學與討論。', author: 'u3', date: '2023-10-10' },
+                { id: 't5', name: '文藝復興對現代藝術的影響', categories: ['歷史', '藝術'], desc: '從達文西到米開朗基羅。', author: 'u1', date: '2023-10-12' },
+                { id: 't7', name: '英文口說練習技巧', categories: ['語言學習'], desc: '如何克服開口說英文的恐懼？', author: 'u3', date: '2023-10-18' },
+                { id: 't8', name: '病毒算是生物嗎？', categories: ['科學', '哲學'], desc: '生物與非生物的界線在哪裡？', author: 'u1', date: '2023-10-20' },
+                { id: 't9', name: '數學是被發現的還是被發明的？', categories: ['哲學', '科學'], desc: '數學是宇宙的語言還是人類的工具？', author: 'u1', date: '2023-10-22' }
             ],
             nodes: [
+                // T1: 天空顏色 (Physics)
                 { id: 'n1', topicId: 't1', type: 'question', title: '晴天與夕陽的顏色差異', content: '我好奇為什麼只有晴天是藍色，夕陽卻是紅色？', author: 'u2', x: 100, y: 300, parentId: null, date: Date.now(), cluster: 'A', promisingness: 30 },
-                { id: 'n2', topicId: 't1', type: 'improve', title: '距離與顏色的關係', content: '這應該跟光線穿過大氣層的距離有關。距離越長，留下的光越紅。', author: 'u3', x: 400, y: 200, parentId: 'n1', date: Date.now(), cluster: 'B', promisingness: 45 }
+                { id: 'n2', topicId: 't1', type: 'improve', title: '距離與顏色的關係', content: '這應該跟光線穿過大氣層的距離有關。距離越長，留下的光越紅。', author: 'u3', x: 400, y: 200, parentId: 'n1', date: Date.now(), cluster: 'B', promisingness: 45 },
+                { id: 'n3', topicId: 't1', type: 'extend', title: '瑞利散射理論', content: '我的理論是瑞利散射。藍光波長短，容易被散射。', author: 'u1', x: 400, y: 400, parentId: 'n1', date: Date.now(), cluster: 'A', promisingness: 85 },
+                { id: 'n4', topicId: 't1', type: 'counter', title: '陰天與雲的例外', content: '但瑞利散射不能解釋為什麼陰天也是白色的，或是雲為什麼是白的？', author: 'u4', x: 700, y: 300, parentId: 'n3', date: Date.now(), cluster: 'A', promisingness: 90 },
+                { id: 'n5', topicId: 't1', type: 'improve', title: '米氏散射解釋雲朵', content: '雲是白色的可以用「米氏散射」解釋，因為水滴顆粒比氣體分子大很多，所有波長都散射，混合成白光。', author: 'u5', x: 900, y: 300, parentId: 'n4', date: Date.now(), cluster: 'B', promisingness: 80 },
+                { id: 'n6', topicId: 't1', type: 'riseabove', title: '散射與顆粒大小的整合模型', content: '整合觀點：天空顏色取決於「散射顆粒大小」與「光波長」的關係。微小氣體分子造成瑞利散射(藍/紅)，較大水滴造成米氏散射(白)。', author: 'u6', x: 600, y: 600, parentId: 'n5', date: Date.now(), cluster: 'C', promisingness: 95 },
+                // T1 Expansion
+                { id: 'n41', topicId: 't1', type: 'question', title: '為何不是紫色？', content: '根據光譜，紫光波長比藍光更短，散射應該更強，為什麼天空不是紫色的？', author: 'u2', x: 200, y: 500, parentId: 'n3', date: Date.now(), cluster: 'A', promisingness: 65 },
+                { id: 'n42', topicId: 't1', type: 'extend', title: '人眼敏感度', content: '這可能跟我們眼睛的構造有關。視錐細胞對藍光比對紫光更敏感。', author: 'u3', x: 300, y: 600, parentId: 'n41', date: Date.now(), cluster: 'B', promisingness: 70 },
+                { id: 'n43', topicId: 't1', type: 'improve', title: '太陽光譜分佈', content: '除了人眼，太陽發出的光譜中，紫光本身的能量就比藍光少。', author: 'u5', x: 450, y: 550, parentId: 'n41', date: Date.now(), cluster: 'B', promisingness: 75 },
+                { id: 'n44', topicId: 't1', type: 'extend', title: '火星的天空', content: '那火星的天空呢？聽說是紅色的，這是不是因為大氣成分不同？', author: 'u4', x: 800, y: 400, parentId: 'n1', date: Date.now(), cluster: 'A', promisingness: 50 },
+                { id: 'n45', topicId: 't1', type: 'improve', title: '氧化鐵粉塵', content: '火星大氣充滿了紅色的氧化鐵粉塵，這是「吸收」與「反射」的問題，而不僅是散射。', author: 'u1', x: 950, y: 450, parentId: 'n44', date: Date.now(), cluster: 'B', promisingness: 80 },
+                { id: 'n46', topicId: 't1', type: 'riseabove', title: '大氣光學的綜合視角', content: '我們要綜合考慮：光源光譜(太陽)、介質特性(氣體/粉塵/水滴)、以及接收者(人眼)的敏感度。這是一個多因素系統。', author: 'u6', x: 750, y: 700, parentId: 'n43', date: Date.now(), cluster: 'C', promisingness: 98 },
+
+                // T2: AI 創造力 (Philosophy/Tech)
+                { id: 'n7', topicId: 't2', type: 'question', title: 'AI 產生的藝術算創作嗎？', content: 'AI 生成的畫作很美，但這是它「想」出來的，還是只是模仿數據庫？', author: 'u4', x: 150, y: 300, parentId: null, date: Date.now(), cluster: 'A', promisingness: 40 },
+                { id: 'n8', topicId: 't2', type: 'counter', title: '只是機率的拼貼', content: '我認為不算。AI 只是根據機率預測下一個像素，它沒有「意圖 (Intentionality)」。', author: 'u2', x: 400, y: 200, parentId: 'n7', date: Date.now(), cluster: 'A', promisingness: 50 },
+                { id: 'n9', topicId: 't2', type: 'improve', title: '人類也是拼貼？', content: '可是人類的靈感也是來自過去的經驗拼貼。如果結果是新的，過程重要嗎？', author: 'u3', x: 400, y: 400, parentId: 'n8', date: Date.now(), cluster: 'B', promisingness: 60 },
+                { id: 'n10', topicId: 't2', type: 'extend', title: '輔助創造力 vs 自主創造力', content: '我們或許可以區分：AI 作為人類的工具（輔助），以及 AI 獨立創作。目前主要是前者。', author: 'u5', x: 700, y: 300, parentId: 'n7', date: Date.now(), cluster: 'B', promisingness: 70 },
+                { id: 'n11', topicId: 't2', type: 'riseabove', title: '重新定義創造力', content: '我們需要重新定義創造力：不只是「無中生有」，而是「在現有數據中發現未曾見過的關聯」。AI 具備這種連結能力。', author: 'u1', x: 600, y: 600, parentId: 'n9', date: Date.now(), cluster: 'C', promisingness: 90 },
+                // T2 Expansion
+                { id: 'n47', topicId: 't2', type: 'extend', title: 'Boden 的三種創造力', content: '認知科學家 Margaret Boden 提出創造力有三種：組合性、探索性、變革性。AI 目前擅長組合，但能做到變革嗎？', author: 'u1', x: 250, y: 500, parentId: 'n11', date: Date.now(), cluster: 'B', promisingness: 85 },
+                { id: 'n48', topicId: 't2', type: 'question', title: '痛苦與藝術', content: '很多偉大的藝術來自痛苦。AI 不會感到痛苦，它的作品能有靈魂嗎？', author: 'u6', x: 100, y: 600, parentId: 'n7', date: Date.now(), cluster: 'A', promisingness: 60 },
+                { id: 'n49', topicId: 't2', type: 'counter', title: 'AlphaGo 的第 37 手', content: 'AlphaGo 下出了人類千年圍棋史未曾見過的步數，這難道不是一種變革性的創造力嗎？', author: 'u3', x: 500, y: 500, parentId: 'n47', date: Date.now(), cluster: 'B', promisingness: 88 },
+                { id: 'n50', topicId: 't2', type: 'improve', title: '觀賞者的主觀詮釋', content: '「靈魂」或許不在創作者，而在觀賞者的詮釋。如果 AI 的畫讓你感動，那對你來說它就有意義。', author: 'u5', x: 300, y: 700, parentId: 'n48', date: Date.now(), cluster: 'C', promisingness: 75 },
+                { id: 'n51', topicId: 't2', type: 'question', title: '法律與版權的挑戰', content: '如果 AI 算創作者，那版權歸誰？訓練數據的提供者應該分潤嗎？', author: 'u2', x: 800, y: 400, parentId: 'n10', date: Date.now(), cluster: 'A', promisingness: 65 },
+                { id: 'n52', topicId: 't2', type: 'riseabove', title: '人機共創的新時代', content: '未來的定義可能不是 AI 取代人類，而是「人+AI」作為一個新的創作主體 (Cybernetic Artist)。法律與倫理都需要為此重寫。', author: 'u4', x: 700, y: 750, parentId: 'n51', date: Date.now(), cluster: 'C', promisingness: 95 },
+
+                // T3: 進擊的巨人 (Anime/Philosophy)
+                { id: 'n12', topicId: 't3', type: 'question', title: '艾連真的有自由意志嗎？', content: '既然他看見了未來，並且按照未來行動，那他是否只是劇本的奴隸？', author: 'u2', x: 200, y: 300, parentId: null, date: Date.now(), cluster: 'A', promisingness: 50 },
+                { id: 'n13', topicId: 't3', type: 'extend', title: '宿命論的觀點', content: '同意。這就像希臘悲劇，伊底帕斯越想逃離命運，越是走向命運。', author: 'u4', x: 450, y: 250, parentId: 'n12', date: Date.now(), cluster: 'A', promisingness: 60 },
+                { id: 'n14', topicId: 't3', type: 'counter', title: '那是他「想要」的未來', content: '不同意。未來之所以那樣發生，是因為那就是艾連本質上渴望的選擇。', author: 'u5', x: 450, y: 450, parentId: 'n12', date: Date.now(), cluster: 'B', promisingness: 75 },
+                { id: 'n15', topicId: 't3', type: 'improve', title: '相容論 (Compatibilism)', content: '這可以用哲學的「相容論」解釋：自由意志與決定論不衝突。只要行動出自於自身慾望，就是自由，即使結果已定。', author: 'u6', x: 750, y: 350, parentId: 'n14', date: Date.now(), cluster: 'B', promisingness: 85 },
+                { id: 'n16', topicId: 't3', type: 'riseabove', title: '自由的代價', content: '作品的核心可能不在於有沒有選擇，而在於「為了追求自由，願意犧牲多少人性」。這是一種存在主義式的自由。', author: 'u1', x: 700, y: 600, parentId: 'n15', date: Date.now(), cluster: 'C', promisingness: 95 },
+                // T3 Expansion
+                { id: 'n53', topicId: 't3', type: 'extend', title: '道路與集體潛意識', content: '「道路」連結了所有尤米爾子民，這很像榮格的「集體潛意識」。艾連的意志或許受到歷代進擊的巨人的影響。', author: 'u3', x: 150, y: 500, parentId: 'n12', date: Date.now(), cluster: 'B', promisingness: 65 },
+                { id: 'n54', topicId: 't3', type: 'question', title: '無知是自由嗎？', content: '牆內王為了和平消除了記憶。活在虛假的樂園裡，算不算是另一種自由（免於恐懼）？', author: 'u2', x: 300, y: 600, parentId: 'n16', date: Date.now(), cluster: 'A', promisingness: 70 },
+                { id: 'n55', topicId: 't3', type: 'counter', title: '積極自由 vs 消極自由', content: '以撒·柏林的觀點：牆內是「消極自由」(免於...)，艾連追求的是「積極自由」(去做...)。兩者本質衝突。', author: 'u1', x: 550, y: 650, parentId: 'n54', date: Date.now(), cluster: 'B', promisingness: 90 },
+                { id: 'n56', topicId: 't3', type: 'improve', title: '暴力的循環', content: '加比與艾連的對照顯示，如果不跳脫仇恨的連鎖，無論怎麼選都不是自由，只是被歷史推著走。', author: 'u5', x: 850, y: 450, parentId: 'n16', date: Date.now(), cluster: 'C', promisingness: 80 },
+                { id: 'n57', topicId: 't3', type: 'riseabove', title: '理解與溝通的失敗', content: '整部作品其實是「巴別塔」的隱喻。巨人之力消失後，人類還是互相爭鬥，證明問題不在力量，而在於無法互相理解的人心。真正的自由可能在於「對話」。', author: 'u6', x: 700, y: 800, parentId: 'n56', date: Date.now(), cluster: 'C', promisingness: 95 },
+
+                // T4: Python Discord Bot (Coding)
+                { id: 'n17', topicId: 't4', type: 'question', title: '機器人如何持續運行？', content: '我寫好程式碼了，但關掉電腦機器人就下線了。要怎麼讓它 24 小時運作？', author: 'u3', x: 150, y: 300, parentId: null, date: Date.now(), cluster: 'A', promisingness: 40 },
+                { id: 'n18', topicId: 't4', type: 'extend', title: '使用雲端主機', content: '你需要把程式碼部署到雲端服務，像 Heroku, Replit 或 AWS。', author: 'u2', x: 400, y: 250, parentId: 'n17', date: Date.now(), cluster: 'B', promisingness: 60 },
+                { id: 'n19', topicId: 't4', type: 'improve', title: 'Replit 的限制', content: 'Replit 免費版現在會休眠，建議用 Fly.io 或是自己架設樹莓派 (Raspberry Pi)。', author: 'u5', x: 650, y: 250, parentId: 'n18', date: Date.now(), cluster: 'B', promisingness: 70 },
+                { id: 'n20', topicId: 't4', type: 'question', title: '非同步概念 (Async/Await)', content: '另外，為什麼所有的指令都要加 `await`？不能直接跑嗎？', author: 'u3', x: 400, y: 450, parentId: 'n17', date: Date.now(), cluster: 'A', promisingness: 55 },
+                { id: 'n21', topicId: 't4', type: 'riseabove', title: '事件驅動架構', content: '這涉及到「事件驅動 (Event-driven)」的核心。Discord Bot 要同時處理多個人的訊息，不能被單一任務卡住 (Blocking)，所以需要非同步處理。', author: 'u1', x: 700, y: 500, parentId: 'n20', date: Date.now(), cluster: 'C', promisingness: 90 },
+                // T4 Expansion
+                { id: 'n58', topicId: 't4', type: 'question', title: '斜線指令 (Slash Commands)', content: '以前用 `!` 當前綴，現在好像都改用 `/` 斜線指令了，這有什麼差別？', author: 'u4', x: 200, y: 600, parentId: 'n17', date: Date.now(), cluster: 'A', promisingness: 50 },
+                { id: 'n59', topicId: 't4', type: 'extend', title: '使用者體驗 UX', content: '斜線指令會自動跳出參數提示，對使用者更友善，不用死記指令格式。', author: 'u2', x: 450, y: 600, parentId: 'n58', date: Date.now(), cluster: 'B', promisingness: 65 },
+                { id: 'n60', topicId: 't4', type: 'improve', title: '安全性考量', content: '要注意 Token 絕對不能上傳到 GitHub！一定要用 `.env` 環境變數來管理金鑰。', author: 'u6', x: 650, y: 650, parentId: 'n18', date: Date.now(), cluster: 'C', promisingness: 95 },
+                { id: 'n61', topicId: 't4', type: 'extend', title: '資料庫串接', content: '如果要讓機器人記住使用者的等級或錢包，就需要串接資料庫。新手推薦用 SQLite，進階可以用 MongoDB。', author: 'u5', x: 850, y: 300, parentId: 'n19', date: Date.now(), cluster: 'B', promisingness: 75 },
+                { id: 'n62', topicId: 't4', type: 'riseabove', title: '狀態管理與擴展性', content: '當機器人變大，就需要考慮 Sharding (分片) 和 Load Balancing (負載平衡)。從寫 Code 到架構設計，這是一個完整的軟體工程縮影。', author: 'u1', x: 900, y: 500, parentId: 'n61', date: Date.now(), cluster: 'C', promisingness: 90 },
+
+                // T5: 文藝復興 (History/Art)
+                { id: 'n22', topicId: 't5', type: 'question', title: '為何透視法這麼重要？', content: '文藝復興強調透視法，這只是一種繪圖技巧嗎？還是有更深的意義？', author: 'u6', x: 150, y: 300, parentId: null, date: Date.now(), cluster: 'A', promisingness: 40 },
+                { id: 'n23', topicId: 't5', type: 'extend', title: '科學精神的展現', content: '透視法代表藝術家開始用幾何學和數學來觀察世界，這是科學精神進入藝術的開端。', author: 'u4', x: 400, y: 250, parentId: 'n22', date: Date.now(), cluster: 'B', promisingness: 60 },
+                { id: 'n24', topicId: 't5', type: 'improve', title: '從「神」到「人」的視角', content: '中世紀畫作是「神的視角」(平面、大小代表地位)，透視法則是「人的視角」(所見即所得)。這反映了人文主義的興起。', author: 'u5', x: 650, y: 300, parentId: 'n23', date: Date.now(), cluster: 'B', promisingness: 80 },
+                { id: 'n25', topicId: 't5', type: 'extend', title: '達文西的解剖學', content: '不只透視，達文西解剖人體也是為了畫得更像「人」，這也是人文主義的體現。', author: 'u2', x: 400, y: 450, parentId: 'n22', date: Date.now(), cluster: 'A', promisingness: 65 },
+                { id: 'n26', topicId: 't5', type: 'riseabove', title: '理性與感性的結合', content: '總結：文藝復興的影響在於將「客觀理性 (科學/透視)」引入「主觀感性 (藝術)」，確立了以人為本位來觀察和解釋世界的典範。', author: 'u1', x: 700, y: 550, parentId: 'n24', date: Date.now(), cluster: 'C', promisingness: 95 },
+                // T5 Expansion
+                { id: 'n63', topicId: 't5', type: 'extend', title: '贊助者的轉變', content: '除了技法，贊助者從教會轉變為梅迪奇家族(Medici)這樣的商人，這讓題材從宗教轉向了希臘羅馬神話與肖像。', author: 'u3', x: 200, y: 500, parentId: 'n22', date: Date.now(), cluster: 'A', promisingness: 70 },
+                { id: 'n64', topicId: 't5', type: 'improve', title: '油畫顏料的發明', content: '北方的凡艾克改良了油畫顏料，讓細節和光影(Chiaroscuro)表現變得可能，這也是技術推動藝術的例子。', author: 'u2', x: 450, y: 600, parentId: 'n23', date: Date.now(), cluster: 'B', promisingness: 75 },
+                { id: 'n65', topicId: 't5', type: 'extend', title: '暈塗法 (Sfumato)', content: '達文西的蒙娜麗莎使用了暈塗法，模糊了輪廓線。這種「模糊性」反而邀請觀者參與詮釋，這是藝術心理學的先驅。', author: 'u6', x: 600, y: 700, parentId: 'n25', date: Date.now(), cluster: 'B', promisingness: 85 },
+                { id: 'n66', topicId: 't5', type: 'counter', title: '對中世紀的誤解', content: '我們常認為中世紀是黑暗的，但哥德式教堂的垂直線條展現的是對「超越性」的追求，這與文藝復興的「世俗性」是不同的價值觀，而非優劣之分。', author: 'u1', x: 800, y: 400, parentId: 'n24', date: Date.now(), cluster: 'C', promisingness: 88 },
+                { id: 'n67', topicId: 't5', type: 'riseabove', title: '現代個人的誕生', content: '文藝復興真正的遺產是「個人主義」的誕生。藝術家不再是無名的工匠，而開始在作品上簽名。這是現代自我意識的起源。', author: 'u4', x: 850, y: 600, parentId: 'n26', date: Date.now(), cluster: 'C', promisingness: 98 },
+
+                // T7: 英文口說 (Language)
+                { id: 'n27', topicId: 't7', type: 'question', title: '如何克服開口恐懼？', content: '我單字量夠，但看到外國人就腦袋一片空白，怎麼辦？', author: 'u3', x: 150, y: 300, parentId: null, date: Date.now(), cluster: 'A', promisingness: 50 },
+                { id: 'n28', topicId: 't7', type: 'extend', title: '跟讀法 (Shadowing)', content: '推薦 Shadowing，模仿影集的語調。自己練比較沒壓力。', author: 'u2', x: 400, y: 200, parentId: 'n27', date: Date.now(), cluster: 'B', promisingness: 60 },
+                { id: 'n29', topicId: 't7', type: 'improve', title: '利用 AI 對話', content: '現在可以用 ChatGPT 的語音功能練習。它不會評價你，可以降低焦慮感。', author: 'u4', x: 400, y: 400, parentId: 'n27', date: Date.now(), cluster: 'B', promisingness: 75 },
+                { id: 'n30', topicId: 't7', type: 'riseabove', title: '情意濾網假說 (Affective Filter)', content: '這在語言學叫「情意濾網」。焦慮會阻擋輸入。降低焦慮（如跟機器人說話）能有效打開學習濾網。', author: 'u1', x: 700, y: 400, parentId: 'n29', date: Date.now(), cluster: 'C', promisingness: 90 },
+                // T7 Expansion
+                { id: 'n68', topicId: 't7', type: 'extend', title: '迂迴策略 (Circumlocution)', content: '遇到不會的單字不要卡住，試著用「描述」的方式繞過去。例如忘了 umbrella，就說 tool for rain。', author: 'u5', x: 250, y: 500, parentId: 'n27', date: Date.now(), cluster: 'A', promisingness: 70 },
+                { id: 'n69', topicId: 't7', type: 'improve', title: '停止腦中翻譯', content: '腦中翻譯會造成延遲。試著直接用英文思考，哪怕是很簡單的句子。看圖直接說英文單字是個好練習。', author: 'u6', x: 450, y: 550, parentId: 'n27', date: Date.now(), cluster: 'B', promisingness: 75 },
+                { id: 'n70', topicId: 't7', type: 'question', title: '發音重要嗎？', content: '我有口音，這會影響溝通嗎？還是文法對比較重要？', author: 'u3', x: 600, y: 250, parentId: 'n28', date: Date.now(), cluster: 'A', promisingness: 55 },
+                { id: 'n71', topicId: 't7', type: 'extend', title: '語調 (Intonation) > 發音', content: '研究顯示，語調和重音比單個音素的發音更影響理解。', author: 'u1', x: 800, y: 300, parentId: 'n70', date: Date.now(), cluster: 'B', promisingness: 80 },
+                { id: 'n72', topicId: 't7', type: 'riseabove', title: '語言是文化的載體', content: '不要只學語言，要學文化。了解高語境(High context)與低語境文化的差異，能幫助你理解為什麼外國人這樣說話。語言學習最終是跨文化溝通。', author: 'u4', x: 900, y: 500, parentId: 'n30', date: Date.now(), cluster: 'C', promisingness: 95 },
+
+                // T8: 病毒 (Biology)
+                { id: 'n31', topicId: 't8', type: 'question', title: '病毒到底是不是生物？', content: '它有遺傳物質，但不能自己繁殖，這樣算活著嗎？', author: 'u5', x: 150, y: 300, parentId: null, date: Date.now(), cluster: 'A', promisingness: 45 },
+                { id: 'n32', topicId: 't8', type: 'counter', title: '絕對寄生性', content: '教科書定義生物要有新陳代謝。病毒像是一個裝了基因的隨身碟，沒插上電腦(宿主)就是死物。', author: 'u6', x: 400, y: 250, parentId: 'n31', date: Date.now(), cluster: 'B', promisingness: 65 },
+                { id: 'n33', topicId: 't8', type: 'improve', title: '它是「生物的邊緣」', content: '或許我們不該用二分法。它處於化學物質與生命體的模糊邊界。', author: 'u2', x: 400, y: 450, parentId: 'n31', date: Date.now(), cluster: 'B', promisingness: 70 },
+                { id: 'n34', topicId: 't8', type: 'extend', title: '巨型病毒的發現', content: '最近發現的擬菌病毒 (Mimivirus) 體積很大，甚至有自己的代謝基因，這挑戰了傳統定義。', author: 'u4', x: 650, y: 350, parentId: 'n32', date: Date.now(), cluster: 'A', promisingness: 85 },
+                { id: 'n35', topicId: 't8', type: 'riseabove', title: '生命的定義需要修正', content: '與其爭論它「是」什麼，不如看它「做」什麼。病毒驅動了演化（轉座子），是地球生命系統不可或缺的一部分，即使它不完全符合傳統生命定義。', author: 'u1', x: 800, y: 500, parentId: 'n34', date: Date.now(), cluster: 'C', promisingness: 95 },
+                // T8 Expansion
+                { id: 'n73', topicId: 't8', type: 'extend', title: '普利昂蛋白 (Prions)', content: '如果病毒很邊緣，那 Prions (狂牛症病原) 呢？它只有蛋白質連 DNA 都沒有，卻能自我複製。生命的定義下限在哪？', author: 'u3', x: 250, y: 550, parentId: 'n31', date: Date.now(), cluster: 'A', promisingness: 75 },
+                { id: 'n74', topicId: 't8', type: 'improve', title: '水平基因轉移', content: '病毒是自然界的基因工程師。人類基因組中有 8% 是來自古代病毒的殘留，這對演化至關重要。', author: 'u5', x: 500, y: 600, parentId: 'n35', date: Date.now(), cluster: 'B', promisingness: 88 },
+                { id: 'n75', topicId: 't8', type: 'extend', title: '噬菌體療法', content: '既然病毒專殺細菌，我們可以用「噬菌體」來對抗超級細菌，這是一種「以毒攻毒」的智慧。', author: 'u2', x: 650, y: 200, parentId: 'n32', date: Date.now(), cluster: 'B', promisingness: 80 },
+                { id: 'n76', topicId: 't8', type: 'riseabove', title: '數位生命的類比', content: '如果我們看電腦病毒，它在數位生態系中也能繁殖、變異。這是否暗示「生命」其實是一種資訊處理的模式，而不一定要依賴碳基？', author: 'u6', x: 850, y: 650, parentId: 'n73', date: Date.now(), cluster: 'C', promisingness: 92 },
+
+                // T9: 數學 (Philosophy of Science)
+                { id: 'n36', topicId: 't9', type: 'question', title: '數學是發現還是發明？', content: '1+1=2 是宇宙真理，還是人類定義的規則？', author: 'u3', x: 150, y: 300, parentId: null, date: Date.now(), cluster: 'A', promisingness: 50 },
+                { id: 'n37', topicId: 't9', type: 'extend', title: '發現論 (柏拉圖主義)', content: '我覺得是發現。費波那契數列出現在花瓣、海螺裡，這是自然界原本就有的規律。', author: 'u5', x: 400, y: 200, parentId: 'n36', date: Date.now(), cluster: 'B', promisingness: 60 },
+                { id: 'n38', topicId: 't9', type: 'counter', title: '發明論 (形式主義)', content: '但像「虛數 i」現實中不存在，是我們為了計算方便「發明」出來的工具。', author: 'u6', x: 400, y: 400, parentId: 'n36', date: Date.now(), cluster: 'B', promisingness: 70 },
+                { id: 'n39', topicId: 't9', type: 'improve', title: '工具與真理的結合', content: '也許符號是發明的，但符號背後的邏輯關係是發現的？', author: 'u2', x: 650, y: 300, parentId: 'n38', date: Date.now(), cluster: 'A', promisingness: 80 },
+                { id: 'n40', topicId: 't9', type: 'riseabove', title: '不合理的有效性', content: '這就是 Wigner 說的「數學不合理的有效性」。我們發明了遊戲規則（公理），卻發現這套規則竟然能完美描述宇宙（物理）。這顯示人類思維結構可能與宇宙結構有某種同構性。', author: 'u1', x: 800, y: 500, parentId: 'n39', date: Date.now(), cluster: 'C', promisingness: 98 },
+                // T9 Expansion
+                { id: 'n77', topicId: 't9', type: 'extend', title: '非歐幾何的例子', content: '黎曼發明非歐幾何時只是純數學遊戲，結果愛因斯坦後來發現它正好能描述廣義相對論的時空彎曲。先發明，後發現？', author: 'u4', x: 300, y: 600, parentId: 'n38', date: Date.now(), cluster: 'B', promisingness: 85 },
+                { id: 'n78', topicId: 't9', type: 'question', title: '哥德爾不完備定理', content: '哥德爾證明了數學系統內總有無法證明的真理。這是否代表數學本身是有極限的，就像人類語言一樣？', author: 'u1', x: 550, y: 650, parentId: 'n40', date: Date.now(), cluster: 'C', promisingness: 92 },
+                { id: 'n79', topicId: 't9', type: 'extend', title: '歐拉恆等式的美感', content: 'e^(i*pi) + 1 = 0。五個最重要常數的完美結合。數學家常說「美」是真理的指引，這種美感是主觀的還是客觀的？', author: 'u5', x: 700, y: 200, parentId: 'n37', date: Date.now(), cluster: 'A', promisingness: 75 },
+                { id: 'n80', topicId: 't9', type: 'riseabove', title: '文化數學 (Ethnomathematics)', content: '我們習慣的數學是西方的。但在其他文化（如印加的結繩記事）有不同的數學形式。數學既是普世的，也是文化的產物。', author: 'u2', x: 850, y: 600, parentId: 'n36', date: Date.now(), cluster: 'C', promisingness: 88 }
             ]
         };
 
         window.state = {
             user: null, userList: {}, topics: [], nodes: [], trash: [], currentView: 'entrance', currentTopicId: null,
-            activeFilter: '全部', tempSelectedCategories: [], editingTopicId: null,
+            activeFilter: '全部', tempSelectedCategories: [], 
+            editingTopicId: null, // Add editing state
             canvas: { 
                 scale: 1, offsetX: 0, offsetY: 0, 
-                isDragging: false, lastX: 0, lastY: 0, draggedNodeId: null, 
-                isClusterMode: false, isHeatmapMode: false, animFrame: null,
+                isDragging: false, lastX: 0, lastY: 0, 
+                draggedNodeId: null, isClusterMode: false, isHeatmapMode: false, 
+                animFrame: null,
+                // Selection Box State
                 isSelecting: false, selectionStart: {x: 0, y: 0}, selectionCurrent: {x: 0, y: 0},
-                isPanMode: false, isPinching: false, lastPinchDist: 0, startPinchScale: 1
+                isPanMode: false,
+                // Pinch Zoom State
+                isPinching: false, lastPinchDist: 0, startPinchScale: 1
             },
-            selectedNodeIds: [], composer: { parentId: null, selectedScaffold: null }, profile: null
+            selectedNodeIds: [],
+            composer: { parentId: null, selectedScaffold: null }, profile: null
         };
         
         window.dataManager = {
-            save: () => { 
-                localStorage.setItem(window.STORAGE_KEY, JSON.stringify({ 
-                    currentUserKey: Object.keys(window.state.userList).find(key => window.state.userList[key].id === window.state.user.id) || 'teacher', 
-                    currentView: window.state.currentView, 
-                    currentTopicId: window.state.currentTopicId 
-                })); 
-            },
+            save: () => { localStorage.setItem(window.STORAGE_KEY, JSON.stringify({ userList: window.state.userList, topics: window.state.topics, nodes: window.state.nodes, trash: window.state.trash, currentUserKey: Object.keys(window.state.userList).find(key => window.state.userList[key].id === window.state.user.id) || 'teacher', currentView: window.state.currentView, currentTopicId: window.state.currentTopicId })); },
             load: () => {
                 const saved = localStorage.getItem(window.STORAGE_KEY);
-                let sessionData = {};
-                if (saved) { try { sessionData = JSON.parse(saved); } catch (e) {} }
-                window.state.currentView = sessionData.currentView || 'entrance';
-                window.state.currentTopicId = sessionData.currentTopicId || null;
-
-                db.collection('topics').onSnapshot(snapshot => {
-                    const topics = [];
-                    snapshot.forEach(doc => { topics.push({ id: doc.id, ...doc.data() }); });
-                    window.state.topics = topics.sort((a,b) => new Date(b.date) - new Date(a.date));
-                    if(window.state.currentView === 'entrance') window.ui.renderEntrance();
-                });
-
-                db.collection('nodes').onSnapshot(snapshot => {
-                    const nodes = [];
-                    snapshot.forEach(doc => { nodes.push({ id: doc.id, ...doc.data() }); });
-                    window.state.nodes = nodes;
-                    if(window.state.currentView === 'canvas') window.ui.renderCanvas();
-                });
-
-                db.collection('userList').onSnapshot(snapshot => {
-                    const users = {};
-                    snapshot.forEach(doc => { users[doc.id] = doc.data(); });
-                    window.state.userList = users;
-                    
-                    // --- 關鍵修正：確保預設載入時優先選擇老師身分，或至少是非空身分 ---
-                    const key = sessionData.currentUserKey;
-                    if (Object.keys(users).length > 0) {
-                        if (key && users[key]) {
-                            window.state.user = users[key];
-                        } else {
-                            // 嘗試尋找老師，若無則選第一個
-                            const teacher = Object.values(users).find(u => u.role === window.ROLES.LEAD);
-                            window.state.user = teacher || Object.values(users)[0];
-                        }
-                    }
-                    // ----------------------------------------------------------------
-                    
-                    window.ui.renderUserInfo(); window.ui.renderUserMenu();
-                });
-
-                db.collection('trash').onSnapshot(snapshot => {
-                    const trash = [];
-                    snapshot.forEach(doc => { trash.push({ id: doc.id, ...doc.data() }); });
-                    window.state.trash = trash.sort((a,b) => b.deletedAt - a.deletedAt);
-                    window.app.updateTrashBadge();
-                });
-                setTimeout(() => window.dataManager.checkAndSeed(), 1000);
-            },
-            checkAndSeed: async () => {
-                const snap = await db.collection('userList').get();
-                if (snap.empty) {
-                    for (const [key, val] of Object.entries(window.SEED_DATA.userList)) await db.collection('userList').doc(key).set(val);
-                    for (const t of window.SEED_DATA.topics) await db.collection('topics').doc(t.id).set(t);
-                    for (const n of window.SEED_DATA.nodes) await db.collection('nodes').doc(n.id).set(n);
+                if (saved) {
+                    try {
+                        const parsed = JSON.parse(saved);
+                        window.state.userList = parsed.userList || window.SEED_DATA.userList;
+                        window.state.topics = parsed.topics || window.SEED_DATA.topics;
+                        window.state.topics.forEach(t => { if (!t.categories) t.categories = t.category ? [t.category] : ['其他']; });
+                        window.state.nodes = parsed.nodes || window.SEED_DATA.nodes;
+                        window.state.trash = parsed.trash || [];
+                        window.state.currentView = parsed.currentView || 'entrance';
+                        window.state.currentTopicId = parsed.currentTopicId || null;
+                        const key = parsed.currentUserKey;
+                        window.state.user = (key && window.state.userList[key]) ? window.state.userList[key] : window.state.userList['teacher'];
+                        return;
+                    } catch (e) {}
                 }
+                window.state.userList = JSON.parse(JSON.stringify(window.SEED_DATA.userList));
+                window.state.topics = JSON.parse(JSON.stringify(window.SEED_DATA.topics));
+                window.state.nodes = JSON.parse(JSON.stringify(window.SEED_DATA.nodes));
+                window.state.trash = [];
+                window.state.user = window.state.userList['teacher'];
+                window.state.currentView = 'entrance';
+                window.dataManager.save();
             },
-            reset: async () => { window.location.reload(); }
+            reset: () => { localStorage.removeItem(window.STORAGE_KEY); window.location.reload(); }
         };
 
         window.app = {};
+
+        // Helper functions
         window.app.generateCategoryOptions = () => Object.entries(window.TOPIC_CATEGORIES).map(([value, label]) => `<option value="${value}">${label}</option>`).join('');
+        
         window.app.generateCategoryFilters = () => {
             let html = `<button class="px-4 py-1.5 rounded-full text-sm font-medium filter-btn transition ${window.state.activeFilter === '全部' ? 'active bg-slate-200 text-slate-900 border-slate-300' : 'bg-white text-slate-500 border border-slate-200'}" data-category="全部">所有主題</button>`;
             html += Object.keys(window.TOPIC_CATEGORIES).map(key => {
                 const isActive = window.state.activeFilter === key;
-                return `<button class="px-4 py-1.5 rounded-full text-sm font-medium filter-btn transition ${isActive ? 'active bg-indigo-50 text-indigo-700 border-indigo-200' : 'bg-white text-slate-500 border border-slate-200'}" data-category="${key}">${window.TOPIC_CATEGORIES[key]}</button>`;
+                const label = window.TOPIC_CATEGORIES[key];
+                return `<button class="px-4 py-1.5 rounded-full text-sm font-medium filter-btn transition ${isActive ? 'active bg-indigo-50 text-indigo-700 border-indigo-200' : 'bg-white text-slate-500 border border-slate-200'}" data-category="${key}">${label}</button>`;
             }).join('');
             return html;
         };
+
         window.app.setFilter = (category) => { window.state.activeFilter = category; window.ui.renderEntrance(); };
         window.app.initCategorySelector = () => { };
         window.app.renderCategorySelector = () => {
@@ -495,6 +600,7 @@
             window.app.renderCategorySelector();
         };
 
+        // Routing & User
         window.app.router = (view) => {
             if (view === 'canvas' && !window.state.currentTopicId) { window.ui.showToast('請先從主題入口選擇一個探究主題', 'error'); window.app.router('entrance'); return; }
             window.state.currentView = view;
@@ -506,99 +612,220 @@
             else if(view === 'canvas') { window.ui.renderCanvas(); }
             else if(view === 'profile') { window.ui.renderProfile(); }
         };
-        window.app.openAnalyticsMenu = () => { document.getElementById('modal-analytics-menu').classList.remove('hidden'); };
+        
+        // Add Mobile Analytics Menu Opener
+        window.app.openAnalyticsMenu = () => {
+            document.getElementById('modal-analytics-menu').classList.remove('hidden');
+        };
+
         window.app.toggleUserMenu = () => document.getElementById('user-menu').classList.toggle('hidden');
         window.app.openAddUserModal = () => { document.getElementById('modal-addUser').classList.remove('hidden'); document.getElementById('user-menu').classList.add('hidden'); document.getElementById('new-user-name').focus(); };
         window.app.createNewUser = () => {
-            const name = document.getElementById('new-user-name').value.trim(); if (!name) return window.ui.showToast('暱稱不能為空', 'error');
+            const nameInput = document.getElementById('new-user-name'); const roleInput = document.getElementById('new-user-role');
+            const name = nameInput.value.trim(); if (!name) return window.ui.showToast('暱稱不能為空', 'error');
             const newKey = `user${Date.now()}`; const newId = `u${Date.now()}`;
-            const userData = { id: newId, name, role: document.getElementById('new-user-role').value, avatar: `https://api.dicebear.com/9.x/notionists/svg?seed=${name}` };
-            db.collection('userList').doc(newKey).set(userData).then(() => { window.ui.closeModal('modal-addUser'); window.ui.showToast('新增成功'); window.app.switchUser(newKey); });
+            window.state.userList[newKey] = { id: newId, name, role: roleInput.value, avatar: `https://api.dicebear.com/9.x/notionists/svg?seed=${name}` };
+            window.dataManager.save(); window.ui.closeModal('modal-addUser'); window.ui.renderUserMenu(); window.ui.showToast('新增成功'); window.app.switchUser(newKey);
         };
         window.app.deleteUser = (key) => {
             if (window.state.userList[key].id === window.state.user.id) return window.ui.showToast('無法刪除當前登入的使用者', 'error');
             if (Object.keys(window.state.userList).length <= 1) return window.ui.showToast('無法刪除最後一位使用者', 'error');
-            window.ui.confirm('確定刪除使用者？', '此操作無法復原。', () => { db.collection('userList').doc(key).delete(); window.ui.closeModal('modal-confirm'); window.ui.showToast('使用者已刪除'); });
+            window.ui.confirm('確定刪除使用者？', '此操作無法復原。', () => { delete window.state.userList[key]; window.dataManager.save(); window.ui.renderUserMenu(); window.ui.showToast('使用者已刪除'); window.ui.closeModal('modal-confirm'); });
         };
         window.app.switchUser = (userKey) => {
             if (!window.state.userList[userKey]) return;
-            window.state.user = window.state.userList[userKey]; window.state.profile = null; 
-            window.dataManager.save(); window.ui.renderUserInfo(); window.ui.renderUserMenu(); window.ui.showToast(`已切換：${window.state.user.name}`); document.getElementById('user-menu').classList.add('hidden');
+            window.state.user = window.state.userList[userKey]; window.state.profile = null; window.dataManager.save(); window.ui.renderUserInfo(); window.ui.renderUserMenu(); window.ui.showToast(`已切換：${window.state.user.name}`); document.getElementById('user-menu').classList.add('hidden');
             if(window.state.currentView === 'canvas') window.ui.renderCanvas(); else if(window.state.currentView === 'profile') window.ui.renderProfile(); else window.ui.renderEntrance();
         };
 
-        window.app.openCreateTopic = () => { window.state.editingTopicId = null; document.getElementById('modal-topic-title').innerHTML = '<i class="fa-solid fa-folder-plus text-indigo-600"></i> 開啟探究主題'; document.getElementById('btn-topic-save').innerText = '建立'; document.getElementById('topic-name').value = ''; document.getElementById('topic-desc').value = ''; window.state.tempSelectedCategories = []; window.app.renderCategorySelector(); document.getElementById('modal-topic').classList.remove('hidden'); };
-        window.app.openEditTopic = (id) => {
-            const topic = window.state.topics.find(t => t.id === id); if (!topic) return;
-            window.state.editingTopicId = id; document.getElementById('modal-topic-title').innerHTML = '<i class="fa-solid fa-pen-to-square text-indigo-600"></i> 編輯探究主題'; document.getElementById('btn-topic-save').innerText = '儲存修改'; document.getElementById('topic-name').value = topic.name; document.getElementById('topic-desc').value = topic.desc; window.state.tempSelectedCategories = [...(topic.categories || [])]; window.app.renderCategorySelector(); document.getElementById('modal-topic').classList.remove('hidden');
+        // Data Manipulation
+        window.app.openCreateTopic = () => {
+            window.state.editingTopicId = null;
+            document.getElementById('modal-topic-title').innerHTML = '<i class="fa-solid fa-folder-plus text-indigo-600"></i> 開啟探究主題';
+            document.getElementById('btn-topic-save').innerText = '建立';
+            document.getElementById('topic-name').value = '';
+            document.getElementById('topic-desc').value = '';
+            window.state.tempSelectedCategories = [];
+            window.app.renderCategorySelector();
+            document.getElementById('modal-topic').classList.remove('hidden');
         };
+
+        window.app.openEditTopic = (id) => {
+            const topic = window.state.topics.find(t => t.id === id);
+            if (!topic) return;
+            
+            window.state.editingTopicId = id;
+            document.getElementById('modal-topic-title').innerHTML = '<i class="fa-solid fa-pen-to-square text-indigo-600"></i> 編輯探究主題';
+            document.getElementById('btn-topic-save').innerText = '儲存修改';
+            
+            document.getElementById('topic-name').value = topic.name;
+            document.getElementById('topic-desc').value = topic.desc;
+            window.state.tempSelectedCategories = [...(topic.categories || [])];
+            window.app.renderCategorySelector();
+            
+            document.getElementById('modal-topic').classList.remove('hidden');
+        };
+
         window.app.saveTopic = () => {
-            const name = document.getElementById('topic-name').value; if(!name) return window.ui.showToast('請輸入問題', 'error');
+            const name = document.getElementById('topic-name').value; 
+            if(!name) return window.ui.showToast('請輸入問題', 'error');
             const categories = window.state.tempSelectedCategories.length > 0 ? window.state.tempSelectedCategories : ['其他'];
             const desc = document.getElementById('topic-desc').value;
-            if (window.state.editingTopicId) { db.collection('topics').doc(window.state.editingTopicId).update({ name, categories, desc }).then(() => window.ui.showToast('主題已更新')); } 
-            else { const newId = 't'+Date.now(); db.collection('topics').doc(newId).set({ id: newId, name, categories, desc, author: window.state.user.id, date: new Date().toISOString() }).then(() => window.ui.showToast('主題已建立')); }
+
+            if (window.state.editingTopicId) {
+                // Update existing topic
+                const topicIndex = window.state.topics.findIndex(t => t.id === window.state.editingTopicId);
+                if (topicIndex !== -1) {
+                    window.state.topics[topicIndex].name = name;
+                    window.state.topics[topicIndex].categories = categories;
+                    window.state.topics[topicIndex].desc = desc;
+                    window.ui.showToast('主題已更新');
+                }
+            } else {
+                // Create new topic
+                window.state.topics.unshift({ 
+                    id: 't'+Date.now(), 
+                    name, 
+                    categories: categories, 
+                    desc: desc, 
+                    author: window.state.user.id, 
+                    date: new Date().toISOString() 
+                });
+                window.ui.showToast('主題已建立');
+            }
+            
+            window.dataManager.save(); 
             window.ui.closeModal('modal-topic'); 
+            window.ui.renderEntrance();
         };
 
-        window.app.updateTrashBadge = () => { const badge = document.getElementById('trash-count-badge'); if(!badge) return; const count = window.state.trash.length; if(count > 0) { badge.innerText = count; badge.classList.remove('hidden'); } else { badge.classList.add('hidden'); } };
+        window.app.updateTrashBadge = () => {
+            const badge = document.getElementById('trash-count-badge'); if(!badge) return;
+            const count = window.state.trash.length;
+            if(count > 0) { badge.innerText = count; badge.classList.remove('hidden'); } else { badge.classList.add('hidden'); }
+        };
         window.app.openTrash = () => { window.ui.renderTrashList(); document.getElementById('modal-trash').classList.remove('hidden'); document.getElementById('user-menu').classList.add('hidden'); };
         window.app.restoreTrashItem = (trashId) => {
-            const item = window.state.trash.find(t => t.id === trashId); if(!item) return;
-            if (item.type === 'topic') { db.collection('topics').doc(item.data.id).set(item.data); if(item.relatedNodes) item.relatedNodes.forEach(n => db.collection('nodes').doc(n.id).set(n)); } else { item.data.forEach(n => db.collection('nodes').doc(n.id).set(n)); }
-            db.collection('trash').doc(trashId).delete(); window.ui.showToast('已還原項目', 'success');
+            const itemIndex = window.state.trash.findIndex(t => t.id === trashId); if(itemIndex === -1) return;
+            const item = window.state.trash[itemIndex];
+            if (item.type === 'topic') { window.state.topics.unshift(item.data); window.state.nodes.push(...item.relatedNodes); } else { window.state.nodes.push(...item.data); }
+            window.state.trash.splice(itemIndex, 1); window.dataManager.save(); window.ui.renderTrashList(); window.app.updateTrashBadge();
+            if(window.state.currentView === 'entrance') window.ui.renderEntrance(); if(window.state.currentView === 'canvas') window.ui.renderCanvas();
+            window.ui.showToast('已還原項目', 'success');
         };
-        window.app.deleteTrashItem = (trashId) => { window.ui.confirm('確定永久刪除？', '此動作無法復原！', () => { db.collection('trash').doc(trashId).delete(); window.ui.closeModal('modal-confirm'); window.ui.showToast('已永久刪除'); }); };
-        window.app.emptyTrash = () => { if(window.state.trash.length === 0) return; window.ui.confirm('確定清空回收桶？', '所有項目將永久消失！', () => { const batch = db.batch(); window.state.trash.forEach(t => { batch.delete(db.collection('trash').doc(t.id)); }); batch.commit().then(() => { window.ui.closeModal('modal-confirm'); window.ui.showToast('回收桶已清空'); }); }); };
-
+        window.app.deleteTrashItem = (trashId) => {
+            window.ui.confirm('確定永久刪除？', '此動作無法復原！', () => { window.state.trash = window.state.trash.filter(t => t.id !== trashId); window.dataManager.save(); window.ui.renderTrashList(); window.app.updateTrashBadge(); window.ui.closeModal('modal-confirm'); window.ui.showToast('已永久刪除'); });
+        };
+        window.app.emptyTrash = () => {
+            if(window.state.trash.length === 0) return;
+            window.ui.confirm('確定清空回收桶？', '所有項目將永久消失！', () => { window.state.trash = []; window.dataManager.save(); window.ui.renderTrashList(); window.app.updateTrashBadge(); window.ui.closeModal('modal-confirm'); window.ui.showToast('回收桶已清空'); });
+        };
         window.app.deleteTopic = (id) => {
             window.ui.confirm('確定要刪除嗎？', '主題將被移至資源回收桶。', () => {
-                const topic = window.state.topics.find(t => t.id === id); const associatedNodes = window.state.nodes.filter(n => n.topicId === id); const trashId = `trash-${Date.now()}`;
-                db.collection('trash').doc(trashId).set({ id: trashId, type: 'topic', data: topic, relatedNodes: associatedNodes, deletedAt: Date.now(), deletedBy: window.state.user.id });
-                db.collection('topics').doc(id).delete(); const batch = db.batch(); associatedNodes.forEach(n => batch.delete(db.collection('nodes').doc(n.id))); batch.commit(); window.ui.closeModal('modal-confirm'); window.ui.showToast('主題已移至回收桶');
+                const topic = window.state.topics.find(t => t.id === id); const associatedNodes = window.state.nodes.filter(n => n.topicId === id);
+                window.state.trash.unshift({ id: `trash-${Date.now()}`, type: 'topic', data: topic, relatedNodes: associatedNodes, deletedAt: Date.now(), deletedBy: window.state.user.id });
+                window.state.topics = window.state.topics.filter(t => t.id !== id); window.state.nodes = window.state.nodes.filter(n => n.topicId !== id);
+                window.dataManager.save(); window.app.updateTrashBadge(); window.ui.closeModal('modal-confirm'); window.ui.renderEntrance(); window.ui.showToast('主題已移至回收桶');
             });
         };
         window.app.deleteNode = (id) => {
             window.ui.confirm('確定要刪除嗎？', '想法將被移至資源回收桶。', () => {
-                const toDel = []; const findChildren = (pid) => { window.state.nodes.filter(n => n.parentId === pid).forEach(c => { toDel.push(c); findChildren(c.id); }); };
-                const target = window.state.nodes.find(n => n.id === id); if(target) { toDel.push(target); findChildren(id); }
-                const trashId = `trash-${Date.now()}`; db.collection('trash').doc(trashId).set({ id: trashId, type: 'node', data: toDel, deletedAt: Date.now(), deletedBy: window.state.user.id });
-                const batch = db.batch(); toDel.forEach(n => batch.delete(db.collection('nodes').doc(n.id))); batch.commit(); window.ui.closeModal('modal-confirm'); window.ui.showToast('想法已移至回收桶');
+                const toDel = [];
+                const findChildren = (pid) => { window.state.nodes.filter(n => n.parentId === pid).forEach(c => { toDel.push(c); findChildren(c.id); }); };
+                const target = window.state.nodes.find(n => n.id === id);
+                if(target) { toDel.push(target); findChildren(id); }
+                window.state.trash.unshift({ id: `trash-${Date.now()}`, type: 'node', data: toDel, deletedAt: Date.now(), deletedBy: window.state.user.id });
+                const idsToDelete = toDel.map(n => n.id);
+                window.state.nodes = window.state.nodes.filter(n => !idsToDelete.includes(n.id));
+                window.dataManager.save(); window.app.updateTrashBadge(); window.ui.closeModal('modal-confirm'); window.ui.renderCanvas(); window.ui.showToast('想法已移至回收桶');
             });
         };
         window.app.enterTopic = (id) => { window.state.currentTopicId = id; window.state.canvas.scale=1; window.state.canvas.offsetX=0; window.state.canvas.offsetY=0; window.app.router('canvas'); };
         
+        // Node Composition
         window.app.openComposer = (pid) => {
             window.state.composer.parentId = pid;
-            document.getElementById('scaffold-selector').innerHTML = Object.values(window.SCAFFOLDS).map(s => `<button onclick="window.app.selectScaffold('${s.id}')" id="btn-scaffold-${s.id}" class="flex flex-col items-center justify-center p-2 rounded-lg border-2 border-slate-100 opacity-60 transition hover:opacity-80"><div class="w-8 h-8 md:w-8 md:h-8 rounded-full ${s.color} text-white flex justify-center items-center mb-1"><i class="fa-solid ${s.icon}"></i></div><span class="text-[10px] md:text-xs font-bold text-slate-600">${s.label}</span></button>`).join('');
-            const descEl = document.getElementById('scaffold-desc'); if(descEl) { descEl.innerHTML = ''; descEl.className = 'hidden'; } document.getElementById('modal-node').classList.remove('hidden');
+            document.getElementById('scaffold-selector').innerHTML = Object.values(window.SCAFFOLDS).map(s => `
+                <button onclick="window.app.selectScaffold('${s.id}')" id="btn-scaffold-${s.id}" class="flex flex-col items-center justify-center p-2 rounded-lg border-2 border-slate-100 opacity-60 transition hover:opacity-80">
+                    <div class="w-8 h-8 md:w-8 md:h-8 rounded-full ${s.color} text-white flex justify-center items-center mb-1"><i class="fa-solid ${s.icon}"></i></div>
+                    <span class="text-[10px] md:text-xs font-bold text-slate-600">${s.label}</span>
+                </button>`).join('');
+            const descEl = document.getElementById('scaffold-desc');
+            if(descEl) { descEl.innerHTML = ''; descEl.className = 'hidden'; }
+            document.getElementById('modal-node').classList.remove('hidden');
         };
         window.app.selectScaffold = (t) => {
             window.state.composer.selectedScaffold = t;
-            Object.values(window.SCAFFOLDS).forEach(s => { const btn = document.getElementById(`btn-scaffold-${s.id}`); if(s.id === t) { btn.classList.remove('opacity-60', 'border-slate-100'); btn.classList.add('opacity-100', window.SCAFFOLDS[t].border, window.SCAFFOLDS[t].bgSoft); } else { btn.classList.add('opacity-60', 'border-slate-100'); btn.classList.remove('opacity-100', window.SCAFFOLDS[s.id].border, window.SCAFFOLDS[s.id].bgSoft); } });
-            const s = window.SCAFFOLDS[t]; const descEl = document.getElementById('scaffold-desc'); if(descEl) { descEl.innerHTML = `<i class="fa-solid fa-circle-info mr-2"></i><span>${s.desc}</span>`; descEl.className = `text-xs md:text-sm mb-4 px-3 py-2 md:px-4 md:py-3 rounded-lg border flex items-start animate-fade-in ${s.bgSoft} ${s.text} ${s.border}`; descEl.classList.remove('hidden'); }
+            Object.values(window.SCAFFOLDS).forEach(s => {
+                const btn = document.getElementById(`btn-scaffold-${s.id}`);
+                if(s.id === t) { btn.classList.remove('opacity-60', 'border-slate-100'); btn.classList.add('opacity-100', window.SCAFFOLDS[t].border, window.SCAFFOLDS[t].bgSoft); }
+                else { btn.classList.add('opacity-60', 'border-slate-100'); btn.classList.remove('opacity-100', window.SCAFFOLDS[s.id].border, window.SCAFFOLDS[s.id].bgSoft); }
+            });
+            const s = window.SCAFFOLDS[t];
+            const descEl = document.getElementById('scaffold-desc');
+            if(descEl) {
+                descEl.innerHTML = `<i class="fa-solid fa-circle-info mr-2"></i><span>${s.desc}</span>`;
+                descEl.className = `text-xs md:text-sm mb-4 px-3 py-2 md:px-4 md:py-3 rounded-lg border flex items-start animate-fade-in ${s.bgSoft} ${s.text} ${s.border}`;
+                descEl.classList.remove('hidden');
+            }
+        };
+        window.app.checkAIIntervention = (e) => {
+            const len = e.target.value.length;
+            const box = document.getElementById('ai-suggestion-box');
+            if(len > 5 && len < 20) box.classList.remove('hidden'); else box.classList.add('hidden');
         };
         window.app.submitNode = () => {
             if(!window.state.composer.selectedScaffold) return window.ui.showToast('請選擇意圖', 'error');
-            const title = document.getElementById('node-title').value; const content = document.getElementById('node-content').value;
-            if(!title || !content) return window.ui.showToast('請輸入標題與內容', 'error');
-            const pid = window.state.composer.parentId; let nx, ny;
-            if(pid) { const p = window.state.nodes.find(n => n.id === pid); nx = p.x + (Math.random()*100 - 50); ny = p.y + 200; } 
-            else { const wrap = document.getElementById('canvas-wrapper'); nx = -window.state.canvas.offsetX + wrap.clientWidth/2 - 140; ny = -window.state.canvas.offsetY + wrap.clientHeight/2 - 100; }
-            const newNodeId = 'n'+Date.now();
-            db.collection('nodes').doc(newNodeId).set({ id: newNodeId, topicId: window.state.currentTopicId, type: window.state.composer.selectedScaffold, title, content, author: window.state.user.id, date: Date.now(), x: nx, y: ny, parentId: pid, cluster: ['A','B','C'][Math.floor(Math.random()*3)], promisingness: Math.floor(Math.random()*100) }).then(() => window.ui.closeModal('modal-node'));
+            const title = document.getElementById('node-title').value; // Get Title
+            const content = document.getElementById('node-content').value;
+            if(!title) return window.ui.showToast('請輸入標題', 'error'); // Validate Title
+            if(!content) return window.ui.showToast('請輸入內容', 'error');
+            
+            const pid = window.state.composer.parentId;
+            let nx, ny;
+            if(pid) {
+                const p = window.state.nodes.find(n => n.id === pid);
+                nx = p.x + (Math.random()*100 - 50); ny = p.y + 200;
+            } else {
+                const wrap = document.getElementById('canvas-wrapper');
+                nx = -window.state.canvas.offsetX + wrap.clientWidth/2 - 140;
+                ny = -window.state.canvas.offsetY + wrap.clientHeight/2 - 100;
+            }
+            const randomCluster = ['A', 'B', 'C'][Math.floor(Math.random() * 3)];
+            const randomProm = Math.floor(Math.random() * 100);
+            
+            window.state.nodes.push({ 
+                id: 'n'+Date.now(), 
+                topicId: window.state.currentTopicId, 
+                type: window.state.composer.selectedScaffold, 
+                title: title, // Save Title
+                content: content, 
+                author: window.state.user.id, 
+                date: Date.now(), 
+                x: nx, y: ny, 
+                parentId: pid, 
+                cluster: randomCluster, 
+                promisingness: randomProm 
+            });
+            window.dataManager.save(); window.ui.closeModal('modal-node'); window.ui.renderCanvas();
         };
-
         window.app.openNodeDetail = (id) => {
             const n = window.state.nodes.find(x => x.id === id); if(!n) return;
             const s = window.SCAFFOLDS[n.type]; const u = Object.values(window.state.userList).find(u => u.id === n.author);
-            const icon = document.getElementById('detail-scaffold-icon'); icon.className = `w-8 h-8 md:w-10 md:h-10 rounded-full flex justify-center items-center text-white text-lg ${s.color}`; icon.innerHTML = `<i class="fa-solid ${s.icon}"></i>`;
-            document.getElementById('detail-scaffold-label').innerText = s.label; document.getElementById('detail-scaffold-label').className = `text-xs font-bold uppercase mb-0.5 ${s.text}`;
-            document.getElementById('detail-title').innerText = n.title || '無標題'; document.getElementById('detail-author').innerText = u ? u.name : '?'; document.getElementById('detail-date').innerText = new Date(n.date).toLocaleString(); document.getElementById('detail-content').innerText = n.content;
+            const icon = document.getElementById('detail-scaffold-icon');
+            icon.className = `w-8 h-8 md:w-10 md:h-10 rounded-full flex justify-center items-center text-white text-lg ${s.color}`;
+            icon.innerHTML = `<i class="fa-solid ${s.icon}"></i>`;
+            document.getElementById('detail-scaffold-label').innerText = s.label;
+            document.getElementById('detail-scaffold-label').className = `text-xs font-bold uppercase mb-0.5 ${s.text}`;
+            document.getElementById('detail-title').innerText = n.title || '無標題'; // Show Title
+            document.getElementById('detail-author').innerText = u ? u.name : '?';
+            document.getElementById('detail-date').innerText = new Date(n.date).toLocaleString();
+            document.getElementById('detail-content').innerText = n.content;
             document.getElementById('btn-detail-reply').onclick = () => { window.ui.closeModal('modal-detail'); setTimeout(() => window.app.openComposer(n.id), 200); };
             document.getElementById('modal-detail').classList.remove('hidden');
         };
 
+        // AI Mock
         window.app.generateAIProfile = () => {
             const btn = document.getElementById('btn-gen-profile'); const loading = document.getElementById('ai-loading');
             btn.classList.add('hidden'); loading.classList.remove('hidden'); document.getElementById('ai-profile-result').classList.add('hidden');
@@ -609,262 +836,480 @@
             }, 1500);
         };
         window.app.mockGeminiAnalysis = (user, nodes) => {
-            const counts = { question:0, extend:0, improve:0, counter:0, riseabove:0 }; nodes.forEach(n => { if(counts[n.type] !== undefined) counts[n.type]++; });
+            const counts = { question:0, extend:0, improve:0, counter:0, riseabove:0 };
+            nodes.forEach(n => { if(counts[n.type] !== undefined) counts[n.type]++; });
             const total = nodes.length || 1;
-            let role, desc, icon; const maxType = Object.keys(counts).length > 0 ? Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b) : 'question';
-            if (maxType === 'question') { role = "前瞻探索者"; desc = "你善於發掘問題的本質..."; icon = "fa-compass"; } else if (maxType === 'riseabove') { role = "觀點昇華者"; desc = "你擁有卓越的整合能力..."; icon = "fa-layer-group"; } else if (maxType === 'counter') { role = "建設性批判者"; desc = "你勇於挑戰既有假設..."; icon = "fa-gavel"; } else if (maxType === 'improve') { role = "理論優化者"; desc = "你持續致力於改善他人的想法..."; icon = "fa-wrench"; } else { role = "積極連結者"; desc = "你積極串聯各種想法..."; icon = "fa-link"; }
-            const replyCount = nodes.filter(n => n.parentId).length; const sparkedCount = Math.floor(total * 0.8); 
-            return { role, desc, icon, trajectoryHTML: "", communityHTML: `<div class="grid grid-cols-2 gap-4 mb-3"><div class="bg-blue-50 p-3 rounded-lg text-center"><div class="text-2xl font-bold text-blue-600">${replyCount}</div><div class="text-xs text-blue-800">承接他人想法</div></div><div class="bg-indigo-50 p-3 rounded-lg text-center"><div class="text-2xl font-bold text-indigo-600">${sparkedCount}</div><div class="text-xs text-indigo-800">激發後續討論</div></div></div>`, statsHTML: Object.entries(counts).map(([k, v]) => `<div class="mb-2"><div class="flex justify-between text-xs mb-1"><span class="font-medium text-slate-600">${window.SCAFFOLDS[k].label}</span><span class="text-slate-400">${Math.round((v/total)*100)}%</span></div><div class="w-full bg-slate-100 rounded-full h-1.5"><div class="${window.SCAFFOLDS[k].color} h-1.5 rounded-full" style="width: ${(v/total)*100}%"></div></div></div>`).join('') };
+            let role, desc, icon;
+            const maxType = Object.keys(counts).length > 0 ? Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b) : 'question';
+            if (maxType === 'question') { role = "前瞻探索者 (Epistemic Explorer)"; desc = "你善於發掘問題的本質..."; icon = "fa-compass"; } 
+            else if (maxType === 'riseabove') { role = "觀點昇華者 (Idea Synthesizer)"; desc = "你擁有卓越的整合能力..."; icon = "fa-layer-group"; } 
+            else if (maxType === 'counter') { role = "建設性批判者 (Constructive Critic)"; desc = "你勇於挑戰既有假設..."; icon = "fa-gavel"; } 
+            else if (maxType === 'improve') { role = "理論優化者 (Theory Improver)"; desc = "你持續致力於改善他人的想法..."; icon = "fa-wrench"; } 
+            else { role = "積極連結者 (Active Connector)"; desc = "你積極串聯各種想法..."; icon = "fa-link"; }
+            let trajectoryHTML = "";
+            if (nodes.length === 0) { trajectoryHTML = "<p class='text-slate-500 italic'>尚無足夠資料來分析演化軌跡，快去貢獻想法吧！</p>"; } else {
+                const sorted = [...nodes].sort((a,b) => b.date - a.date).slice(0, 3);
+                trajectoryHTML = sorted.map((n, i) => { const s = window.SCAFFOLDS[n.type]; return `<div class="flex items-start gap-3 relative pb-4 last:pb-0">${i !== sorted.length -1 ? '<div class="absolute left-[14px] top-8 bottom-0 w-0.5 bg-slate-200"></div>' : ''}<div class="w-7 h-7 rounded-full ${s.color} text-white flex items-center justify-center shrink-0 z-10 text-xs"><i class="fa-solid ${s.icon}"></i></div><div class="flex-1"><div class="flex items-center gap-2 mb-1"><span class="text-xs font-bold px-2 py-0.5 rounded-full ${s.bgSoft} ${s.text}">${s.label}</span><span class="text-[10px] text-slate-400">${new Date(n.date).toLocaleDateString()}</span></div><p class="text-slate-900 font-bold text-xs mb-1">${n.title || ''}</p><p class="text-slate-700 text-sm bg-slate-50 p-2 rounded border border-slate-100">${n.content}</p></div></div>`; }).join('');
+            }
+            const replyCount = nodes.filter(n => n.parentId).length; 
+            const sparkedCount = Math.floor(total * 0.8); 
+            const communityHTML = `<div class="grid grid-cols-2 gap-4 mb-3"><div class="bg-blue-50 p-3 rounded-lg text-center"><div class="text-2xl font-bold text-blue-600">${replyCount}</div><div class="text-xs text-blue-800">承接他人想法</div></div><div class="bg-indigo-50 p-3 rounded-lg text-center"><div class="text-2xl font-bold text-indigo-600">${sparkedCount}</div><div class="text-xs text-indigo-800">激發後續討論</div></div></div><p class="text-sm text-slate-600 leading-relaxed">${replyCount > sparkedCount ? "你傾向於<span class='font-bold text-blue-600'>站在巨人的肩膀上</span>，善於消化並延續他人的觀點..." : "你的想法具有<span class='font-bold text-indigo-600'>高度啟發性</span>，經常成為社群熱烈討論的核心..."}</p>`;
+            const statsHTML = Object.entries(counts).map(([k, v]) => { const pct = (v / total) * 100; const s = window.SCAFFOLDS[k]; return `<div class="mb-2"><div class="flex justify-between text-xs mb-1"><span class="font-medium text-slate-600 flex items-center gap-1"><i class="fa-solid ${s.icon} ${s.text}"></i> ${s.label}</span><span class="text-slate-400">${Math.round(pct)}%</span></div><div class="w-full bg-slate-100 rounded-full h-1.5"><div class="${s.color} h-1.5 rounded-full transition-all duration-1000" style="width: ${pct}%"></div></div></div>`; }).join('');
+            return { role, desc, icon, trajectoryHTML, communityHTML, statsHTML };
         };
 
+        // --- 4. Canvas Logic (Isolated Module) ---
         window.app.canvas = {
             renderLoop: () => {
                 if (window.state.currentView === 'canvas') {
                     const nodes = window.state.nodes.filter(n => n.topicId === window.state.currentTopicId);
-                    if (window.state.canvas.draggedNodeId || window.state.canvas.isAnimating) window.ui.drawConnections(nodes);
+                    if (window.state.canvas.draggedNodeId || window.state.canvas.isAnimating) {
+                            window.ui.drawConnections(nodes);
+                    }
                 }
                 requestAnimationFrame(window.app.canvas.renderLoop);
             },
             applyTransform: () => {
-                const el = document.getElementById('canvas-content'); if(el) el.style.transform = `translate(${window.state.canvas.offsetX}px, ${window.state.canvas.offsetY}px) scale(${window.state.canvas.scale})`;
-                const bg = document.getElementById('canvas-bg'); if(bg) bg.style.backgroundPosition = `${window.state.canvas.offsetX}px ${window.state.canvas.offsetY}px`;
+                const el = document.getElementById('canvas-content');
+                if(el) el.style.transform = `translate(${window.state.canvas.offsetX}px, ${window.state.canvas.offsetY}px) scale(${window.state.canvas.scale})`;
+                const bg = document.getElementById('canvas-bg');
+                if(bg) bg.style.backgroundPosition = `${window.state.canvas.offsetX}px ${window.state.canvas.offsetY}px`;
             },
             getCoords: (e) => (e.touches && e.touches.length > 0) ? {x: e.touches[0].clientX, y: e.touches[0].clientY} : {x: e.clientX, y: e.clientY},
-            getDistance: (touches) => Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY),
+            getDistance: (touches) => {
+                return Math.hypot(
+                    touches[0].clientX - touches[1].clientX,
+                    touches[0].clientY - touches[1].clientY
+                );
+            },
             
             toggleMode: () => {
                 window.state.canvas.isPanMode = !window.state.canvas.isPanMode;
                 const w = document.getElementById('canvas-wrapper');
-                if (window.state.canvas.isPanMode) { if(w) w.style.cursor = 'grab'; window.state.canvas.isSelecting = false; document.getElementById('selection-box').style.display = 'none'; window.ui.showToast('已切換為：拖曳模式', 'success'); } 
-                else { if(w) w.style.cursor = 'default'; window.ui.showToast('已切換為：選取模式', 'info'); }
-                // Remove renderCanvas call here to prevent DOM destruction during mode switch if user is interacting
-                // window.ui.renderCanvas(); -> Replaced with button state update
-                const btn = document.querySelector('button[onclick="window.app.canvas.toggleMode()"]');
-                if(btn) {
-                    if(window.state.canvas.isPanMode) {
-                        btn.className = "bg-indigo-600 text-white shadow-lg scale-105 pointer-events-auto cursor-pointer px-4 py-2 rounded-full shadow-md flex items-center gap-2 text-sm font-bold transition-all duration-300 hover:scale-105 active:scale-95";
-                        btn.innerHTML = '<i class="fa-solid fa-hand"></i> <span>✋ 拖曳</span>';
-                    } else {
-                        btn.className = "bg-white text-slate-600 border border-slate-200 pointer-events-auto cursor-pointer px-4 py-2 rounded-full shadow-md flex items-center gap-2 text-sm font-bold transition-all duration-300 hover:scale-105 active:scale-95";
-                        btn.innerHTML = '<i class="fa-regular fa-square"></i> <span>⬚ 選取</span>';
-                    }
-                    const wrapper = document.getElementById('canvas-wrapper');
-                    if(wrapper) wrapper.style.cursor = window.state.canvas.isPanMode ? 'grab' : 'default';
+                if (window.state.canvas.isPanMode) {
+                    if(w) w.style.cursor = 'grab';
+                    window.state.canvas.isSelecting = false;
+                    const sb = document.getElementById('selection-box');
+                    if(sb) sb.style.display = 'none';
+                    window.ui.showToast('已切換為：拖曳模式 (按左鍵拖曳)', 'success');
+                } else {
+                    if(w) w.style.cursor = 'default';
+                    window.ui.showToast('已切換為：選取模式 (按左鍵框選)', 'info');
                 }
+                window.ui.renderCanvas();
             },
-            handleDoubleClick: (e) => { if (e.target.closest('.node-card')) return; window.app.canvas.toggleMode(); },
+            
+            handleDoubleClick: (e) => {
+                if (e.target.closest('.node-card')) return;
+                window.app.canvas.toggleMode();
+            },
 
             startPan: (e) => {
-                // Pinch check
-                if (e.touches && e.touches.length === 2) { window.state.canvas.isPinching = true; window.state.canvas.lastPinchDist = window.app.canvas.getDistance(e.touches); window.state.canvas.startPinchScale = window.state.canvas.scale; return; }
+                // Pinch to Zoom Logic
+                if (e.touches && e.touches.length === 2) {
+                    window.state.canvas.isPinching = true;
+                    window.state.canvas.lastPinchDist = window.app.canvas.getDistance(e.touches);
+                    window.state.canvas.startPinchScale = window.state.canvas.scale;
+                    return; // Don't start pan if pinching
+                }
 
                 if(e.target.closest('.node-card')) {
                     const nodeId = e.target.closest('.node-card').id.replace('node-', '');
                     if (!e.shiftKey && !e.ctrlKey && !window.state.selectedNodeIds.includes(nodeId)) {
                         window.state.selectedNodeIds = [];
+                        // Manually clear classes to avoid re-render that kills double click
                         document.querySelectorAll('.node-card.selected-node').forEach(el => el.classList.remove('selected-node'));
                     }
                     if (!window.state.selectedNodeIds.includes(nodeId)) {
                         window.state.selectedNodeIds.push(nodeId);
-                        document.getElementById(`node-${nodeId}`).classList.add('selected-node');
+                        // Visual update only
+                        const card = document.getElementById(`node-${nodeId}`);
+                        if(card) card.classList.add('selected-node');
                     }
                     return; 
                 }
                 if (e.ctrlKey || window.state.canvas.isPanMode) {
-                    window.state.canvas.isDragging = true; const c = window.app.canvas.getCoords(e); window.state.canvas.lastX = c.x; window.state.canvas.lastY = c.y;
+                    window.state.canvas.isDragging = true;
+                    const c = window.app.canvas.getCoords(e);
+                    window.state.canvas.lastX = c.x; 
+                    window.state.canvas.lastY = c.y;
                     const w = document.getElementById('canvas-wrapper'); if(w) w.style.cursor = 'grabbing';
                     return;
                 }
-                
-                // Start Selection
                 window.state.canvas.isSelecting = true;
                 const c = window.app.canvas.getCoords(e);
                 window.state.canvas.selectionStart = {x: c.x, y: c.y};
                 window.state.canvas.selectionCurrent = {x: c.x, y: c.y};
                 const box = document.getElementById('selection-box');
-                box.style.left = c.x + 'px'; box.style.top = c.y + 'px'; box.style.width = '0px'; box.style.height = '0px'; box.style.display = 'block';
+                box.style.left = c.x + 'px';
+                box.style.top = c.y + 'px';
+                box.style.width = '0px';
+                box.style.height = '0px';
+                box.style.display = 'block';
                 if (!e.shiftKey) {
                     window.state.selectedNodeIds = [];
+                    // Visual update only
                     document.querySelectorAll('.node-card.selected-node').forEach(el => el.classList.remove('selected-node'));
                 }
             },
             pan: (e) => {
+                // Pinch to Zoom Logic
                 if (window.state.canvas.isPinching && e.touches && e.touches.length === 2) {
-                    const dist = window.app.canvas.getDistance(e.touches); const zoomFactor = dist / window.state.canvas.lastPinchDist;
-                    window.state.canvas.scale = Math.min(Math.max(0.2, window.state.canvas.startPinchScale * zoomFactor), 3); window.app.canvas.applyTransform(); return;
+                    const dist = window.app.canvas.getDistance(e.touches);
+                    const zoomFactor = dist / window.state.canvas.lastPinchDist;
+                    const newScale = window.state.canvas.startPinchScale * zoomFactor;
+                    window.state.canvas.scale = Math.min(Math.max(0.2, newScale), 3);
+                    window.app.canvas.applyTransform();
+                    return;
                 }
+
                 const c = window.app.canvas.getCoords(e);
                 if(window.state.canvas.isDragging) {
-                    window.state.canvas.offsetX += c.x - window.state.canvas.lastX; window.state.canvas.offsetY += c.y - window.state.canvas.lastY;
-                    window.state.canvas.lastX = c.x; window.state.canvas.lastY = c.y; window.app.canvas.applyTransform();
+                    window.state.canvas.offsetX += c.x - window.state.canvas.lastX;
+                    window.state.canvas.offsetY += c.y - window.state.canvas.lastY;
+                    window.state.canvas.lastX = c.x; window.state.canvas.lastY = c.y;
+                    window.app.canvas.applyTransform();
                 } else if(window.state.canvas.draggedNodeId) {
-                    const dx = (c.x - window.state.canvas.lastX) / window.state.canvas.scale; const dy = (c.y - window.state.canvas.lastY) / window.state.canvas.scale;
-                    let nodesToMoveIds = [window.state.canvas.draggedNodeId]; if (window.state.selectedNodeIds.includes(window.state.canvas.draggedNodeId)) nodesToMoveIds = window.state.selectedNodeIds;
+                    const dx = (c.x - window.state.canvas.lastX) / window.state.canvas.scale;
+                    const dy = (c.y - window.state.canvas.lastY) / window.state.canvas.scale;
+                    
+                    // Check if dragged node is part of selection
+                    let nodesToMoveIds = [window.state.canvas.draggedNodeId];
+                    if (window.state.selectedNodeIds.includes(window.state.canvas.draggedNodeId)) {
+                        nodesToMoveIds = window.state.selectedNodeIds;
+                    }
+
                     nodesToMoveIds.forEach(id => {
                         const node = window.state.nodes.find(n => n.id === id);
-                        if(node) { node.x += dx; node.y += dy; const el = document.getElementById(`node-${node.id}`); if(el) { el.style.left = `${node.x}px`; el.style.top = `${node.y}px`; } }
+                        if(node) {
+                            node.x += dx;
+                            node.y += dy;
+                            const el = document.getElementById(`node-${node.id}`);
+                            if(el) {
+                                el.style.left = `${node.x}px`;
+                                el.style.top = `${node.y}px`;
+                            }
+                        }
                     });
+
                     window.state.canvas.lastX = c.x; window.state.canvas.lastY = c.y;
                 } else if (window.state.canvas.isSelecting) {
                     window.state.canvas.selectionCurrent = {x: c.x, y: c.y};
-                    const start = window.state.canvas.selectionStart; const current = window.state.canvas.selectionCurrent;
-                    const x = Math.min(start.x, current.x); const y = Math.min(start.y, current.y);
-                    const w = Math.abs(current.x - start.x); const h = Math.abs(current.y - start.y);
+                    const start = window.state.canvas.selectionStart;
+                    const current = window.state.canvas.selectionCurrent;
+                    const x = Math.min(start.x, current.x);
+                    const y = Math.min(start.y, current.y);
+                    const w = Math.abs(current.x - start.x);
+                    const h = Math.abs(current.y - start.y);
                     const box = document.getElementById('selection-box');
-                    box.style.left = x + 'px'; box.style.top = y + 'px'; box.style.width = w + 'px'; box.style.height = h + 'px';
+                    box.style.left = x + 'px';
+                    box.style.top = y + 'px';
+                    box.style.width = w + 'px';
+                    box.style.height = h + 'px';
                 }
             },
             handleEnd: (e) => {
-                if (window.state.canvas.isPinching && (!e.touches || e.touches.length < 2)) window.state.canvas.isPinching = false;
-                if (window.state.canvas.isDragging) { window.state.canvas.isDragging = false; const w = document.getElementById('canvas-wrapper'); if(w) w.style.cursor = window.state.canvas.isPanMode ? 'grab' : 'default'; }
-                
-                if (window.state.canvas.draggedNodeId) {
-                    let nodesToUpdateIds = [window.state.canvas.draggedNodeId]; if (window.state.selectedNodeIds.includes(window.state.canvas.draggedNodeId)) nodesToUpdateIds = window.state.selectedNodeIds;
-                    const batch = db.batch(); nodesToUpdateIds.forEach(id => { const node = window.state.nodes.find(n => n.id === id); if(node) { const ref = db.collection('nodes').doc(id); batch.update(ref, { x: node.x, y: node.y }); } });
-                    batch.commit(); window.state.canvas.draggedNodeId = null;
+                // Pinch End Logic
+                if (window.state.canvas.isPinching && (!e.touches || e.touches.length < 2)) {
+                    window.state.canvas.isPinching = false;
                 }
 
+                if (window.state.canvas.isDragging) {
+                    window.state.canvas.isDragging = false;
+                    const cursor = window.state.canvas.isPanMode ? 'grab' : 'default'; 
+                    const w = document.getElementById('canvas-wrapper'); if(w) w.style.cursor = cursor;
+                }
+                if (window.state.canvas.draggedNodeId) {
+                    window.state.canvas.draggedNodeId = null;
+                }
                 if (window.state.canvas.isSelecting) {
-                    window.state.canvas.isSelecting = false; document.getElementById('selection-box').style.display = 'none';
-                    const start = window.state.canvas.selectionStart; const current = window.state.canvas.selectionCurrent;
+                    const start = window.state.canvas.selectionStart;
+                    const current = window.state.canvas.selectionCurrent;
                     const selRect = { left: Math.min(start.x, current.x), top: Math.min(start.y, current.y), right: Math.max(start.x, current.x), bottom: Math.max(start.y, current.y) };
                     
-                    if (Math.abs(selRect.right - selRect.left) > 5 || Math.abs(selRect.bottom - selRect.top) > 5) {
-                        const nodeElements = document.querySelectorAll('.node-card');
-                        nodeElements.forEach(el => {
-                            const rect = el.getBoundingClientRect();
-                            if (rect.left < selRect.right && rect.right > selRect.left && rect.top < selRect.bottom && rect.bottom > selRect.top) {
-                                const id = el.id.replace('node-', ''); if (!window.state.selectedNodeIds.includes(id)) window.state.selectedNodeIds.push(id);
-                            }
-                        });
-                        // Direct DOM Update to avoid renderCanvas()
-                        document.querySelectorAll('.node-card').forEach(el => {
-                            const id = el.id.replace('node-', '');
-                            if (window.state.selectedNodeIds.includes(id)) el.classList.add('selected-node'); else el.classList.remove('selected-node');
-                        });
-                    } else {
-                        // Cleared by click logic mostly, but ensure visual sync
-                        document.querySelectorAll('.node-card.selected-node').forEach(el => el.classList.remove('selected-node'));
+                    // If box is tiny, just hide it and return (treat as click)
+                    if (Math.abs(selRect.right - selRect.left) < 5 && Math.abs(selRect.bottom - selRect.top) < 5) {
+                            window.state.canvas.isSelecting = false;
+                            document.getElementById('selection-box').style.display = 'none';
+                            return;
                     }
+
+                    const nodeElements = document.querySelectorAll('.node-card');
+                    const newSelectedIds = [];
+                    nodeElements.forEach(el => {
+                        const rect = el.getBoundingClientRect();
+                        if (rect.left < selRect.right && rect.right > selRect.left &&
+                            rect.top < selRect.bottom && rect.bottom > selRect.top) {
+                            const id = el.id.replace('node-', '');
+                            newSelectedIds.push(id);
+                        }
+                    });
+                    newSelectedIds.forEach(id => { if (!window.state.selectedNodeIds.includes(id)) window.state.selectedNodeIds.push(id); });
+                    window.state.canvas.isSelecting = false;
+                    document.getElementById('selection-box').style.display = 'none';
+                    window.ui.renderCanvas(); 
                 }
             },
-            handleWheel: (e) => { e.preventDefault(); const d = -e.deltaY * 0.001; window.state.canvas.scale = Math.min(Math.max(0.2, window.state.canvas.scale + d), 3); window.app.canvas.applyTransform(); },
+            handleWheel: (e) => {
+                e.preventDefault();
+                const d = -e.deltaY * 0.001;
+                window.state.canvas.scale = Math.min(Math.max(0.2, window.state.canvas.scale + d), 3);
+                window.app.canvas.applyTransform();
+            },
             zoom: (d) => { window.state.canvas.scale = Math.min(Math.max(0.2, window.state.canvas.scale + d), 3); window.app.canvas.applyTransform(); },
             fitView: () => { window.state.canvas.scale = window.innerWidth < 768 ? 0.8 : 1; window.state.canvas.offsetX = 0; window.state.canvas.offsetY = 0; window.app.canvas.applyTransform(); },
             startDrag: (e, id) => {
-                window.state.canvas.draggedNodeId = id; const c = window.app.canvas.getCoords(e); window.state.canvas.lastX = c.x; window.state.canvas.lastY = c.y;
+                window.state.canvas.draggedNodeId = id;
+                const c = window.app.canvas.getCoords(e);
+                window.state.canvas.lastX = c.x; window.state.canvas.lastY = c.y;
                 if (!window.state.selectedNodeIds.includes(id)) {
-                    if (!e.shiftKey) { window.state.selectedNodeIds = []; document.querySelectorAll('.node-card.selected-node').forEach(el => el.classList.remove('selected-node')); }
-                    window.state.selectedNodeIds.push(id); document.getElementById(`node-${id}`).classList.add('selected-node');
+                    if (!e.shiftKey) window.state.selectedNodeIds = [];
+                    window.state.selectedNodeIds.push(id);
+                    window.ui.renderCanvas();
                 }
             },
-            toggleHeatmap: () => { window.state.canvas.isHeatmapMode = !window.state.canvas.isHeatmapMode; window.ui.renderCanvas(); },
+            toggleHeatmap: () => {
+                window.state.canvas.isHeatmapMode = !window.state.canvas.isHeatmapMode;
+                window.ui.renderCanvas(); 
+            },
             toggleCluster: () => {
-                window.state.canvas.isClusterMode = !window.state.canvas.isClusterMode;
+                const isCluster = !window.state.canvas.isClusterMode;
+                window.state.canvas.isClusterMode = isCluster;
                 const nodes = window.state.nodes.filter(n => n.topicId === window.state.currentTopicId);
-                const targets = []; const nodeW = 320; const nodeH = 200;
-                if (window.state.canvas.isClusterMode) {
+                if (isCluster) {
                     const clusterGroups = { 'A': [], 'B': [], 'C': [], 'Other': [] };
-                    nodes.forEach(n => { if (window.CLUSTER_CENTERS[n.cluster]) clusterGroups[n.cluster].push(n); else clusterGroups['Other'].push(n); });
+                    nodes.forEach(n => {
+                        if (window.CLUSTER_CENTERS[n.cluster]) clusterGroups[n.cluster].push(n);
+                        else clusterGroups['Other'].push(n);
+                    });
+                    const targets = [];
+                    const nodeW = 320; 
+                    const nodeH = 200; 
                     Object.entries(clusterGroups).forEach(([key, groupNodes]) => {
                         const center = window.CLUSTER_CENTERS[key] || {x: 0, y: 0, width: 1000, height: 1000};
                         const cols = Math.max(1, Math.floor(center.width / nodeW));
                         groupNodes.forEach((n, idx) => {
                             if (n.savedX === undefined) { n.savedX = n.x; n.savedY = n.y; }
-                            targets.push({ id: n.id, x: center.x - ((cols * nodeW) / 2) + (nodeW / 2) + (idx % cols) * nodeW, y: center.y - (center.height / 2) + 100 + Math.floor(idx / cols) * nodeH });
+                            const col = idx % cols;
+                            const row = Math.floor(idx / cols);
+                            const startX = center.x - ((cols * nodeW) / 2) + (nodeW / 2);
+                            const startY = center.y - (center.height / 2) + 100; 
+                            const tx = startX + (col * nodeW);
+                            const ty = startY + (row * nodeH);
+                            targets.push({ id: n.id, x: tx, y: ty });
                         });
                     });
-                } else { nodes.forEach(n => targets.push({ id: n.id, x: n.savedX !== undefined ? n.savedX : n.x, y: n.savedY !== undefined ? n.savedY : n.y })); }
-                window.app.canvas.animateNodes(targets); window.ui.renderCanvas();
+                    window.app.canvas.animateNodes(targets);
+                } else {
+                    const targets = nodes.map(n => ({ id: n.id, x: n.savedX !== undefined ? n.savedX : n.x, y: n.savedY !== undefined ? n.savedY : n.y }));
+                    window.app.canvas.animateNodes(targets);
+                }
+                window.ui.renderCanvas();
             },
             animateNodes: (targets) => {
-                const startPositions = {}; const nodes = window.state.nodes.filter(n => n.topicId === window.state.currentTopicId);
+                const startPositions = {};
+                const nodes = window.state.nodes.filter(n => n.topicId === window.state.currentTopicId);
                 nodes.forEach(n => { startPositions[n.id] = {x: n.x, y: n.y}; });
                 const duration = 800; const startTime = performance.now(); window.state.canvas.isAnimating = true;
                 const animate = (time) => {
-                    const elapsed = time - startTime; const progress = Math.min(elapsed / duration, 1);
+                    const elapsed = time - startTime;
+                    const progress = Math.min(elapsed / duration, 1);
                     const ease = progress < 0.5 ? 2 * progress * progress : -1 + (4 - 2 * progress) * progress;
                     targets.forEach(target => {
                         const node = nodes.find(n => n.id === target.id);
-                        if (node) { const start = startPositions[target.id]; node.x = start.x + (target.x - start.x) * ease; node.y = start.y + (target.y - start.y) * ease; const el = document.getElementById(`node-${node.id}`); if (el) { el.style.left = `${node.x}px`; el.style.top = `${node.y}px`; } }
+                        if (node) {
+                            const start = startPositions[target.id];
+                            node.x = start.x + (target.x - start.x) * ease;
+                            node.y = start.y + (target.y - start.y) * ease;
+                            const el = document.getElementById(`node-${node.id}`);
+                            if (el) { el.style.left = `${node.x}px`; el.style.top = `${node.y}px`; }
+                        }
                     });
-                    if (progress < 1) { requestAnimationFrame(animate); } else { window.state.canvas.isAnimating = false; targets.forEach(target => { const node = nodes.find(n => n.id === target.id); if(node) { node.x = target.x; node.y = target.y; } }); window.ui.drawConnections(nodes); }
+                    if (progress < 1) { requestAnimationFrame(animate); } 
+                    else { 
+                        window.state.canvas.isAnimating = false; 
+                        targets.forEach(target => { const node = nodes.find(n => n.id === target.id); if(node) { node.x = target.x; node.y = target.y; } }); 
+                        window.ui.drawConnections(nodes); // Redraw lines at end
+                    }
                 };
                 requestAnimationFrame(animate);
             }
         };
 
+        // --- 5. UI Logic (Separated for safety) ---
         window.ui = {};
         window.ui.init = () => {
-            window.dataManager.load(); window.app.updateTrashBadge(); window.app.initCategorySelector();
-            if (window.state.currentView === 'profile') window.app.router('profile'); else window.app.router('entrance');
-            window.addEventListener('mouseup', window.app.canvas.handleEnd); window.addEventListener('touchend', window.app.canvas.handleEnd);
+            console.log("Initializing UI...");
+            window.dataManager.load();
+            window.app.updateTrashBadge();
+            window.app.initCategorySelector();
+            window.ui.renderUserInfo();
+            window.ui.renderUserMenu();
+            if (window.state.currentView === 'canvas' && window.state.currentTopicId && window.state.topics.find(t => t.id === window.state.currentTopicId)) { window.app.router('canvas'); }
+            else if (window.state.currentView === 'profile') { window.app.router('profile'); }
+            else { window.app.router('entrance'); }
+            
+            // Global Listeners for Canvas Interaction
+            window.addEventListener('mouseup', window.app.canvas.handleEnd);
+            window.addEventListener('touchend', window.app.canvas.handleEnd);
             window.addEventListener('resize', () => { if(window.state.currentView === 'canvas') window.ui.renderCanvas(); });
-            window.addEventListener('keydown', (e) => { if (e.key === 'Escape') { const modals = ['modal-topic', 'modal-node', 'modal-detail', 'modal-confirm', 'modal-addUser', 'modal-trash', 'modal-analytics-menu']; modals.forEach(id => { const el = document.getElementById(id); if (el && !el.classList.contains('hidden')) window.ui.closeModal(id); }); } });
+            
+            // NEW: Escape key to close modals
+            window.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    const modals = ['modal-topic', 'modal-node', 'modal-detail', 'modal-confirm', 'modal-addUser', 'modal-trash', 'modal-analytics-menu'];
+                    modals.forEach(id => {
+                        const el = document.getElementById(id);
+                        if (el && !el.classList.contains('hidden')) {
+                            window.ui.closeModal(id);
+                        }
+                    });
+                }
+            });
+
             window.app.canvas.renderLoop();
+            console.log("UI Initialized.");
         };
-        window.ui.renderUserInfo = () => { const u = window.state.user || { name: 'Guest', avatar: '', role: 'student' }; document.getElementById('user-avatar').src = u.avatar; document.getElementById('user-name').innerText = u.name; document.getElementById('user-role').innerText = u.role === window.ROLES.LEAD ? '首席' : '協同'; };
+        
+        window.ui.renderUserInfo = () => {
+            const u = window.state.user;
+            const avatarEl = document.getElementById('user-avatar');
+            if(avatarEl) avatarEl.src = u.avatar;
+            const nameEl = document.getElementById('user-name');
+            if(nameEl) nameEl.innerText = u.name;
+            const roleEl = document.getElementById('user-role');
+            if(roleEl) roleEl.innerText = u.role === window.ROLES.LEAD ? '首席' : '協同';
+        };
+        
         window.ui.renderUserMenu = () => { 
-            const userList = window.state.userList || {};
+            const userList = window.state.userList;
             const menuContent = Object.entries(userList).map(([key, u]) => {
-                const isCurrentUser = window.state.user && window.state.user.id === u.id;
-                const canDelete = window.state.user && window.state.user.role === window.ROLES.LEAD && !isCurrentUser;
+                const isCurrentUser = window.state.user.id === u.id;
+                const canDelete = window.state.user.role === window.ROLES.LEAD && !isCurrentUser;
                 const deleteBtn = canDelete ? `<button onclick="event.stopPropagation(); window.app.deleteUser('${key}')" class="p-3 text-slate-400 hover:text-red-500 transition"><i class="fa-solid fa-trash"></i></button>` : `<div class="p-3 w-10"></div>`; 
                 return `<div class="flex items-center hover:bg-slate-50 border-b border-slate-50 last:border-0 group"><button onclick="window.app.switchUser('${key}')" class="flex-1 text-left px-4 py-3 text-sm flex items-center gap-2 ${isCurrentUser ? 'bg-indigo-50 text-indigo-700' : ''}"><span class="text-xl">${u.role === window.ROLES.LEAD ? '👨‍🏫' : '🧑‍🎓'}</span><div class="flex flex-col"><span class="font-medium">${u.name}</span><span class="text-[10px] text-slate-400">${u.role === window.ROLES.LEAD ? '首席' : '協同'}</span></div></button>${deleteBtn}</div>`;
             }).join('');
-            const resetOption = window.state.user && window.state.user.role === window.ROLES.LEAD ? `<div class="bg-slate-50 px-4 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider border-t mt-1">系統設定</div><button onclick="window.ui.confirm('確定重置介面？', '這將重新整理頁面。', window.dataManager.reset)" class="w-full text-left px-4 py-3 hover:bg-red-50 text-sm flex items-center gap-2 text-red-600 font-medium"><span class="text-xl">⚠️</span> 重置介面</button>` : '';
-            document.getElementById('user-menu').innerHTML = `<div class="bg-slate-50 px-4 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider">切換身份</div><div class="max-h-60 overflow-y-auto custom-scroll">${menuContent}</div><div class="bg-slate-50 px-4 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider border-t mt-1">人員管理</div><button onclick="window.app.openAddUserModal()" class="w-full text-left px-4 py-3 hover:bg-slate-50 text-sm flex items-center gap-2 text-indigo-600 font-medium"><span class="text-xl">➕</span> 新增協同研究員</button>${resetOption}`;
+            let resetOption = window.state.user.role === window.ROLES.LEAD ? `<div class="bg-slate-50 px-4 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider border-t mt-1">系統設定</div><button onclick="window.ui.confirm('確定重置所有資料？', '這將刪除所有資料，恢復到預設狀態。', window.dataManager.reset)" class="w-full text-left px-4 py-3 hover:bg-red-50 text-sm flex items-center gap-2 text-red-600 font-medium"><span class="text-xl">⚠️</span> 重置系統資料</button>` : '';
+            const menuEl = document.getElementById('user-menu');
+            if(menuEl) menuEl.innerHTML = `<div class="bg-slate-50 px-4 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider">切換身份</div><div class="max-h-60 overflow-y-auto custom-scroll">${menuContent}</div><div class="bg-slate-50 px-4 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider border-t mt-1">人員管理</div><button onclick="window.app.openAddUserModal()" class="w-full text-left px-4 py-3 hover:bg-slate-50 text-sm flex items-center gap-2 text-indigo-600 font-medium"><span class="text-xl">➕</span> 新增協同研究員</button>${resetOption}`;
         };
+
         window.ui.renderTrashList = () => { 
-            const list = document.getElementById('trash-list'); if (!list) return;
+            const list = document.getElementById('trash-list');
+            if (!list) return;
             if (window.state.trash.length === 0) { list.innerHTML = `<div class="text-center py-10 text-slate-400"><i class="fa-regular fa-trash-can text-4xl mb-3 opacity-50"></i><p>回收桶是空的</p></div>`; return; }
             list.innerHTML = window.state.trash.map(item => {
-                const isTopic = item.type === 'topic'; const firstData = Array.isArray(item.data) ? item.data[0] : item.data;
-                const icon = isTopic ? 'fa-folder' : (window.SCAFFOLDS[firstData?.type]?.icon || 'fa-note-sticky'); const color = isTopic ? 'text-indigo-500 bg-indigo-100' : 'text-slate-500 bg-slate-100'; const name = isTopic ? item.data.name : (firstData?.content?.substring(0, 30) + '...');
-                return `<div class="flex items-center justify-between p-3 border border-slate-200 rounded-lg hover:bg-slate-50 transition"><div class="flex items-center gap-3"><div class="w-10 h-10 rounded-full ${color} flex items-center justify-center shrink-0"><i class="fa-solid ${icon}"></i></div><div><div class="font-bold text-slate-800 text-sm">${name}</div><div class="text-xs text-slate-400">刪除於: ${new Date(item.deletedAt).toLocaleString()}</div></div></div><div class="flex gap-2"><button onclick="window.app.restoreTrashItem('${item.id}')" class="text-xs bg-green-50 text-green-600 px-3 py-1.5 rounded hover:bg-green-100 transition border border-green-200">還原</button><button onclick="window.app.deleteTrashItem('${item.id}')" class="text-xs bg-red-50 text-red-600 px-3 py-1.5 rounded hover:bg-red-100 transition border border-red-200">永久刪除</button></div></div>`;
+                const isTopic = item.type === 'topic';
+                const icon = isTopic ? 'fa-folder' : (window.SCAFFOLDS[item.data[0]?.type]?.icon || 'fa-note-sticky');
+                const color = isTopic ? 'text-indigo-500 bg-indigo-100' : 'text-slate-500 bg-slate-100';
+                const name = isTopic ? item.data.name : (item.data[0]?.content.substring(0, 30) + '...');
+                const date = new Date(item.deletedAt).toLocaleString();
+                return `<div class="flex items-center justify-between p-3 border border-slate-200 rounded-lg hover:bg-slate-50 transition"><div class="flex items-center gap-3"><div class="w-10 h-10 rounded-full ${color} flex items-center justify-center shrink-0"><i class="fa-solid ${icon}"></i></div><div><div class="font-bold text-slate-800 text-sm">${name}</div><div class="text-xs text-slate-400">刪除於: ${date}</div></div></div><div class="flex gap-2"><button onclick="window.app.restoreTrashItem('${item.id}')" class="text-xs bg-green-50 text-green-600 px-3 py-1.5 rounded hover:bg-green-100 transition border border-green-200">還原</button><button onclick="window.app.deleteTrashItem('${item.id}')" class="text-xs bg-red-50 text-red-600 px-3 py-1.5 rounded hover:bg-red-100 transition border border-red-200">永久刪除</button></div></div>`;
             }).join('');
         };
         window.ui.closeModal = (id) => { 
             document.getElementById(id).classList.add('hidden');
-            if(id === 'modal-node') { document.getElementById('node-title').value = ''; document.getElementById('node-content').value = ''; document.getElementById('ai-suggestion-box').classList.add('hidden'); window.state.composer.parentId = null; window.state.composer.selectedScaffold = null; }
-            if (id === 'modal-addUser') document.getElementById('new-user-name').value = ''; 
-            if (id === 'modal-topic') { window.state.tempSelectedCategories = []; window.state.editingTopicId = null; window.app.renderCategorySelector(); document.getElementById('topic-name').value = ''; document.getElementById('topic-desc').value = ''; }
+            if(id === 'modal-node') {
+                document.getElementById('node-title').value = ''; // Clear Title
+                document.getElementById('node-content').value = '';
+                document.getElementById('ai-suggestion-box').classList.add('hidden');
+                window.state.composer.parentId = null;
+                window.state.composer.selectedScaffold = null;
+            }
+            if (id === 'modal-addUser') { document.getElementById('new-user-name').value = ''; }
+            if (id === 'modal-topic') { 
+                window.state.tempSelectedCategories = []; 
+                window.state.editingTopicId = null;
+                window.app.renderCategorySelector(); 
+                document.getElementById('topic-name').value = ''; 
+                document.getElementById('topic-desc').value = ''; 
+            }
         };
         window.ui.showToast = (msg, type = 'info') => { 
-            const el = document.createElement('div'); el.className = `${type === 'error' ? 'bg-red-500' : (type === 'success' ? 'bg-green-600' : 'bg-slate-800')} text-white px-4 py-2 rounded-lg shadow-xl text-sm flex items-center gap-2 transform transition-all translate-y-2 opacity-0`; el.innerHTML = `<i class="fa-solid ${type === 'success' ? 'fa-check' : 'fa-info-circle'}"></i> ${msg}`; document.getElementById('toast-container').appendChild(el);
-            requestAnimationFrame(() => el.classList.remove('translate-y-2', 'opacity-0')); setTimeout(() => { el.classList.add('opacity-0', 'translate-x-full'); setTimeout(() => el.remove(), 300); }, 3000);
+            const container = document.getElementById('toast-container');
+            const el = document.createElement('div');
+            const colors = type === 'error' ? 'bg-red-500' : (type === 'success' ? 'bg-green-600' : 'bg-slate-800');
+            el.className = `${colors} text-white px-4 py-2 rounded-lg shadow-xl text-sm flex items-center gap-2 transform transition-all translate-y-2 opacity-0`;
+            el.innerHTML = `<i class="fa-solid ${type === 'success' ? 'fa-check' : 'fa-info-circle'}"></i> ${msg}`;
+            container.appendChild(el);
+            requestAnimationFrame(() => el.classList.remove('translate-y-2', 'opacity-0'));
+            setTimeout(() => { el.classList.add('opacity-0', 'translate-x-full'); setTimeout(() => el.remove(), 300); }, 3000);
         };
-        window.ui.confirm = (title, desc, action) => { document.querySelector('#modal-confirm h3').innerText = title; document.querySelector('#modal-confirm p').innerText = desc; document.getElementById('btn-confirm-action').onclick = action; document.getElementById('modal-confirm').classList.remove('hidden'); };
-        window.ui.updateNav = (view) => { document.querySelectorAll('.nav-btn, .mobile-nav-btn').forEach(btn => { if(btn.dataset.nav === view) { btn.classList.add('active'); if(btn.classList.contains('mobile-nav-btn')) btn.classList.add('text-indigo-600'); } else { btn.classList.remove('active', 'text-indigo-600'); if(btn.classList.contains('mobile-nav-btn')) btn.classList.add('text-slate-400'); } }); };
-        
+        window.ui.confirm = (title, desc, action) => { 
+            document.querySelector('#modal-confirm h3').innerText = title;
+            document.querySelector('#modal-confirm p').innerText = desc;
+            document.getElementById('btn-confirm-action').onclick = action;
+            document.getElementById('modal-confirm').classList.remove('hidden');
+        };
+        window.ui.updateNav = (view) => { 
+            document.querySelectorAll('.nav-btn, .mobile-nav-btn').forEach(btn => {
+                if(btn.dataset.nav === view) {
+                    btn.classList.add('active');
+                    if(btn.classList.contains('mobile-nav-btn')) btn.classList.add('text-indigo-600');
+                } else {
+                    btn.classList.remove('active', 'text-indigo-600');
+                    if(btn.classList.contains('mobile-nav-btn')) btn.classList.add('text-slate-400');
+                }
+            });
+        };
         window.ui.renderEntrance = () => { 
-            const visibleTopics = window.state.activeFilter === '全部' ? window.state.topics : window.state.topics.filter(t => t.categories && t.categories.includes(window.state.activeFilter));
-            document.getElementById('app-container').innerHTML = `<div class="max-w-7xl mx-auto px-4 md:px-6 py-8 h-full overflow-y-auto custom-scroll pb-24"><div class="mb-6 text-center"><h2 class="text-2xl md:text-3xl font-bold text-slate-900">知識建構論壇 Knowledge Building Forum</h2><p class="text-slate-500 text-sm">"知識建構不是追求答案，而是以改善想法為共同使命，讓社群思維持續朝向更深刻的理解。"</p></div><div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4"><div class="w-full md:w-auto category-scroll-container"><div id="category-filters" class="flex gap-2 whitespace-nowrap md:flex-wrap">${window.app.generateCategoryFilters()}</div></div><button onclick="window.app.openCreateTopic()" class="bg-indigo-600 text-white px-5 py-2 rounded-lg shadow text-sm hover:bg-indigo-700 transition flex-shrink-0"><i class="fa-solid fa-plus"></i> 新增主題</button></div><div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-4">${visibleTopics.length === 0 ? `<div class="col-span-full text-center text-slate-400 py-10">此分類暫無主題，點擊右上角新增一個吧！</div>` : ''}${visibleTopics.map(t => { 
-                const count = window.state.nodes.filter(n => n.topicId === t.id).length; const cats = t.categories || [t.category] || ['其他']; const tagsHtml = cats.map(c => `<span class="bg-indigo-50 text-indigo-700 px-2 py-1 rounded text-xs font-bold mr-1">${window.TOPIC_CATEGORIES[c] || c}</span>`).join(''); 
-                const adminControls = `<div class="flex gap-2"><button onclick="event.stopPropagation(); window.app.openEditTopic('${t.id}')" class="text-slate-300 hover:text-indigo-500 transition" title="編輯主題"><i class="fa-solid fa-pen-to-square"></i></button><button onclick="event.stopPropagation(); window.app.deleteTopic('${t.id}')" class="text-slate-300 hover:text-red-500 transition" title="刪除主題"><i class="fa-solid fa-trash"></i></button></div>`;
+            const container = document.getElementById('app-container');
+            const visibleTopics = window.state.activeFilter === '全部' 
+                ? window.state.topics 
+                : window.state.topics.filter(t => t.categories && t.categories.includes(window.state.activeFilter));
+            
+            // Added pb-24 to ensure content clears mobile bottom nav
+            container.innerHTML = `<div class="max-w-7xl mx-auto px-4 md:px-6 py-8 h-full overflow-y-auto custom-scroll pb-24"><div class="mb-6 text-center"><h2 class="text-2xl md:text-3xl font-bold text-slate-900">知識建構論壇 Knowledge Building Forum</h2><p class="text-slate-500 text-sm">"知識建構不是追求答案，而是以改善想法為共同使命，讓社群思維持續朝向更深刻的理解。"</p></div><div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4"><div class="w-full md:w-auto category-scroll-container"><div id="category-filters" class="flex gap-2 whitespace-nowrap md:flex-wrap">${window.app.generateCategoryFilters()}</div></div>${window.state.user.role === window.ROLES.LEAD ? `<button onclick="window.app.openCreateTopic()" class="bg-indigo-600 text-white px-5 py-2 rounded-lg shadow text-sm hover:bg-indigo-700 transition flex-shrink-0"><i class="fa-solid fa-plus"></i> 新增主題</button>` : ''}</div><div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-4">${visibleTopics.length === 0 ? `<div class="col-span-full text-center text-slate-400 py-10">此分類暫無主題，點擊右上角新增一個吧！</div>` : ''}${visibleTopics.map(t => { 
+                const count = window.state.nodes.filter(n => n.topicId === t.id).length; 
+                const cats = t.categories || [t.category] || ['其他']; 
+                const tagsHtml = cats.map(c => `<span class="bg-indigo-50 text-indigo-700 px-2 py-1 rounded text-xs font-bold mr-1">${window.TOPIC_CATEGORIES[c] || c}</span>`).join(''); 
+                const adminControls = window.state.user.role === window.ROLES.LEAD ? `
+                    <div class="flex gap-2">
+                        <button onclick="event.stopPropagation(); window.app.openEditTopic('${t.id}')" class="text-slate-300 hover:text-indigo-500 transition" title="編輯主題"><i class="fa-solid fa-pen-to-square"></i></button>
+                        <button onclick="event.stopPropagation(); window.app.deleteTopic('${t.id}')" class="text-slate-300 hover:text-red-500 transition" title="刪除主題"><i class="fa-solid fa-trash"></i></button>
+                    </div>` : '';
                 return `<div onclick="window.app.enterTopic('${t.id}')" class="bg-white rounded-xl border p-5 cursor-pointer hover:shadow-lg relative overflow-hidden group transition"><div class="flex justify-between mb-3 items-start"><div class="flex flex-wrap gap-1">${tagsHtml}</div>${adminControls}</div><h3 class="font-bold text-lg mb-2 group-hover:text-indigo-600 transition">${t.name}</h3><p class="text-slate-500 text-sm mb-4 line-clamp-2">${t.desc}</p><div class="flex justify-between text-xs text-slate-400 pt-3 border-t"><span><i class="fa-solid fa-user"></i> ${window.state.userList[t.author] ? window.state.userList[t.author].name : 'Unknown'}</span><span>${count} 想法</span></div></div>`; 
             }).join('')}</div></div>`;
             setTimeout(() => { document.querySelectorAll('.filter-btn').forEach(button => { button.addEventListener('click', (e) => { window.app.setFilter(e.currentTarget.dataset.category); }); }); }, 0);
         };
         window.ui.renderCanvas = () => { 
-            const topic = window.state.topics.find(t => t.id === window.state.currentTopicId); if (!topic) return;
+            const topic = window.state.topics.find(t => t.id === window.state.currentTopicId);
             const nodes = window.state.nodes.filter(n => n.topicId === window.state.currentTopicId);
+            const container = document.getElementById('app-container');
+            
             const isPanMode = window.state.canvas.isPanMode;
-            document.getElementById('app-container').innerHTML = `
+            const modeLabel = isPanMode ? '✋ 拖曳' : '⬚ 選取';
+            const modeClass = isPanMode ? 'bg-indigo-600 text-white shadow-lg scale-105' : 'bg-white text-slate-600 border border-slate-200';
+            const modeIcon = isPanMode ? '<i class="fa-solid fa-hand"></i>' : '<i class="fa-regular fa-square"></i>';
+
+            container.innerHTML = `
             <div class="absolute top-2 left-2 right-2 md:top-4 md:left-4 md:right-4 z-40 flex justify-between pointer-events-none">
-                <div class="bg-white/90 backdrop-blur shadow-sm border rounded-lg p-2 pointer-events-auto flex items-center gap-2 max-w-[40%] md:max-w-[50%]"><button onclick="window.app.router('entrance')" class="w-8 h-8 flex items-center justify-center rounded hover:bg-slate-100 text-slate-500"><i class="fa-solid fa-arrow-left"></i></button><div class="h-6 w-px bg-slate-200"></div><h2 class="font-bold text-xs md:text-sm truncate px-1">${topic.name}</h2></div>
+                <div class="bg-white/90 backdrop-blur shadow-sm border rounded-lg p-2 pointer-events-auto flex items-center gap-2 max-w-[40%] md:max-w-[50%]">
+                    <button onclick="window.app.router('entrance')" class="w-8 h-8 flex items-center justify-center rounded hover:bg-slate-100 text-slate-500"><i class="fa-solid fa-arrow-left"></i></button>
+                    <div class="h-6 w-px bg-slate-200"></div>
+                    <h2 class="font-bold text-xs md:text-sm truncate px-1">${topic.name}</h2>
+                </div>
                 <div class="flex gap-2 pointer-events-auto">
                     <button onclick="window.app.canvas.toggleHeatmap()" id="btn-heatmap" class="${window.state.canvas.isHeatmapMode ? 'bg-orange-100 text-orange-600 border-orange-200' : 'bg-white/90 text-slate-500 border-slate-200'} backdrop-blur shadow-sm border rounded-lg px-3 py-1 text-xs font-bold flex items-center gap-1 transition-all hover:scale-105"><i class="fa-solid fa-fire ${window.state.canvas.isHeatmapMode ? 'animate-pulse' : ''}"></i> <span class="text-[10px] md:text-xs">潛力熱點</span></button>
                     <button onclick="window.app.canvas.toggleCluster()" id="btn-cluster" class="${window.state.canvas.isClusterMode ? 'bg-purple-100 text-purple-600 border-purple-200' : 'bg-white/90 text-slate-500 border-slate-200'} backdrop-blur shadow-sm border rounded-lg px-3 py-1 text-xs font-bold flex items-center gap-1 transition-all hover:scale-105"><i class="fa-solid fa-sparkles ${window.state.canvas.isClusterMode ? 'text-purple-500' : ''}"></i> <span class="text-[10px] md:text-xs">語意聚類</span></button>
-                    <div class="bg-white/90 backdrop-blur shadow-sm border rounded-lg p-1 flex"><button onclick="window.app.canvas.fitView()" class="w-8 h-8 flex items-center justify-center hover:bg-slate-100"><i class="fa-solid fa-expand"></i></button><button onclick="window.app.canvas.zoom(0.1)" class="w-8 h-8 flex items-center justify-center hover:bg-slate-100 hidden md:flex"><i class="fa-solid fa-plus"></i></button><button onclick="window.app.canvas.zoom(-0.1)" class="w-8 h-8 flex items-center justify-center hover:bg-slate-100 hidden md:flex"><i class="fa-solid fa-minus"></i></button></div>
+                    <div class="bg-white/90 backdrop-blur shadow-sm border rounded-lg p-1 flex">
+                        <button onclick="window.app.canvas.fitView()" class="w-8 h-8 flex items-center justify-center hover:bg-slate-100"><i class="fa-solid fa-expand"></i></button>
+                        <button onclick="window.app.canvas.zoom(0.1)" class="w-8 h-8 flex items-center justify-center hover:bg-slate-100 hidden md:flex"><i class="fa-solid fa-plus"></i></button>
+                        <button onclick="window.app.canvas.zoom(-0.1)" class="w-8 h-8 flex items-center justify-center hover:bg-slate-100 hidden md:flex"><i class="fa-solid fa-minus"></i></button>
+                    </div>
                 </div>
             </div>
+            
             <div class="absolute bottom-20 md:bottom-6 left-1/2 transform -translate-x-1/2 z-40 pointer-events-auto transition-all duration-300">
-                <button onclick="window.app.canvas.toggleMode()" class="${isPanMode ? 'bg-indigo-600 text-white shadow-lg scale-105' : 'bg-white text-slate-600 border border-slate-200'} pointer-events-auto cursor-pointer px-4 py-2 rounded-full shadow-md flex items-center gap-2 text-sm font-bold transition-all duration-300 hover:scale-105 active:scale-95">
-                    ${isPanMode ? '<i class="fa-solid fa-hand"></i> <span>✋ 拖曳</span>' : '<i class="fa-regular fa-square"></i> <span>⬚ 選取</span>'}
+                <button onclick="window.app.canvas.toggleMode()" class="${modeClass} pointer-events-auto cursor-pointer px-4 py-2 rounded-full shadow-md flex items-center gap-2 text-sm font-bold transition-all duration-300 hover:scale-105 active:scale-95">
+                    ${modeIcon} <span>${modeLabel}</span>
                 </button>
             </div>
-            <div class="absolute bottom-20 right-4 md:bottom-8 md:right-8 z-40"><button onclick="window.app.openComposer(null)" class="bg-indigo-600 text-white rounded-full w-12 h-12 md:w-14 md:h-14 shadow-xl flex items-center justify-center text-xl transition transform hover:scale-105"><i class="fa-solid fa-plus"></i></button></div>
+
+            <div class="absolute bottom-20 right-4 md:bottom-8 md:right-8 z-40"> 
+                <button onclick="window.app.openComposer(null)" class="bg-indigo-600 text-white rounded-full w-12 h-12 md:w-14 md:h-14 shadow-xl flex items-center justify-center text-xl transition transform hover:scale-105"><i class="fa-solid fa-plus"></i></button>
+            </div>
+            
             <div class="hidden md:block absolute bottom-24 left-4 md:bottom-8 md:left-24 z-30 pointer-events-none">
                 <div class="bg-white/80 backdrop-blur-sm border border-slate-200 p-3 rounded-lg shadow-sm text-xs text-slate-600 pointer-events-auto space-y-1">
                     <h4 class="font-bold text-slate-700 mb-1 flex items-center gap-1"><i class="fa-solid fa-circle-question text-indigo-500"></i> 操作指南</h4>
@@ -874,7 +1319,15 @@
                     <div class="flex items-center justify-between gap-3"><span class="bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded text-[10px] font-mono text-slate-500">滾輪</span> <span>縮放視角</span></div>
                 </div>
             </div>
-            <div id="canvas-wrapper" class="w-full h-full overflow-hidden relative touch-none noselect" style="cursor: ${isPanMode ? 'grab' : 'default'}" ondblclick="window.app.canvas.handleDoubleClick(event)" onmousedown="window.app.canvas.startPan(event)" ontouchstart="window.app.canvas.startPan(event)" onmousemove="window.app.canvas.pan(event)" ontouchmove="window.app.canvas.pan(event)" onwheel="window.app.canvas.handleWheel(event)">
+
+            <div id="canvas-wrapper" class="w-full h-full overflow-hidden relative touch-none noselect" 
+                 style="cursor: ${isPanMode ? 'grab' : 'default'}"
+                 ondblclick="window.app.canvas.handleDoubleClick(event)"
+                 onmousedown="window.app.canvas.startPan(event)" 
+                 ontouchstart="window.app.canvas.startPan(event)" 
+                 onmousemove="window.app.canvas.pan(event)" 
+                 ontouchmove="window.app.canvas.pan(event)" 
+                 onwheel="window.app.canvas.handleWheel(event)">
                 <div id="canvas-bg"></div>
                 <div id="canvas-content" class="absolute top-0 left-0 w-full h-full origin-top-left will-change-transform">
                     <div id="cluster-labels-layer" class="absolute top-0 left-0 w-full h-full pointer-events-none z-0 transition-opacity duration-500 opacity-0"></div>
@@ -882,46 +1335,70 @@
                     <div id="nodes-layer" class="z-10"></div>
                 </div>
             </div>`;
+            
             if (window.state.canvas.isClusterMode) {
                 const labelLayer = document.getElementById('cluster-labels-layer');
                 if (labelLayer) {
                     labelLayer.innerHTML = Object.values(window.CLUSTER_CENTERS).map(c => `<div class="cluster-zone" style="left: ${c.x - c.width/2}px; top: ${c.y - c.height/2}px; width: ${c.width}px; height: ${c.height}px;"><div class="cluster-title">${c.title}</div></div>`).join('');
-                    labelLayer.classList.remove('opacity-0'); labelLayer.style.opacity = '1';
+                    labelLayer.classList.remove('opacity-0');
+                    labelLayer.style.opacity = '1';
                 }
             }
-            window.ui.drawNodes(nodes); setTimeout(() => window.ui.drawConnections(nodes), 0); window.app.canvas.applyTransform();
+
+            window.ui.drawNodes(nodes);
+            setTimeout(() => window.ui.drawConnections(nodes), 0);
+            window.app.canvas.applyTransform();
         };
         window.ui.renderProfile = () => {
-            const u = window.state.user || { name: 'Guest', avatar: '' };
-            document.getElementById('app-container').innerHTML = `<div class="max-w-2xl mx-auto px-6 py-8 h-full overflow-y-auto custom-scroll pb-24"><div class="bg-gradient-to-br from-indigo-50 to-white rounded-2xl p-6 shadow-sm border border-indigo-100 text-center mb-6 relative overflow-hidden"><div class="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-400 via-purple-500 to-indigo-500"></div><img src="${u.avatar}" class="w-20 h-20 rounded-full mx-auto mb-3 border-4 border-white shadow-md"><h2 class="text-2xl font-bold text-slate-800">${u.name}</h2><p class="text-slate-500 text-sm mb-1">${u.role === window.ROLES.LEAD ? '首席研究員' : '協同研究員'}</p><div class="flex justify-center gap-2 mt-4"><span class="bg-white/80 border px-3 py-1 rounded-full text-xs font-bold text-slate-600 shadow-sm">ID: ${u.id}</span></div></div><div class="space-y-6"><div class="flex items-center justify-between"><h3 class="font-bold text-lg flex items-center gap-2"><i class="fa-solid fa-robot text-indigo-600"></i> 我的知識建構檔案 (KB Profile)</h3><button onclick="window.app.generateAIProfile()" id="btn-gen-profile" class="bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-slate-700 transition flex items-center gap-2"><i class="fa-solid fa-wand-magic-sparkles"></i> <span>生成分析</span></button></div><div id="ai-loading" class="hidden p-8 text-center bg-white rounded-2xl border border-slate-100"><div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mb-2"></div><p class="text-sm text-slate-500 animate-pulse">正在回顧你的知識演化軌跡...</p></div><div id="ai-profile-result" class="hidden space-y-4"></div></div></div>`;
+            const container = document.getElementById('app-container');
+            const u = window.state.user;
+            // Added pb-24 for mobile nav clearance
+            container.innerHTML = `<div class="max-w-2xl mx-auto px-6 py-8 h-full overflow-y-auto custom-scroll pb-24"><div class="bg-gradient-to-br from-indigo-50 to-white rounded-2xl p-6 shadow-sm border border-indigo-100 text-center mb-6 relative overflow-hidden"><div class="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-400 via-purple-500 to-indigo-500"></div><img src="${u.avatar}" class="w-20 h-20 rounded-full mx-auto mb-3 border-4 border-white shadow-md"><h2 class="text-2xl font-bold text-slate-800">${u.name}</h2><p class="text-slate-500 text-sm mb-1">${u.role === window.ROLES.LEAD ? '首席研究員' : '協同研究員'}</p><div class="flex justify-center gap-2 mt-4"><span class="bg-white/80 border px-3 py-1 rounded-full text-xs font-bold text-slate-600 shadow-sm">ID: ${u.id}</span></div></div><div class="space-y-6"><div class="flex items-center justify-between"><h3 class="font-bold text-lg flex items-center gap-2"><i class="fa-solid fa-robot text-indigo-600"></i> 我的知識建構檔案 (KB Profile)</h3><button onclick="window.app.generateAIProfile()" id="btn-gen-profile" class="bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-slate-700 transition flex items-center gap-2"><i class="fa-solid fa-wand-magic-sparkles"></i> <span>生成分析</span></button></div><div id="ai-loading" class="hidden p-8 text-center bg-white rounded-2xl border border-slate-100"><div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mb-2"></div><p class="text-sm text-slate-500 animate-pulse">正在回顧你的知識演化軌跡...</p></div><div id="ai-profile-result" class="hidden space-y-4"></div></div></div>`;
             if (window.state.profile && document.getElementById('ai-profile-result')) { window.ui.renderProfileContent(window.state.profile); }
         };
         window.ui.renderProfileContent = (data) => {
-            document.getElementById('ai-profile-result').innerHTML = `<div class="animate-fade-in bg-white p-5 rounded-xl shadow-sm border-l-4 border-indigo-500 relative overflow-hidden"><div class="absolute right-0 top-0 opacity-5 transform translate-x-4 -translate-y-4"><i class="fa-solid ${data.icon} text-9xl text-indigo-900"></i></div><h4 class="text-sm font-bold text-indigo-500 uppercase tracking-wider mb-3 flex items-center gap-2"><i class="fa-solid fa-fire"></i> 使用者知識角色</h4><div class="relative z-10"><p class="text-xl font-bold text-slate-800 mb-2">${data.role}</p><p class="text-sm text-slate-600 leading-relaxed">${data.desc}</p></div></div><div class="grid grid-cols-1 md:grid-cols-2 gap-4"><div class="animate-fade-in bg-white p-5 rounded-xl shadow-sm border-l-4 border-green-500" style="animation-delay: 0.1s"><h4 class="text-sm font-bold text-green-600 uppercase tracking-wider mb-4 flex items-center gap-2"><i class="fa-solid fa-seedling"></i> 想法演化軌跡</h4><div class="pl-2">${data.trajectoryHTML}</div></div><div class="animate-fade-in bg-white p-5 rounded-xl shadow-sm border-l-4 border-blue-500" style="animation-delay: 0.2s"><h4 class="text-sm font-bold text-blue-600 uppercase tracking-wider mb-4 flex items-center gap-2"><i class="fa-solid fa-puzzle-piece"></i> 社群推動力</h4>${data.communityHTML}</div></div><div class="animate-fade-in bg-white p-5 rounded-xl shadow-sm border-l-4 border-purple-500" style="animation-delay: 0.3s"><h4 class="text-sm font-bold text-purple-600 uppercase tracking-wider mb-4 flex items-center gap-2"><i class="fa-solid fa-chart-pie"></i> 知識建構策略分佈</h4><p class="text-xs text-slate-500 mb-4">這顯示了你在知識建構過程中所使用的認知策略多樣性 (Idea Diversity)：</p><div class="grid grid-cols-1 gap-2">${data.statsHTML}</div></div>`;
-            document.getElementById('ai-profile-result').classList.remove('hidden');
+            const result = document.getElementById('ai-profile-result');
+            result.innerHTML = `<div class="animate-fade-in bg-white p-5 rounded-xl shadow-sm border-l-4 border-indigo-500 relative overflow-hidden"><div class="absolute right-0 top-0 opacity-5 transform translate-x-4 -translate-y-4"><i class="fa-solid ${data.icon} text-9xl text-indigo-900"></i></div><h4 class="text-sm font-bold text-indigo-500 uppercase tracking-wider mb-3 flex items-center gap-2"><i class="fa-solid fa-fire"></i> 使用者知識角色</h4><div class="relative z-10"><p class="text-xl font-bold text-slate-800 mb-2">${data.role}</p><p class="text-sm text-slate-600 leading-relaxed">${data.desc}</p></div></div><div class="grid grid-cols-1 md:grid-cols-2 gap-4"><div class="animate-fade-in bg-white p-5 rounded-xl shadow-sm border-l-4 border-green-500" style="animation-delay: 0.1s"><h4 class="text-sm font-bold text-green-600 uppercase tracking-wider mb-4 flex items-center gap-2"><i class="fa-solid fa-seedling"></i> 想法演化軌跡</h4><div class="pl-2">${data.trajectoryHTML}</div></div><div class="animate-fade-in bg-white p-5 rounded-xl shadow-sm border-l-4 border-blue-500" style="animation-delay: 0.2s"><h4 class="text-sm font-bold text-blue-600 uppercase tracking-wider mb-4 flex items-center gap-2"><i class="fa-solid fa-puzzle-piece"></i> 社群推動力</h4>${data.communityHTML}</div></div><div class="animate-fade-in bg-white p-5 rounded-xl shadow-sm border-l-4 border-purple-500" style="animation-delay: 0.3s"><h4 class="text-sm font-bold text-purple-600 uppercase tracking-wider mb-4 flex items-center gap-2"><i class="fa-solid fa-chart-pie"></i> 知識建構策略分佈</h4><p class="text-xs text-slate-500 mb-4">這顯示了你在知識建構過程中所使用的認知策略多樣性 (Idea Diversity)：</p><div class="grid grid-cols-1 gap-2">${data.statsHTML}</div></div>`;
+            result.classList.remove('hidden');
         };
         window.ui.drawNodes = (nodes) => {
-            const container = document.getElementById('nodes-layer'); if(!container) return;
-            container.innerHTML = nodes.map(node => {
-                const s = window.SCAFFOLDS[node.type] || window.SCAFFOLDS['question']; const user = (window.state.userList && window.state.userList[node.author]) ? window.state.userList[node.author] : {name: '?', avatar: ''};
-                const canDel = window.state.user && (window.state.user.role === window.ROLES.LEAD || node.author === window.state.user.id);
-                const isPromising = window.state.canvas.isHeatmapMode && node.promisingness > 70; const heatmapClass = isPromising ? 'promising-node' : ''; const flameBadge = isPromising ? `<div class="absolute -top-3 -right-2 bg-orange-500 text-white text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm animate-bounce-slow z-50"><i class="fa-solid fa-fire"></i> 熱點</div>` : ''; const isSelected = window.state.selectedNodeIds.includes(node.id) ? 'selected-node' : '';
+            document.getElementById('nodes-layer').innerHTML = nodes.map(node => {
+                const s = window.SCAFFOLDS[node.type];
+                const user = Object.values(window.state.userList).find(u => u.id === node.author) || {name: '?'};
+                const canDel = window.state.user.role === window.ROLES.LEAD || node.author === window.state.user.id;
+                const isPromising = window.state.canvas.isHeatmapMode && node.promisingness > 70;
+                const heatmapClass = isPromising ? 'promising-node' : '';
+                const flameBadge = isPromising ? `<div class="absolute -top-3 -right-2 bg-orange-500 text-white text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm animate-bounce-slow z-50"><i class="fa-solid fa-fire"></i> 熱點</div>` : '';
+                const isSelected = window.state.selectedNodeIds.includes(node.id) ? 'selected-node' : '';
                 return `<div id="node-${node.id}" class="absolute node-card w-64 md:w-72 bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col overflow-visible ${heatmapClass} ${isSelected}" style="left: ${node.x}px; top: ${node.y}px;" onmousedown="event.stopPropagation(); window.app.canvas.startDrag(event, '${node.id}')" ontouchstart="event.stopPropagation(); window.app.canvas.startDrag(event, '${node.id}')" ondblclick="event.stopPropagation(); window.app.openNodeDetail('${node.id}')">${flameBadge}<div class="px-3 py-2 ${s.bgSoft} border-b ${s.border} flex justify-between items-center cursor-move rounded-t-xl"><div class="flex items-center gap-2"><span class="w-5 h-5 rounded-full ${s.color} text-white flex justify-center items-center text-xs"><i class="fa-solid ${s.icon}"></i></span><span class="text-xs font-bold ${s.text}">${s.label}</span></div><div class="flex gap-1"><button onclick="event.stopPropagation(); window.app.openNodeDetail('${node.id}')" class="w-8 h-8 rounded hover:bg-white/50 text-slate-500 flex justify-center items-center"><i class="fa-solid fa-eye"></i></button><button onclick="event.stopPropagation(); window.app.openComposer('${node.id}')" class="w-8 h-8 rounded hover:bg-white/50 text-slate-500 flex justify-center items-center"><i class="fa-solid fa-reply"></i></button>${canDel ? `<button onclick="event.stopPropagation(); window.app.deleteNode('${node.id}')" class="w-8 h-8 rounded hover:bg-white/50 text-slate-500 hover:text-red-500 flex justify-center items-center"><i class="fa-solid fa-xmark"></i></button>` : ''}</div></div><div class="p-3 text-sm text-slate-700 leading-relaxed min-h-[60px] pointer-events-none bg-white"><h4 class="font-bold mb-1 text-slate-900 block truncate text-base">${node.title || '無標題'}</h4><p class="line-clamp-2 text-slate-600">${node.content}</p></div><div class="px-3 py-2 bg-slate-50 border-t flex justify-between text-[10px] text-slate-500 items-center rounded-b-xl"><div class="flex items-center gap-2"><img src="${user.avatar}" class="w-4 h-4 rounded-full"><span>${user.name}</span></div><span>${new Date(node.date).toLocaleDateString()}</span></div></div>`;
             }).join('');
         };
         window.ui.drawConnections = (nodes) => { 
-            const layer = document.getElementById('connections-layer'); if(!layer) return;
+            const layer = document.getElementById('connections-layer');
+            if(!layer) return;
             layer.innerHTML = `<defs>${Object.keys(window.SCAFFOLDS).map(k => { const c = { question: '#3b82f6', extend: '#eab308', improve: '#22c55e', counter: '#ef4444', riseabove: '#a855f7' }[k]; return `<marker id="arrow-${k}" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="${c}" /></marker>`; }).join('')}</defs>`;
-            const cardWidth = window.innerWidth < 768 ? 256 : 288; const halfW = cardWidth / 2;
+            const cardWidth = window.innerWidth < 768 ? 256 : 288;
+            const halfW = cardWidth / 2;
             const paths = nodes.filter(n => n.parentId).map(node => {
-                const parent = window.state.nodes.find(p => p.id === node.parentId); if (!parent) return '';
-                const startX = parent.x + halfW; const startY = parent.y + 140; const endX = node.x + halfW; const endY = node.y; const dist = Math.sqrt(Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2)); let curveFactor = 0.4; if (endY < startY) curveFactor = 0.6; const cp1x = startX; const cp1y = startY + dist * curveFactor; const cp2x = endX; const cp2y = endY - dist * curveFactor; const colorMap = { question: '#3b82f6', extend: '#eab308', improve: '#22c55e', counter: '#ef4444', riseabove: '#a855f7' };
+                const parent = window.state.nodes.find(p => p.id === node.parentId);
+                if (!parent) return '';
+                const startX = parent.x + halfW; const startY = parent.y + 140; const endX = node.x + halfW; const endY = node.y;
+                const dist = Math.sqrt(Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2));
+                let curveFactor = 0.4; if (endY < startY) curveFactor = 0.6; 
+                const cp1x = startX; const cp1y = startY + dist * curveFactor; const cp2x = endX; const cp2y = endY - dist * curveFactor;
+                const colorMap = { question: '#3b82f6', extend: '#eab308', improve: '#22c55e', counter: '#ef4444', riseabove: '#a855f7' };
                 return `<path d="M ${startX} ${startY} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${endX} ${endY}" stroke="${colorMap[node.type]}" fill="none" stroke-width="2" stroke-opacity="0.6" marker-end="url(#arrow-${node.type})" />`;
             }).join('');
             layer.innerHTML += paths;
         };
 
-        window.addEventListener('DOMContentLoaded', () => { if (window.ui && typeof window.ui.init === 'function') window.ui.init(); else console.error("UI Init failed"); });
+        window.addEventListener('DOMContentLoaded', () => {
+            if (window.ui && typeof window.ui.init === 'function') {
+                window.ui.init();
+            } else {
+                console.error("UI Init failed");
+            }
+        });
     </script>
 </body>
 </html>
