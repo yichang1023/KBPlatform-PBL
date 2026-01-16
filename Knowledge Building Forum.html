@@ -4,6 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>知識建構協作平台 (KB Platform) - Mobile Optimized</title>
+    
+    <!-- 🔥 [ADDED] 1. 引入 Firebase SDK (雲端通訊模組) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -361,6 +366,21 @@
     <div id="toast-container" class="fixed bottom-20 md:bottom-10 right-4 md:right-6 z-[120] flex flex-col gap-2 pointer-events-none w-full max-w-[300px] md:w-auto items-end"></div>
 
     <script>
+        // 🔥 [ADDED] 2. Firebase Initialization
+        const firebaseConfig = {
+            apiKey: "AIzaSyDPjtxtf656JHVVlj1o4cLwSylo1jDBFAc",
+            authDomain: "kb-platform-1.firebaseapp.com",
+            databaseURL: "https://kb-platform-1-default-rtdb.firebaseio.com",
+            projectId: "kb-platform-1",
+            storageBucket: "kb-platform-1.firebasestorage.app",
+            messagingSenderId: "230026226847",
+            appId: "1:230026226847:web:49e6f09ddfc3de0ef046aa"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const DB_COLLECTION = 'kb_platform';
+        const DB_DOC = 'class_data';
+
         // --- 1. Global Constants ---
         window.ROLES = { LEAD: 'teacher', CO: 'student' };
         window.SCAFFOLDS = {
@@ -426,34 +446,90 @@
             composer: { parentId: null, selectedScaffold: null }, profile: null
         };
         
+        // 🔥 [MODIFIED] 3. Data Manager Logic (Cloud Sync)
         window.dataManager = {
-            save: () => { localStorage.setItem(window.STORAGE_KEY, JSON.stringify({ userList: window.state.userList, topics: window.state.topics, nodes: window.state.nodes, trash: window.state.trash, currentUserKey: Object.keys(window.state.userList).find(key => window.state.userList[key].id === window.state.user.id) || 'teacher', currentView: window.state.currentView, currentTopicId: window.state.currentTopicId })); },
+            save: () => { 
+                const dataToSave = {
+                    userList: window.state.userList,
+                    topics: window.state.topics,
+                    nodes: window.state.nodes,
+                    trash: window.state.trash
+                };
+                db.collection(DB_COLLECTION).doc(DB_DOC).set(dataToSave)
+                  .then(() => { console.log("Cloud Saved"); })
+                  .catch((e) => { console.error("Save error:", e); });
+                
+                // Save session state to local storage
+                const localState = {
+                    currentUserKey: Object.keys(window.state.userList).find(key => window.state.userList[key].id === window.state.user.id) || 'teacher',
+                    currentView: window.state.currentView, 
+                    currentTopicId: window.state.currentTopicId
+                };
+                localStorage.setItem('kb_local_session', JSON.stringify(localState));
+            },
             load: () => {
-                const saved = localStorage.getItem(window.STORAGE_KEY);
-                if (saved) {
+                // 1. Listen to Cloud Data
+                db.collection(DB_COLLECTION).doc(DB_DOC).onSnapshot((doc) => {
+                    if (doc.exists) {
+                        const data = doc.data();
+                        window.state.userList = data.userList || window.SEED_DATA.userList;
+                        window.state.topics = data.topics || window.SEED_DATA.topics;
+                        window.state.nodes = data.nodes || window.SEED_DATA.nodes;
+                        window.state.trash = data.trash || [];
+                        
+                        // Ensure local user is still valid in cloud data, else default
+                        const localSession = localStorage.getItem('kb_local_session');
+                        let userKey = 'teacher';
+                        if(localSession) {
+                            try {
+                                const parsed = JSON.parse(localSession);
+                                if(window.state.userList[parsed.currentUserKey]) userKey = parsed.currentUserKey;
+                            } catch(e){}
+                        }
+                        window.state.user = window.state.userList[userKey] || window.state.userList['teacher'];
+
+                        // Re-render current view
+                        if (window.state.currentView === 'entrance') window.ui.renderEntrance();
+                        else if (window.state.currentView === 'canvas') window.ui.renderCanvas();
+                        else if (window.state.currentView === 'profile') window.ui.renderProfile();
+                        window.ui.renderUserInfo();
+                        window.ui.renderUserMenu();
+                        window.app.updateTrashBadge();
+                    } else {
+                        // Init seed data if empty
+                        window.state.userList = JSON.parse(JSON.stringify(window.SEED_DATA.userList));
+                        window.state.topics = JSON.parse(JSON.stringify(window.SEED_DATA.topics));
+                        window.state.nodes = JSON.parse(JSON.stringify(window.SEED_DATA.nodes));
+                        window.state.trash = [];
+                        window.state.user = window.state.userList['teacher'];
+                        window.dataManager.save();
+                    }
+                });
+
+                // 2. Load Local Session State (View/Topic)
+                const localSession = localStorage.getItem('kb_local_session');
+                if (localSession) {
                     try {
-                        const parsed = JSON.parse(saved);
-                        window.state.userList = parsed.userList || window.SEED_DATA.userList;
-                        window.state.topics = parsed.topics || window.SEED_DATA.topics;
-                        window.state.topics.forEach(t => { if (!t.categories) t.categories = t.category ? [t.category] : ['其他']; });
-                        window.state.nodes = parsed.nodes || window.SEED_DATA.nodes;
-                        window.state.trash = parsed.trash || [];
+                        const parsed = JSON.parse(localSession);
                         window.state.currentView = parsed.currentView || 'entrance';
                         window.state.currentTopicId = parsed.currentTopicId || null;
-                        const key = parsed.currentUserKey;
-                        window.state.user = (key && window.state.userList[key]) ? window.state.userList[key] : window.state.userList['teacher'];
-                        return;
-                    } catch (e) {}
+                    } catch(e) {}
                 }
-                window.state.userList = JSON.parse(JSON.stringify(window.SEED_DATA.userList));
-                window.state.topics = JSON.parse(JSON.stringify(window.SEED_DATA.topics));
-                window.state.nodes = JSON.parse(JSON.stringify(window.SEED_DATA.nodes));
-                window.state.trash = [];
-                window.state.user = window.state.userList['teacher'];
-                window.state.currentView = 'entrance';
-                window.dataManager.save();
             },
-            reset: () => { localStorage.removeItem(window.STORAGE_KEY); window.location.reload(); }
+            reset: () => { 
+                if(confirm("確定重置所有資料？這將刪除雲端資料庫。")) {
+                    const seed = {
+                        userList: window.SEED_DATA.userList,
+                        topics: window.SEED_DATA.topics,
+                        nodes: window.SEED_DATA.nodes,
+                        trash: []
+                    };
+                    db.collection(DB_COLLECTION).doc(DB_DOC).set(seed)
+                    .then(() => { 
+                        window.location.reload(); 
+                    });
+                }
+            }
         };
 
         window.app = {};
@@ -1074,7 +1150,7 @@
                 const deleteBtn = canDelete ? `<button onclick="event.stopPropagation(); window.app.deleteUser('${key}')" class="p-3 text-slate-400 hover:text-red-500 transition"><i class="fa-solid fa-trash"></i></button>` : `<div class="p-3 w-10"></div>`; 
                 return `<div class="flex items-center hover:bg-slate-50 border-b border-slate-50 last:border-0 group"><button onclick="window.app.switchUser('${key}')" class="flex-1 text-left px-4 py-3 text-sm flex items-center gap-2 ${isCurrentUser ? 'bg-indigo-50 text-indigo-700' : ''}"><span class="text-xl">${u.role === window.ROLES.LEAD ? '👨‍🏫' : '🧑‍🎓'}</span><div class="flex flex-col"><span class="font-medium">${u.name}</span><span class="text-[10px] text-slate-400">${u.role === window.ROLES.LEAD ? '首席' : '協同'}</span></div></button>${deleteBtn}</div>`;
             }).join('');
-            let resetOption = window.state.user.role === window.ROLES.LEAD ? `<div class="bg-slate-50 px-4 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider border-t mt-1">系統設定</div><button onclick="window.ui.confirm('確定重置所有資料？', '這將刪除所有資料，恢復到預設狀態。', window.dataManager.reset)" class="w-full text-left px-4 py-3 hover:bg-red-50 text-sm flex items-center gap-2 text-red-600 font-medium"><span class="text-xl">⚠️</span> 重置系統資料</button>` : '';
+            let resetOption = window.state.user.role === window.ROLES.LEAD ? `<div class="bg-slate-50 px-4 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider border-t mt-1">系統設定</div><button onclick="window.dataManager.reset()" class="w-full text-left px-4 py-3 hover:bg-red-50 text-sm flex items-center gap-2 text-red-600 font-medium"><span class="text-xl">⚠️</span> 重置系統資料</button>` : '';
             const menuEl = document.getElementById('user-menu');
             if(menuEl) menuEl.innerHTML = `<div class="bg-slate-50 px-4 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider">切換身份</div><div class="max-h-60 overflow-y-auto custom-scroll">${menuContent}</div><div class="bg-slate-50 px-4 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider border-t mt-1">人員管理</div><button onclick="window.app.openAddUserModal()" class="w-full text-left px-4 py-3 hover:bg-slate-50 text-sm flex items-center gap-2 text-indigo-600 font-medium"><span class="text-xl">➕</span> 新增協同研究員</button>${resetOption}`;
         };
@@ -1287,4 +1363,3 @@
     </script>
 </body>
 </html>
-
