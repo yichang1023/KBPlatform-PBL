@@ -8,30 +8,9 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     
-    <!-- Firebase SDKs -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getDatabase, ref, onValue, get } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
-
-        const firebaseConfig = {
-            apiKey: "AIzaSyDPjtxtf656JHVVlj1o4cLwSylo1jDBFAc",
-            authDomain: "kb-platform-1.firebaseapp.com",
-            databaseURL: "https://kb-platform-1-default-rtdb.firebaseio.com",
-            projectId: "kb-platform-1",
-            storageBucket: "kb-platform-1.firebasestorage.app",
-            messagingSenderId: "230026226847",
-            appId: "1:230026226847:web:49e6f09ddfc3de0ef046aa"
-        };
-
-        // Initialize Firebase
-        const app = initializeApp(firebaseConfig);
-        const db = getDatabase(app);
-        
-        // Expose to window for global access
-        window.firebaseDB = db;
-        window.firebaseRef = ref;
-        window.firebaseOnValue = onValue;
-    </script>
+    <!-- Firebase SDK (Added for Cloud Sync) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
 
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap');
@@ -209,6 +188,10 @@
             </div>
             <div class="flex items-center space-x-2 sm:space-x-4 w-full sm:w-auto justify-center sm:justify-end overflow-x-auto pb-1 sm:pb-0">
                 <div class="flex items-center gap-2 mr-2">
+                    <span id="connection-status" class="text-xs px-2 py-1 rounded bg-indigo-800 text-gray-300 flex items-center gap-1">
+                        <i class="fas fa-circle text-gray-400 text-[8px]" id="status-dot"></i>
+                        <span id="status-text" class="hidden sm:inline">Connecting...</span>
+                    </span>
                     <a href="index.html" class="nav-btn bg-indigo-700 hover:bg-indigo-500 px-2 sm:px-3 py-1.5 rounded text-xs font-bold transition flex items-center gap-1 border border-indigo-500 whitespace-nowrap">
                         <i class="fas fa-home"></i> <span class="hidden sm:inline">首頁</span>
                     </a>
@@ -220,7 +203,7 @@
                     </button>
                 </div>
                 <div class="text-right hidden md:block">
-                    <span class="block font-bold" id="user-name">載入中...</span>
+                    <span class="block font-bold" id="user-name">訪客</span>
                     <span class="text-xs text-indigo-200">學習者</span>
                 </div>
                 <img id="current-user-avatar" src="https://ui-avatars.com/api/?name=User&background=random" class="w-8 h-8 sm:w-10 sm:h-10 rounded-full border-2 border-white flex-shrink-0">
@@ -389,7 +372,7 @@
             </div>
 
             <div class="card border-l-4 border-indigo-500 bg-indigo-50/50">
-                <h3 class="font-bold text-indigo-900 mb-3 flex items-center"><i class="fas fa-robot text-indigo-600 mr-2"></i> 來自 AI 導師的建議</h3>
+                <h3 class="font-bold text-indigo-900 mb-3 flex items-center"><i class="fas fa-robot text-indigo-600 mr-2"></i> 系統狀態與 AI 建議</h3>
                 <div id="ai-feedback" class="text-sm text-slate-700 space-y-4 leading-relaxed">
                     <p><i class="fas fa-circle-notch fa-spin text-indigo-400 mr-2"></i> 正在分析你的學習歷程...</p>
                 </div>
@@ -543,12 +526,30 @@
     </div>
 
     <script>
+    // --- Firebase Setup ---
+    const firebaseConfig = {
+      apiKey: "AIzaSyDPjtxtf656JHVVlj1o4cLwSylo1jDBFAc",
+      authDomain: "kb-platform-1.firebaseapp.com",
+      databaseURL: "https://kb-platform-1-default-rtdb.firebaseio.com",
+      projectId: "kb-platform-1",
+      storageBucket: "kb-platform-1.firebasestorage.app",
+      messagingSenderId: "230026226847",
+      appId: "1:230026226847:web:49e6f09ddfc3de0ef046aa"
+    };
+
+    // Initialize Firebase (Check if already initialized to avoid errors)
+    if (!firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
+    }
+    const dbRef = firebase.database().ref();
+    let globalDBData = null; // Store data locally for sync access
+
     // --- Global State ---
+    const STORAGE_KEY = 'kb_platform_v2_28_data';
     let currentUserId = '';
     let radarChartInstance = null;
     let scaffoldChartInstance = null;
-    let currentUserStats = null; 
-    let globalRawDB = null; // Store fetched data from Firebase
+    let currentUserStats = null; // Store for Ref Modal context
 
     // --- Ref Data Database (International Journal Standards) ---
     const refData = {
@@ -668,9 +669,6 @@
             else if (key === 'created') {
                 statusText = `在這段探究旅程中，你已經貢獻了 <strong>${s.totalNotes} 篇</strong>想法筆記。相較於社群平均水平，這是一個${s.totalNotes > 5 ? '相當活躍' : '起步階段'}的數字。這顯示了你${s.totalNotes > 5 ? '積極承擔了推動社群知識前進的責任' : '正在嘗試融入這個知識建構的文化'}。`;
                 insightText = s.totalNotes > 5 ? "你的發文量穩定，這是非常棒的基礎！下一步，試著關注自己發文的「品質」是否隨時間提升，例如是否提出了更深層的問題？" : "發文量偏低是正常的開始。建議從「提問」開始，把你對主題的好奇心轉化為社群的討論起點。";
-            } else if (key === 'read') {
-                 statusText = `你已閱讀了許多同學的筆記。知識建構是一個社會過程，閱讀是理解他人觀點的第一步。`;
-                 insightText = "保持閱讀的習慣，並試著找出不同觀點之間的連結。";
             } else if (key === 'buildon') {
                 const ratio = s.totalNotes > 0 ? Math.round((s.linksCount / s.totalNotes) * 100) : 0;
                 statusText = `你目前針對他人的想法進行了 <strong>${s.linksCount} 次</strong>連結與延伸（Build-on）。這佔了你總發言的 <strong>${ratio}%</strong>。這個比例反映了你${ratio > 30 ? '非常重視與他人的對話，善於站在巨人的肩膀上思考' : '比較傾向於發表獨立的見解，較少直接回應他人'}。`;
@@ -734,19 +732,53 @@
 
     // --- Core Logic ---
     function getRealData() {
-        // Now returns global cached data from Firebase
-        return globalRawDB;
+        return globalDBData; // Return data from Firebase Sync
+    }
+
+    // UPDATE: Update status indicator in Navbar
+    function updateConnectionStatus(status) {
+        const dot = document.getElementById('status-dot');
+        const text = document.getElementById('status-text');
+        
+        if (status === 'connected') {
+            dot.className = "fas fa-circle text-green-400 text-[8px]";
+            text.innerText = "Connected";
+        } else if (status === 'error') {
+            dot.className = "fas fa-circle text-red-500 text-[8px]";
+            text.innerText = "Error";
+        } else if (status === 'empty') {
+            dot.className = "fas fa-circle text-yellow-400 text-[8px]";
+            text.innerText = "No Data";
+        }
     }
 
     function initUserSwitcher(db) {
         const container = document.getElementById('nav-user-select-container');
         if (!container) return;
-        container.innerHTML = ''; // Clear previous
         
+        container.innerHTML = ''; // Clear existing to prevent duplicates
+
         const select = document.createElement('select');
         select.className = "bg-indigo-700 text-white text-xs border border-indigo-500 rounded px-2 py-1 outline-none";
         select.id = "student-selector"; // Important for sync
         
+        // DEBUG: Check db structure
+        if (!db.userList) {
+            console.warn("DEBUG: db.userList is missing!", db);
+            document.getElementById('ai-feedback').innerHTML += `<br><span class="text-red-500 text-xs">錯誤：資料庫中找不到使用者列表 (userList)。請確認論壇是否有建立使用者。</span>`;
+            
+            // Try to find userList in children if wrapped
+            if (db.kb_platform_v2_28_data && db.kb_platform_v2_28_data.userList) {
+                console.log("DEBUG: Found nested userList, recovering...");
+                db = db.kb_platform_v2_28_data;
+                globalDBData = db; // Fix global ref
+            } else {
+                 select.innerHTML = '<option>資料結構錯誤</option>';
+                 container.appendChild(select);
+                 return;
+            }
+        }
+
         const users = Object.values(db.userList || {});
         const students = users.filter(u => u.role !== 'teacher');
 
@@ -763,15 +795,17 @@
         select.onchange = function() { switchUser(this.value); };
         container.appendChild(select);
 
-        // Auto select current or first
-        if (students.length > 0) {
+        // Auto select if no user selected
+        if (students.length > 0 && !currentUserId) {
             let targetId = students[0].id;
-            // Persist selection if refreshing
-            if (currentUserId && students.find(s => s.id === currentUserId)) {
-                targetId = currentUserId;
+            if (db.currentUserKey && db.userList[db.currentUserKey] && db.userList[db.currentUserKey].role !== 'teacher') {
+                targetId = db.userList[db.currentUserKey].id;
             }
             select.value = targetId;
             switchUser(targetId);
+        } else if (currentUserId) {
+             // Keep current user selected in dropdown
+             select.value = currentUserId;
         }
     }
 
@@ -803,7 +837,6 @@
 
     function analyzeStudentData(db, userId) {
         if (!db || !db.nodes) return null;
-        // db.nodes is array now
         const myNotes = db.nodes.filter(n => n.author === userId);
         const myNoteIds = myNotes.map(n => n.id);
         
@@ -916,10 +949,14 @@
 
 
             // Render Numbers
-            animateValue("card-created-val", 0, stats.totalNotes, 800);
-            animateValue("card-read-val", 0, Math.floor(stats.totalNotes * 5.5 + 10), 800);
-            animateValue("card-buildon-val", 0, stats.linksCount, 800);
-            animateValue("card-impact-val", 0, stats.repliedCount, 800);
+            animateValue("stat-total-notes", 0, stats.totalNotes, 800);
+            animateValue("stat-replied", 0, stats.repliedCount, 800);
+            animateValue("stat-links", 0, stats.linksCount, 800);
+            document.getElementById('card-created-val').innerText = stats.totalNotes;
+            // 閱讀數暫用模擬公式
+            document.getElementById('card-read-val').innerText = Math.floor(stats.totalNotes * 5.5 + 10);
+            document.getElementById('card-buildon-val').innerText = stats.linksCount;
+            document.getElementById('card-impact-val').innerText = stats.repliedCount;
 
             // Render Visuals
             renderTimeline(stats.recentNotes, db.nodes);
@@ -934,26 +971,55 @@
             renderRadarChart([s_init, s_build, s_read, s_vocab, s_impact], user.name);
 
             // Generate AI Feedback (Local Logic)
+            // Pick top 3 suggestions based on stats
             const suggestions = [];
             
+            // Suggestion 1: Initiator/Questioning
             if (metrics.initiator < 40) {
-                suggestions.push({ title: "勇於提問", action: "嘗試在討論區發起一個新的問題，或者對現有的觀點提出「為什麼」。", reason: "提問是知識建構的起點 (Epistemic Agency)。" });
+                suggestions.push({
+                    title: "勇於提問",
+                    action: "嘗試在討論區發起一個新的問題，或者對現有的觀點提出「為什麼」。",
+                    reason: "提問是知識建構的起點 (Epistemic Agency)。"
+                });
             } else {
-                suggestions.push({ title: "深化問題", action: "試著提出「如何 (How)」或「解釋 (Explanation)」類型的問題，而不僅是事實性問題。", reason: "高層次問題能引發更深入的討論 (Scardamalia, 2002)。" });
+                suggestions.push({
+                    title: "深化問題",
+                    action: "試著提出「如何 (How)」或「解釋 (Explanation)」類型的問題，而不僅是事實性問題。",
+                    reason: "高層次問題能引發更深入的討論 (Scardamalia, 2002)。"
+                });
             }
 
+            // Suggestion 2: Builder/Connection
             if (metrics.builder < 40) {
-                 suggestions.push({ title: "建立連結", action: "閱讀同學的筆記，並使用「延伸」或「改進」標籤來回應他們。", reason: "知識是在社群互動中被改進的 (Idea Improvement)。" });
+                 suggestions.push({
+                    title: "建立連結",
+                    action: "閱讀同學的筆記，並使用「延伸」或「改進」標籤來回應他們。",
+                    reason: "知識是在社群互動中被改進的 (Idea Improvement)。"
+                });
             } else {
-                 suggestions.push({ title: "跨域連結", action: "嘗試連結兩個看似不相關的觀點，找出它們的共同點或矛盾點。", reason: "橋樑者 (Broker) 能促進社群知識的整合 (Burt, 2004)。" });
+                 suggestions.push({
+                    title: "跨域連結",
+                    action: "嘗試連結兩個看似不相關的觀點，找出它們的共同點或矛盾點。",
+                    reason: "橋樑者 (Broker) 能促進社群知識的整合 (Burt, 2004)。"
+                });
             }
 
+            // Suggestion 3: Synthesizer/Rise-above
             if (metrics.synthesizer < 30 && stats.totalNotes > 5) {
-                 suggestions.push({ title: "嘗試昇華", action: "試著總結目前的討論串，提出一個能解釋多個觀點的上位理論。", reason: "昇華 (Rise-above) 是達成集體智慧的關鍵步驟。" });
+                 suggestions.push({
+                    title: "嘗試昇華",
+                    action: "試著總結目前的討論串，提出一個能解釋多個觀點的上位理論。",
+                    reason: "昇華 (Rise-above) 是達成集體智慧的關鍵步驟。"
+                });
             } else {
-                 suggestions.push({ title: "持續維護", action: "定期回顧舊的討論，看看是否有新的證據可以更新之前的結論。", reason: "知識是可改進的 (Improvable Ideas)。" });
+                 suggestions.push({
+                    title: "持續維護",
+                    action: "定期回顧舊的討論，看看是否有新的證據可以更新之前的結論。",
+                    reason: "知識是可改進的 (Improvable Ideas)。"
+                });
             }
 
+            // Render Suggestions
             const feedbackContainer = document.getElementById('ai-feedback');
             feedbackContainer.innerHTML = suggestions.map(s => `
                 <div class="bg-white p-3 rounded border-l-4 border-indigo-400 shadow-sm">
@@ -966,12 +1032,20 @@
     }
 
     function syncData() {
-        // Soft Sync (Data is already realtime, just visual feedback)
+        // Since we are using Firebase onValue, data is already synced.
+        // This button now acts as a manual "Refresh UI" if something feels stuck,
+        // but mostly it's just visual feedback that things are connected.
         const btn = document.getElementById('sync-btn');
         const orgHtml = btn.innerHTML;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 同步中...';
+        
         setTimeout(() => {
-            if(currentUserId) switchUser(currentUserId);
+            const db = getRealData();
+            if(db) {
+                // If a user is selected, re-render their data
+                if(currentUserId) switchUser(currentUserId);
+                else initUserSwitcher(db);
+            }
             btn.innerHTML = orgHtml;
         }, 500);
     }
@@ -1069,12 +1143,12 @@
     function refreshAIFeedback() {
         const container = document.getElementById('ai-feedback');
         container.innerHTML = '<p><i class="fas fa-spinner fa-spin text-indigo-400 mr-2"></i> 分析中...</p>';
-        setTimeout(() => { if(currentUserId) switchUser(currentUserId); }, 600); 
+        setTimeout(() => { if(currentUserId) switchUser(currentUserId); }, 600); // Re-run switchUser to regen
     }
 
     // --- Init ---
     window.onload = function() {
-        // 1. Key Listener
+        // Global Keydown Listener for ESC
         window.addEventListener('keydown', function(event) {
             if (event.key === "Escape") {
                 document.getElementById('refModal').style.display = "none";
@@ -1082,31 +1156,56 @@
             }
         });
 
-        // 2. Firebase Listener
-        window.firebaseOnValue(window.firebaseRef(window.firebaseDB, '/'), (snapshot) => {
-            const data = snapshot.val();
+        // Initialize Loading State
+        document.getElementById('ai-feedback').innerHTML = '<p><i class="fas fa-spinner fa-spin text-indigo-400 mr-2"></i> 連接雲端資料庫中...</p>';
+
+        // Setup Firebase Realtime Listener
+        dbRef.on('value', (snapshot) => {
+            const val = snapshot.val();
+            // DEBUGGING LOG
+            console.log("Firebase Data Received:", val);
             
-            if (data) {
-                // Fix Data Structure from Firebase Object to Array
-                const fixedData = {
-                    ...data,
-                    nodes: data.nodes ? Object.values(data.nodes) : [],
-                    topics: data.topics ? Object.values(data.topics) : [],
-                    userList: data.userList || {}
-                };
+            if (val) {
+                // IMPORTANT: Smart detection of nested data structure
+                // Sometimes data is saved under 'kb_platform_v2_28_data' key if migrated directly
+                let data = val;
                 
-                globalRawDB = fixedData;
-                console.log("Firebase DB Synced", fixedData);
+                if (!data.userList && data.kb_platform_v2_28_data) {
+                    console.log("DEBUG: Detected nested data structure.");
+                    data = data.kb_platform_v2_28_data;
+                }
+
+                globalDBData = data;
                 
-                // Initialize Switcher on First Load
-                const switcher = document.getElementById('student-selector');
-                if(!switcher) initUserSwitcher(fixedData);
+                // Update Connection Status
+                updateConnectionStatus('connected');
                 
-                // Refresh Current User View if selected
-                if(currentUserId) switchUser(currentUserId);
+                // Get current selection from dropdown if exists
+                const selector = document.getElementById('student-selector');
+                const existingSelection = selector ? selector.value : null;
+
+                // Re-init switcher (clears and rebuilds dropdown)
+                initUserSwitcher(globalDBData);
+
+                // Restore selection or refresh view
+                if (currentUserId && globalDBData.userList && globalDBData.userList[currentUserId]) {
+                    switchUser(currentUserId);
+                } else if (existingSelection) {
+                     switchUser(existingSelection);
+                }
+                
+                document.getElementById('ai-feedback').innerHTML = '<p class="text-green-600 font-bold"><i class="fas fa-check-circle"></i> 資料庫同步完成</p>';
+                
             } else {
-                 document.getElementById('ai-feedback').innerHTML = "尚無數據";
+                console.log("No Data in Firebase");
+                globalDBData = { nodes: [], userList: {}, topics: [] }; // Empty fallback
+                document.getElementById('ai-feedback').innerHTML = '<span class="text-orange-500">資料庫已連線，但尚無資料。請先到論壇發表內容。</span>';
+                updateConnectionStatus('empty');
             }
+        }, (error) => {
+            console.error("Firebase Error:", error);
+            document.getElementById('ai-feedback').innerHTML = `<span class="text-red-500">資料庫連線失敗: ${error.message}</span>`;
+            updateConnectionStatus('error');
         });
         
         // Setup chart defaults
