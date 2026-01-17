@@ -4,11 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>知識建構與智慧分析平台 | Knowledge Building Portal</title>
-    
-    <!-- 🔥 [ADDED] 1. 引入 Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
-
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Font Awesome -->
@@ -17,22 +12,12 @@
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
     <!-- Three.js for 3D Möbius Strip -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    
+    <!-- [Project AETHER] Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
 
     <script>
-        // 🔥 [ADDED] 2. Firebase Config
-        const firebaseConfig = {
-            apiKey: "AIzaSyDPjtxtf656JHVVlj1o4cLwSylo1jDBFAc",
-            authDomain: "kb-platform-1.firebaseapp.com",
-            databaseURL: "https://kb-platform-1-default-rtdb.firebaseio.com",
-            projectId: "kb-platform-1",
-            storageBucket: "kb-platform-1.firebasestorage.app",
-            messagingSenderId: "230026226847",
-            appId: "1:230026226847:web:49e6f09ddfc3de0ef046aa"
-        };
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
-        const SETTINGS_DOC = db.collection('kb_platform').doc('settings');
-
         tailwind.config = {
             theme: {
                 extend: {
@@ -44,365 +29,396 @@
                         kb: {
                             dark: '#0f172a',
                             primary: '#4f46e5',
-                            accent: '#06b6d4',
+                            accent: '#06b6d4'
                         }
                     },
                     animation: {
+                        'float': 'float 6s ease-in-out infinite',
                         'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-                        'fade-in': 'fadeIn 0.8s ease-out forwards',
-                        'slide-up': 'slideUp 0.6s ease-out forwards',
                     },
                     keyframes: {
-                        fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
-                        slideUp: { '0%': { opacity: '0', transform: 'translateY(20px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } }
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-10px)' },
+                        }
                     }
                 }
             }
         }
     </script>
     <style>
-        /* Mobile Fix: Allow vertical scrolling, hide horizontal overflow */
         body { margin: 0; overflow-x: hidden; background-color: #0f172a; color: white; }
-        
-        /* Mobile Fix: Fix the background so it doesn't scroll away */
-        #canvas-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; opacity: 0.6; pointer-events: none; }
-        
+        #canvas-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; opacity: 0.6; }
         .glass-panel {
             background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
+            backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
         }
-        .role-card { transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; position: relative; overflow: hidden; }
+        .role-card {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            border: 2px solid transparent;
+        }
         .role-card:hover {
-            transform: translateY(-10px);
-            background: rgba(255, 255, 255, 0.08);
-            border-color: rgba(255, 255, 255, 0.3);
+            transform: translateY(-5px);
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(79, 70, 229, 0.5);
         }
-        .role-card.active {
-            border-color: #06b6d4;
-            background: rgba(6, 182, 212, 0.1);
-            box-shadow: 0 0 40px rgba(6, 182, 212, 0.2);
+        .role-card.selected {
+            background: rgba(79, 70, 229, 0.2);
+            border-color: #4f46e5;
+            box-shadow: 0 0 20px rgba(79, 70, 229, 0.3);
         }
-        .btn-glow { position: relative; overflow: hidden; transition: all 0.3s; }
-        .btn-glow::after {
-            content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-            transition: 0.6s;
+        .btn-glow {
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
         }
-        .btn-glow:hover::after { left: 100%; }
-        .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
-        .status-active { background-color: #10b981; box-shadow: 0 0 10px #10b981; }
-        .status-inactive { background-color: #ef4444; }
+        .btn-glow:after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(to bottom right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0) 100%);
+            transform: rotate(45deg);
+            transition: transform 0.6s;
+            transform: translateY(100%);
+        }
+        .btn-glow:hover:after {
+            transform: translateY(0%);
+        }
     </style>
 </head>
-<body>
+<body class="min-h-screen flex flex-col font-sans">
 
-    <!-- 3D Möbiusband 背景層 -->
     <div id="canvas-container"></div>
 
-    <!-- 頂部導航列 -->
-    <nav class="absolute top-0 left-0 w-full p-6 z-50 flex justify-between items-center">
-        <div class="flex items-center gap-3 animate-fade-in">
-            <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-indigo-600 to-cyan-500 flex items-center justify-center font-bold text-xl shadow-lg shadow-indigo-500/40">KB</div>
-            <div class="hidden md:block">
-                <h1 class="text-lg font-bold tracking-wider font-mono text-cyan-400 uppercase">KB Platform Portal</h1>
-                <p class="text-slate-400 text-[10px]">Vocational Project Learning Environment</p>
+    <!-- Header -->
+    <header class="relative z-10 p-6 flex justify-between items-center">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-indigo-500 to-cyan-400 flex items-center justify-center text-white font-bold text-xl shadow-lg">KB</div>
+            <div>
+                <h1 class="text-xl font-bold tracking-wider">PROJECT <span class="text-indigo-400">AETHER</span></h1>
+                <p class="text-xs text-slate-400 font-mono">KNOWLEDGE BUILDING ENVIRONMENT</p>
             </div>
         </div>
-        <div class="flex items-center gap-4">
-            <div id="ai-status-badge" class="glass-panel px-3 py-1 rounded-full text-[10px] font-mono flex items-center gap-2">
-                <span id="ai-status-dot" class="status-dot status-inactive"></span>
-                <span id="ai-status-text" class="text-slate-400 uppercase">AI Offline</span>
-            </div>
-            <button onclick="openSettings()" class="text-slate-400 hover:text-white transition p-2 rounded-full hover:bg-white/10" title="系統設定">
-                <i class="fa-solid fa-gear text-xl hover:rotate-90 transition-transform duration-700"></i>
-            </button>
+        <div class="text-xs text-slate-500 font-mono hidden md:block">
+            SYSTEM STATUS: <span id="system-status" class="text-yellow-500"><i class="fa-solid fa-circle-notch fa-spin"></i> CHECKING...</span>
         </div>
-    </nav>
+    </header>
 
-    <!-- 主要視覺區 -->
-    <!-- Mobile Fix: changed h-screen to min-h-screen, added py-24 for vertical spacing -->
-    <main class="relative z-10 w-full min-h-screen flex flex-col justify-center items-center px-4 py-24 md:py-0">
+    <!-- Main Content -->
+    <main class="relative z-10 flex-1 flex flex-col items-center justify-center p-4 md:p-8">
         
-        <!-- 核心標題 -->
-        <div class="text-center mb-12 animate-slide-up" style="animation-delay: 0.1s;">
-            <div class="inline-block px-4 py-1 rounded-full border border-cyan-500/30 bg-cyan-900/20 text-cyan-400 text-xs font-mono mb-6 tracking-[0.2em] backdrop-blur-sm">
-                BEYOND TRADITIONAL LEARNING
-            </div>
-            <h2 class="text-4xl md:text-7xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-white via-cyan-100 to-indigo-300 drop-shadow-2xl">
-                知識建構協作平台
-            </h2>
+        <div class="max-w-5xl w-full grid grid-cols-1 lg:grid-cols-12 gap-8">
             
-            <!-- [MODIFIED] 標語設計區塊 -->
-            <div class="max-w-4xl mx-auto space-y-6">
-                <div class="relative">
-                    <i class="fa-solid fa-quote-left text-cyan-500/20 text-4xl absolute -top-4 -left-4 hidden md:block"></i>
-                    <p class="text-slate-200 text-lg md:text-2xl font-light tracking-wide leading-relaxed">
-                        「在未完成的理解中彼此承擔責任，<br class="hidden md:block">
-                        使想法在社群裡不斷向<span class="text-cyan-300 font-normal">更好的解釋</span>演化。」
+            <!-- Left Column: Introduction & Role -->
+            <div class="lg:col-span-7 flex flex-col gap-6">
+                <div class="glass-panel p-8 rounded-2xl animate-float">
+                    <h2 class="text-3xl md:text-4xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">
+                        知識建構與智慧分析
+                    </h2>
+                    <p class="text-slate-300 leading-relaxed mb-6 text-lg">
+                        這是一個整合人類智慧與人工智慧的協作空間。在這裡，我們不只是學習既有知識，更是共同創造新知識。
+                        <br><br>
+                        <span class="text-indigo-300"><i class="fa-solid fa-quote-left"></i> 想法不僅存於腦中，更存於社群的對話裡。</span>
                     </p>
-                    <i class="fa-solid fa-quote-right text-cyan-500/20 text-4xl absolute -bottom-4 -right-4 hidden md:block"></i>
-                </div>
-                
-                <div class="flex flex-col md:flex-row items-center justify-center gap-2 md:gap-6 text-xs md:text-sm text-slate-500 font-mono uppercase tracking-wider">
-                    <div class="flex items-center gap-2">
-                        <span class="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
-                        Collective Responsibility
-                    </div>
-                    <div class="hidden md:block text-slate-700">|</div>
-                    <div class="flex items-center gap-2">
-                        <span class="w-1.5 h-1.5 rounded-full bg-cyan-500"></span>
-                        Improvable Ideas
-                    </div>
-                    <div class="hidden md:block text-slate-700">|</div>
-                    <div class="flex items-center gap-2">
-                        <span class="w-1.5 h-1.5 rounded-full bg-purple-500"></span>
-                        Community Knowledge
-                    </div>
-                </div>
-            </div>
-        </div>
+                    
+                    <!-- Role Selection -->
+                    <div class="space-y-4">
+                        <h3 class="text-sm font-bold text-slate-400 uppercase tracking-widest mb-2">IDENTIFICATION // 選擇身份</h3>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <!-- Teacher Card -->
+                            <div id="role-teacher" onclick="selectRole('teacher')" class="role-card p-4 rounded-xl flex items-center gap-4 group">
+                                <div class="w-12 h-12 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-400 text-xl group-hover:bg-indigo-500 group-hover:text-white transition-colors">
+                                    <i class="fa-solid fa-chalkboard-user"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-bold text-white">我是老師 (Lead)</h4>
+                                    <p class="text-xs text-slate-400">管理主題、查看全班分析</p>
+                                </div>
+                                <div class="ml-auto opacity-0 group-hover:opacity-100 text-indigo-400"><i class="fa-solid fa-check"></i></div>
+                            </div>
 
-        <!-- 身分分流卡片區 -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-5xl px-4 animate-slide-up" style="animation-delay: 0.3s;">
-            
-            <!-- 學生端入口 -->
-            <div id="card-student" onclick="selectRole('student')" class="role-card glass-panel rounded-3xl p-10 flex flex-col items-center text-center group border-t-4 border-t-transparent hover:border-t-cyan-400">
-                <div class="w-24 h-24 rounded-full bg-slate-800/80 flex items-center justify-center mb-8 border border-slate-700 shadow-2xl group-hover:scale-110 transition-transform duration-500">
-                    <i class="fa-solid fa-user-astronaut text-5xl text-cyan-400"></i>
-                </div>
-                <h3 class="text-3xl font-bold mb-3">我是學生</h3>
-                <p class="text-slate-400 text-sm mb-8 font-light">Student Researcher</p>
-                <p class="text-slate-300 text-sm leading-relaxed mb-10 opacity-70 group-hover:opacity-100 px-4">
-                    進入論壇貢獻你的想法，並透過「知識羅盤」即時觀察自己的學習軌跡與成長量化。
-                </p>
-                
-                <div id="actions-student" class="hidden w-full space-y-4 animate-fade-in">
-                    <div class="h-px w-full bg-white/10 mb-6"></div>
-                    <a href="Knowledge Building Forum.html" class="btn-glow block w-full py-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold shadow-xl flex items-center justify-center gap-3 transition">
-                        <i class="fa-solid fa-comments"></i> 進入探究論壇
-                    </a>
-                    <a href="ANALYTICS-student.html" class="btn-glow block w-full py-4 rounded-xl bg-slate-700 hover:bg-slate-600 text-white font-medium border border-slate-600 flex items-center justify-center gap-3 transition">
-                        <i class="fa-solid fa-compass"></i> 開啟知識羅盤
-                    </a>
-                </div>
-            </div>
-
-            <!-- 老師端入口 -->
-            <div id="card-teacher" onclick="selectRole('teacher')" class="role-card glass-panel rounded-3xl p-10 flex flex-col items-center text-center group border-t-4 border-t-transparent hover:border-t-indigo-400">
-                <div class="w-24 h-24 rounded-full bg-slate-800/80 flex items-center justify-center mb-8 border border-slate-700 shadow-2xl group-hover:scale-110 transition-transform duration-500">
-                    <i class="fa-solid fa-chalkboard-user text-5xl text-indigo-400"></i>
-                </div>
-                <h3 class="text-3xl font-bold mb-3">我是老師</h3>
-                <p class="text-slate-400 text-sm mb-8 font-light">Teacher Facilitator</p>
-                <p class="text-slate-300 text-sm leading-relaxed mb-10 opacity-70 group-hover:opacity-100 px-4">
-                    掌握全班探究脈動，利用「分析中樞」觀察概念演化，引導學生成為更棒的研究者。
-                </p>
-                
-                <div id="actions-teacher" class="hidden w-full space-y-4 animate-fade-in">
-                    <div class="h-px w-full bg-white/10 mb-6"></div>
-                    <a href="Knowledge Building Forum.html" class="btn-glow block w-full py-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold shadow-xl flex items-center justify-center gap-3 transition">
-                        <i class="fa-solid fa-comments"></i> 進入探究論壇
-                    </a>
-                    <a href="ANALYTICS-teacher.html" class="btn-glow block w-full py-4 rounded-xl bg-slate-700 hover:bg-slate-600 text-white font-medium border border-slate-600 flex items-center justify-center gap-3 transition">
-                        <i class="fa-solid fa-chart-line"></i> 進入分析中樞
-                    </a>
-                </div>
-            </div>
-
-        </div>
-
-        <!-- Mobile Fix: Responsive Footer placement -->
-        <footer class="relative mt-12 mb-6 w-full text-center text-slate-500 text-[10px] font-mono tracking-widest md:absolute md:bottom-6 md:mt-0 md:mb-0">
-            <p>&copy; 2025 KNOWLEDGE BUILDING FORUM. EMPOWERING CONTINUOUS INQUIRY.</p>
-        </footer>
-    </main>
-
-    <!-- 系統設定彈窗 -->
-    <div id="settings-modal" class="fixed inset-0 bg-black/90 backdrop-blur-md z-[100] hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300">
-        <div class="glass-panel w-full max-w-md rounded-3xl p-8 transform scale-95 transition-transform duration-300" id="modal-content">
-            <div class="flex justify-between items-center mb-8 border-b border-slate-700 pb-5">
-                <h3 class="text-2xl font-bold text-white flex items-center gap-3"><i class="fa-solid fa-sliders text-cyan-400"></i> 智慧中樞設定</h3>
-                <button onclick="closeSettings()" class="text-slate-400 hover:text-white transition"><i class="fa-solid fa-xmark text-2xl"></i></button>
-            </div>
-            
-            <div class="space-y-6">
-                <div>
-                    <label class="block text-sm font-medium text-cyan-400 mb-2">Gemini AI API Key</label>
-                    <p class="text-xs text-slate-400 mb-3">輸入金鑰後，平台將自動啟動 AI 大師輔助功能，協助學生深化想法。</p>
-                    <div class="relative">
-                        <i class="fa-solid fa-key absolute left-4 top-4 text-slate-500"></i>
-                        <input type="password" id="api-key-input" class="w-full bg-slate-900/80 border border-slate-700 rounded-xl py-4 pl-12 pr-4 text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition" placeholder="sk-...">
+                            <!-- Student Card -->
+                            <div id="role-student" onclick="selectRole('student')" class="role-card p-4 rounded-xl flex items-center gap-4 group">
+                                <div class="w-12 h-12 rounded-full bg-cyan-500/20 flex items-center justify-center text-cyan-400 text-xl group-hover:bg-cyan-500 group-hover:text-white transition-colors">
+                                    <i class="fa-solid fa-user-graduate"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-bold text-white">我是學生 (Co-Researcher)</h4>
+                                    <p class="text-xs text-slate-400">貢獻想法、自我反思</p>
+                                </div>
+                                <div class="ml-auto opacity-0 group-hover:opacity-100 text-cyan-400"><i class="fa-solid fa-check"></i></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                
-                <button onclick="testAIConnection()" class="w-full py-3 bg-slate-800 text-cyan-400 rounded-xl text-xs font-mono flex items-center justify-center gap-2 border border-cyan-500/20 hover:bg-slate-700 transition">
-                    <i class="fa-solid fa-flask"></i> 測試 AI 服務狀態
-                </button>
-                
-                <div id="test-result" class="hidden text-[10px] p-3 rounded-xl bg-black/40 border border-slate-700 font-mono text-slate-300 overflow-hidden break-all leading-relaxed"></div>
 
-                <div class="pt-4 flex justify-end gap-4">
-                    <button onclick="closeSettings()" class="px-6 py-3 text-slate-400 hover:text-white transition text-sm">取消</button>
-                    <button onclick="saveSettings()" class="px-8 py-3 bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white rounded-xl font-bold shadow-lg transition transform active:scale-95 text-sm">
-                        儲存並啟動
+                <!-- Action Buttons -->
+                <div class="grid grid-cols-2 gap-4">
+                    <button onclick="navigateTo('forum')" class="btn-glow group relative py-4 px-6 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 font-bold text-lg shadow-lg hover:shadow-indigo-500/30 flex items-center justify-center gap-3">
+                        <i class="fa-solid fa-rocket group-hover:animate-bounce"></i>
+                        <span>進入知識論壇</span>
+                    </button>
+                    <button onclick="navigateTo('analytics')" class="btn-glow group relative py-4 px-6 rounded-xl bg-slate-700/50 hover:bg-slate-700 font-bold text-lg border border-slate-600 hover:border-slate-500 flex items-center justify-center gap-3 text-slate-200">
+                        <i class="fa-solid fa-chart-pie group-hover:rotate-180 transition-transform duration-500"></i>
+                        <span id="btn-analytics-label">前往分析中樞</span>
                     </button>
                 </div>
             </div>
+
+            <!-- Right Column: System Config -->
+            <div class="lg:col-span-5 flex flex-col h-full">
+                <div class="glass-panel p-6 rounded-2xl h-full flex flex-col">
+                    <h3 class="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                        <i class="fa-solid fa-microchip"></i> AI Core Configuration
+                    </h3>
+                    
+                    <div class="flex-1 space-y-6">
+                        <div class="bg-slate-800/50 p-4 rounded-lg border border-slate-700">
+                            <label class="block text-xs font-bold text-slate-400 mb-2">GEMINI API KEY</label>
+                            <div class="relative">
+                                <input type="password" id="api-key-input" placeholder="Paste your Google Gemini API Key here" class="w-full bg-slate-900 border border-slate-700 rounded px-4 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors pl-10">
+                                <i class="fa-solid fa-key absolute left-3 top-2.5 text-slate-500"></i>
+                            </div>
+                            <p class="text-[10px] text-slate-500 mt-2">
+                                * 金鑰僅儲存於您的瀏覽器 (Local Storage)，不會上傳至任何伺服器。
+                            </p>
+                        </div>
+
+                        <button onclick="testApiKey()" class="w-full py-2 bg-slate-700 hover:bg-slate-600 rounded text-sm font-bold transition-colors flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-plug"></i> 測試並儲存金鑰
+                        </button>
+
+                        <div id="test-result" class="hidden bg-slate-900/50 p-3 rounded border border-slate-800 text-xs font-mono break-all"></div>
+                        
+                        <hr class="border-slate-700/50 my-4">
+                        
+                        <div class="space-y-2">
+                            <div class="flex items-center justify-between text-xs">
+                                <span class="text-slate-400">Database Connection</span>
+                                <span id="db-connection-status" class="text-yellow-500 font-mono"><i class="fa-solid fa-circle-notch fa-spin text-[8px] mr-1"></i> CONNECTING...</span>
+                            </div>
+                            <div class="flex items-center justify-between text-xs">
+                                <span class="text-slate-400">Visualization Engine</span>
+                                <span class="text-green-400 font-mono"><i class="fa-solid fa-circle text-[8px] mr-1"></i> THREE.JS</span>
+                            </div>
+                            <div class="flex items-center justify-between text-xs">
+                                <span class="text-slate-400">Current User</span>
+                                <span id="current-user-display" class="text-indigo-400 font-mono font-bold">NOT SELECTED</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-    </div>
+        
+        <div class="mt-8 text-center text-slate-500 text-xs font-mono opacity-50">
+            PROJECT AETHER v2.0 // KNOWLEDGE BUILDING PLATFORM // SECURE CONNECTION
+        </div>
+    </main>
 
     <script>
-        // --- 3D 莫比烏斯帶渲染邏輯 (Three.js) ---
-        function init3D() {
+        // [Project AETHER] 1. Firebase Config
+        const firebaseConfig = {
+            apiKey: "AIzaSyDPjtxtf656JHVVlj1o4cLwSylo1jDBFAc",
+            authDomain: "kb-platform-1.firebaseapp.com",
+            databaseURL: "https://kb-platform-1-default-rtdb.firebaseio.com",
+            projectId: "kb-platform-1",
+            storageBucket: "kb-platform-1.firebasestorage.app",
+            messagingSenderId: "230026226847",
+            appId: "1:230026226847:web:49e6f09ddfc3de0ef046aa"
+        };
+        // Initialize Firebase
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        const db = firebase.firestore();
+
+        // [Project AETHER] 2. Logic Controller
+        let selectedRole = null;
+
+        // Init Check
+        window.onload = function() {
+            initThreeJS();
+            checkCloudConnection(); // ★ Start Connectivity Check
+            
+            // Restore saved API Key
+            const savedKey = localStorage.getItem('kb_ai_key');
+            if(savedKey) {
+                document.getElementById('api-key-input').value = savedKey;
+            }
+
+            // Restore saved Role
+            const savedUser = localStorage.getItem('kb_user_key');
+            if(savedUser) {
+                const role = savedUser === 'teacher' ? 'teacher' : 'student';
+                selectRole(role);
+            }
+        };
+
+        // ★ New Function: Active Cloud Check
+        async function checkCloudConnection() {
+            const statusEl = document.getElementById('system-status');
+            const detailEl = document.getElementById('db-connection-status');
+            
+            try {
+                // Try to fetch 1 document to prove connection
+                // We use kb_users because it's usually populated
+                await db.collection('kb_users').limit(1).get();
+                
+                // Success
+                statusEl.innerHTML = '<i class="fa-solid fa-link"></i> CLOUD CONNECTED';
+                statusEl.className = 'text-green-400 font-bold animate-pulse';
+                detailEl.innerHTML = '<i class="fa-solid fa-circle text-[8px] mr-1"></i> FIREBASE ONLINE';
+                detailEl.className = 'text-green-400 font-mono';
+                console.log("[Cloud] Connection verified.");
+            } catch (error) {
+                // Fail
+                console.error("[Cloud] Connection failed:", error);
+                statusEl.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> OFFLINE';
+                statusEl.className = 'text-red-500 font-bold';
+                detailEl.innerHTML = '<i class="fa-solid fa-xmark text-[8px] mr-1"></i> CONNECTION FAILED';
+                detailEl.className = 'text-red-500 font-mono';
+            }
+        }
+
+        function selectRole(role) {
+            selectedRole = role;
+            
+            // Visual Update
+            document.querySelectorAll('.role-card').forEach(el => el.classList.remove('selected'));
+            document.getElementById(`role-${role}`).classList.add('selected');
+            
+            // Update Display
+            const display = document.getElementById('current-user-display');
+            display.innerText = role === 'teacher' ? 'TEACHER (LEAD)' : 'STUDENT (CO-RESEARCHER)';
+            
+            // Dynamic Button Text Update
+            const analyticsLabel = document.getElementById('btn-analytics-label');
+            if (analyticsLabel) {
+                if (role === 'student') {
+                    analyticsLabel.innerText = "前往知識羅盤"; // Student view
+                } else {
+                    analyticsLabel.innerText = "前往分析中樞"; // Teacher view
+                }
+            }
+            
+            // Save to Storage
+            const userKey = role === 'teacher' ? 'teacher' : 'u2'; 
+            localStorage.setItem('kb_user_key', userKey);
+            
+            console.log(`[Identity] Role set to: ${role}, Key: ${userKey}`);
+        }
+
+        async function testApiKey() {
+            const key = document.getElementById('api-key-input').value.trim();
+            const resDiv = document.getElementById('test-result');
+            
+            if(!key) {
+                alert("請先輸入 API Key");
+                return;
+            }
+            
+            resDiv.classList.remove('hidden');
+            resDiv.innerHTML = '<i class="fa-solid fa-circle-notch animate-spin mr-2 text-indigo-400"></i> 正在連線 Gemini...';
+            
+            try {
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${key}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        contents: [{ parts: [{ text: "Respond with 'Connected' only." }] }] 
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if(data.candidates && data.candidates.length > 0) {
+                    resDiv.innerHTML = `<span class="text-green-400 font-bold"><i class="fa-solid fa-check-circle"></i> 驗證成功</span><br><span class="text-slate-400">AI Core Online</span>`;
+                    localStorage.setItem('kb_ai_key', key);
+                } else {
+                    throw new Error("Invalid response");
+                }
+            } catch(e) {
+                console.error(e);
+                resDiv.innerHTML = '<span class="text-red-400 font-bold"><i class="fa-solid fa-triangle-exclamation"></i> 驗證失敗</span><br><span class="text-slate-400">請檢查金鑰或網路</span>';
+            }
+        }
+
+        function navigateTo(dest) {
+            if(!selectedRole && !localStorage.getItem('kb_user_key')) {
+                alert("請先選擇您的身分 (老師或學生)");
+                return;
+            }
+            
+            if(dest === 'forum') {
+                window.location.href = 'Knowledge Building Forum.html';
+            } else if (dest === 'analytics') {
+                const userKey = localStorage.getItem('kb_user_key');
+                if(userKey === 'teacher') {
+                    window.location.href = 'ANALYTICS-teacher.html';
+                } else {
+                    window.location.href = 'ANALYTICS-student.html';
+                }
+            }
+        }
+
+        // [Visual] Three.js Möbius Strip Background
+        function initThreeJS() {
             const container = document.getElementById('canvas-container');
             const scene = new THREE.Scene();
-            scene.fog = new THREE.FogExp2(0x0f172a, 0.002);
-
             const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
             const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
             
             renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
             container.appendChild(renderer.domElement);
 
-            // 莫比烏斯帶參數化方程式
-            const mobiusFunction = (u, v, target) => {
-                u = u * Math.PI * 2;
+            // Möbius Strip Geometry
+            const geometry = new THREE.ParametricGeometry((u, v, target) => {
+                u = u * 2 * Math.PI;
                 v = v * 2 - 1;
-                const radius = 3.8;
-                const width = 1.3;
-                const x = (radius + (width * v / 2) * Math.cos(u / 2)) * Math.cos(u);
-                const y = (radius + (width * v / 2) * Math.cos(u / 2)) * Math.sin(u);
-                const z = (width * v / 2) * Math.sin(u / 2);
+                v = v * 0.5; // Width
+                const x = (1 + v * Math.cos(u / 2)) * Math.cos(u);
+                const y = (1 + v * Math.cos(u / 2)) * Math.sin(u);
+                const z = v * Math.sin(u / 2);
                 target.set(x, y, z);
-            };
+            }, 100, 20);
 
-            const geometry = new THREE.ParametricGeometry(mobiusFunction, 100, 20);
-            
-            // 線框材質 - 象徵結構化知識
-            const material = new THREE.MeshBasicMaterial({ 
-                color: 0x06b6d4, 
-                wireframe: true, 
-                transparent: true, 
-                opacity: 0.12,
-                side: THREE.DoubleSide
+            const material = new THREE.PointsMaterial({ color: 0x4f46e5, size: 0.05, transparent: true, opacity: 0.8 });
+            const particles = new THREE.Points(geometry, material);
+            scene.add(particles);
+
+            camera.position.z = 3;
+
+            // Mouse interaction
+            let mouseX = 0;
+            let mouseY = 0;
+            document.addEventListener('mousemove', (event) => {
+                mouseX = (event.clientX - window.innerWidth / 2) * 0.001;
+                mouseY = (event.clientY - window.innerHeight / 2) * 0.001;
             });
 
-            // 點狀材質 - 象徵個別觀點 (Ideas)
-            const pointsMaterial = new THREE.PointsMaterial({
-                color: 0x4f46e5,
-                size: 0.04,
-                transparent: true,
-                opacity: 0.4
-            });
-
-            const mesh = new THREE.Mesh(geometry, material);
-            const points = new THREE.Points(geometry, pointsMaterial);
-            
-            const mobiusGroup = new THREE.Group();
-            mobiusGroup.add(mesh);
-            mobiusGroup.add(points);
-            scene.add(mobiusGroup);
-
-            camera.position.z = 9;
-
-            // 動畫循環
-            let time = 0;
-            const animate = function () {
+            function animate() {
                 requestAnimationFrame(animate);
-                time += 0.005;
-                mobiusGroup.rotation.y += 0.0025;
-                mobiusGroup.rotation.z += 0.001;
-                mobiusGroup.rotation.x = Math.sin(time * 0.4) * 0.15;
+                particles.rotation.x += 0.002;
+                particles.rotation.y += 0.003;
+                particles.rotation.x += mouseY * 0.05;
+                particles.rotation.y += mouseX * 0.05;
                 renderer.render(scene, camera);
-            };
+            }
             animate();
 
-            // 視窗縮放處理
             window.addEventListener('resize', () => {
                 camera.aspect = window.innerWidth / window.innerHeight;
                 camera.updateProjectionMatrix();
                 renderer.setSize(window.innerWidth, window.innerHeight);
             });
         }
-
-        // --- UI 交互邏輯 ---
-        
-        // 身分選擇分流
-        function selectRole(role) {
-            const sc = document.getElementById('card-student'), tc = document.getElementById('card-teacher');
-            const sa = document.getElementById('actions-student'), ta = document.getElementById('actions-teacher');
-            
-            if (role === 'student') {
-                sc.classList.add('active'); tc.classList.remove('active');
-                tc.classList.add('opacity-30', 'grayscale'); sc.classList.remove('opacity-30', 'grayscale');
-                sa.classList.remove('hidden'); ta.classList.add('hidden');
-            } else {
-                tc.classList.add('active'); sc.classList.remove('active');
-                sc.classList.add('opacity-30', 'grayscale'); tc.classList.remove('opacity-30', 'grayscale');
-                ta.classList.remove('hidden'); sa.classList.add('hidden');
-            }
-        }
-
-        // 系統設定控制
-        const modal = document.getElementById('settings-modal'), content = document.getElementById('modal-content');
-        function openSettings() {
-            modal.classList.remove('hidden');
-            const saved = localStorage.getItem('kb_ai_key');
-            if(saved) document.getElementById('api-key-input').value = saved;
-            setTimeout(() => { modal.classList.add('opacity-100'); content.classList.add('scale-100'); }, 10);
-        }
-        function closeSettings() {
-            modal.classList.remove('opacity-100'); content.classList.remove('scale-100');
-            setTimeout(() => modal.classList.add('hidden'), 300);
-        }
-        function saveSettings() {
-            const key = document.getElementById('api-key-input').value.trim();
-            localStorage.setItem('kb_ai_key', key);
-            updateStatusBadge(!!key);
-            closeSettings();
-        }
-
-        // 狀態更新
-        function updateStatusBadge(active) {
-            const dot = document.getElementById('ai-status-dot'), txt = document.getElementById('ai-status-text');
-            dot.className = active ? "status-dot status-active" : "status-dot status-inactive";
-            txt.innerText = active ? "AI Online" : "AI Offline";
-            txt.className = active ? "text-green-400 uppercase" : "text-slate-400 uppercase";
-        }
-
-        // AI 測試功能
-        async function testAIConnection() {
-            const key = document.getElementById('api-key-input').value;
-            const resDiv = document.getElementById('test-result');
-            if(!key) return alert("請先輸入 API Key");
-            
-            resDiv.classList.remove('hidden');
-            resDiv.innerHTML = '<i class="fa-solid fa-circle-notch animate-spin mr-2"></i> 正在驗證金鑰...';
-            
-            try {
-                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${key}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contents: [{ parts: [{ text: "Hello AI, confirm that you are ready for a Knowledge Building project. Respond in Traditional Chinese." }] }] })
-                });
-                const data = await response.json();
-                if(data.candidates) {
-                    resDiv.innerHTML = `<span class="text-green-400 font-bold"><i class="fa-solid fa-check-double"></i> 驗證成功：</span><br>${data.candidates[0].content.parts[0].text}`;
-                    updateStatusBadge(true);
-                } else throw new Error();
-            } catch(e) {
-                resDiv.innerHTML = '<span class="text-red-400"><i class="fa-solid fa-triangle-exclamation"></i> 驗證失敗：</span><br>請檢查網路連線或金鑰是否正確。';
-            }
-        }
-
-        window.onload = () => {
-            init3D();
-            updateStatusBadge(!!localStorage.getItem('kb_ai_key'));
-        };
     </script>
 </body>
 </html>
