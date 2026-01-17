@@ -4,6 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>知識建構與智慧分析平台 | Knowledge Building Portal</title>
+    
+    <!-- 🔥 [ADDED] 1. 引入 Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Font Awesome -->
@@ -14,6 +19,20 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
     <script>
+        // 🔥 [ADDED] 2. Firebase Config
+        const firebaseConfig = {
+            apiKey: "AIzaSyDPjtxtf656JHVVlj1o4cLwSylo1jDBFAc",
+            authDomain: "kb-platform-1.firebaseapp.com",
+            databaseURL: "https://kb-platform-1-default-rtdb.firebaseio.com",
+            projectId: "kb-platform-1",
+            storageBucket: "kb-platform-1.firebasestorage.app",
+            messagingSenderId: "230026226847",
+            appId: "1:230026226847:web:49e6f09ddfc3de0ef046aa"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const SETTINGS_DOC = db.collection('kb_platform').doc('settings');
+
         tailwind.config = {
             theme: {
                 extend: {
@@ -89,7 +108,7 @@
             <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-indigo-600 to-cyan-500 flex items-center justify-center font-bold text-xl shadow-lg shadow-indigo-500/40">KB</div>
             <div class="hidden md:block">
                 <h1 class="text-lg font-bold tracking-wider font-mono text-cyan-400 uppercase">KB Platform Portal</h1>
-                <p class="text-[10px] text-slate-400">Vocational Project Learning Environment</p>
+                <p class="text-slate-400 text-[10px]">Vocational Project Learning Environment</p>
             </div>
         </div>
         <div class="flex items-center gap-4">
@@ -115,16 +134,34 @@
             <h2 class="text-4xl md:text-7xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-white via-cyan-100 to-indigo-300 drop-shadow-2xl">
                 知識建構協作平台
             </h2>
-            <div class="max-w-2xl mx-auto space-y-2">
-                <p class="text-slate-200 text-lg md:text-2xl font-light tracking-wide leading-relaxed">
-                    「學習是一種連續的過程，以終為始，問題解決、持續探究」
-                </p>
-                <p class="text-slate-500 text-sm italic font-mono flex items-center justify-center gap-3">
-                    <span class="h-px w-8 bg-slate-700"></span>
-                    <i class="fa-solid fa-infinity text-cyan-500"></i>
-                    Möbiusband: Infinite Inquiry Cycle
-                    <span class="h-px w-8 bg-slate-700"></span>
-                </p>
+            
+            <!-- [MODIFIED] 標語設計區塊 -->
+            <div class="max-w-4xl mx-auto space-y-6">
+                <div class="relative">
+                    <i class="fa-solid fa-quote-left text-cyan-500/20 text-4xl absolute -top-4 -left-4 hidden md:block"></i>
+                    <p class="text-slate-200 text-lg md:text-2xl font-light tracking-wide leading-relaxed">
+                        「在未完成的理解中彼此承擔責任，<br class="hidden md:block">
+                        使想法在社群裡不斷向<span class="text-cyan-300 font-normal">更好的解釋</span>演化。」
+                    </p>
+                    <i class="fa-solid fa-quote-right text-cyan-500/20 text-4xl absolute -bottom-4 -right-4 hidden md:block"></i>
+                </div>
+                
+                <div class="flex flex-col md:flex-row items-center justify-center gap-2 md:gap-6 text-xs md:text-sm text-slate-500 font-mono uppercase tracking-wider">
+                    <div class="flex items-center gap-2">
+                        <span class="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
+                        Collective Responsibility
+                    </div>
+                    <div class="hidden md:block text-slate-700">|</div>
+                    <div class="flex items-center gap-2">
+                        <span class="w-1.5 h-1.5 rounded-full bg-cyan-500"></span>
+                        Improvable Ideas
+                    </div>
+                    <div class="hidden md:block text-slate-700">|</div>
+                    <div class="flex items-center gap-2">
+                        <span class="w-1.5 h-1.5 rounded-full bg-purple-500"></span>
+                        Community Knowledge
+                    </div>
+                </div>
             </div>
         </div>
 
