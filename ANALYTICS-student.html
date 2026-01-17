@@ -172,6 +172,20 @@
             color: #6366f1;
             background: #f1f5f9;
         }
+        
+        /* Debug Console Style */
+        .debug-console {
+            font-family: monospace;
+            font-size: 0.7rem;
+            background: #1e293b;
+            color: #4ade80;
+            padding: 10px;
+            border-radius: 6px;
+            margin-top: 10px;
+            white-space: pre-wrap;
+            max-height: 150px;
+            overflow-y: auto;
+        }
     </style>
 </head>
 <body class="text-gray-800">
@@ -372,13 +386,16 @@
             </div>
 
             <div class="card border-l-4 border-indigo-500 bg-indigo-50/50">
-                <h3 class="font-bold text-indigo-900 mb-3 flex items-center"><i class="fas fa-robot text-indigo-600 mr-2"></i> 系統狀態與 AI 建議</h3>
+                <h3 class="font-bold text-indigo-900 mb-3 flex items-center"><i class="fas fa-robot text-indigo-600 mr-2"></i> 系統狀態與資料診斷</h3>
                 <div id="ai-feedback" class="text-sm text-slate-700 space-y-4 leading-relaxed">
-                    <p><i class="fas fa-circle-notch fa-spin text-indigo-400 mr-2"></i> 正在分析你的學習歷程...</p>
+                    <p><i class="fas fa-circle-notch fa-spin text-indigo-400 mr-2"></i> 正在分析連線狀態...</p>
                 </div>
+                <!-- Debug Console Output -->
+                <div id="debug-console" class="debug-console hidden"></div>
+                
                 <div class="mt-4 text-right">
                     <button class="text-xs bg-white border border-indigo-200 px-3 py-1 rounded-full text-indigo-600 hover:bg-indigo-50 transition font-bold" onclick="refreshAIFeedback()">
-                        <i class="fas fa-magic mr-1"></i> 更新建議
+                        <i class="fas fa-magic mr-1"></i> 強制重新分析
                     </button>
                 </div>
             </div>
@@ -752,6 +769,34 @@
         }
     }
 
+    // Helper: Recursively find a valid data object that contains "nodes"
+    function findValidData(obj) {
+        if (!obj || typeof obj !== 'object') return null;
+        if (obj.nodes && Array.isArray(obj.nodes)) return obj;
+        // Shallow search in immediate children
+        for (const key in obj) {
+            if (obj[key] && obj[key].nodes && Array.isArray(obj[key].nodes)) {
+                return obj[key];
+            }
+        }
+        return null;
+    }
+    
+    // Helper: Extract unique authors from nodes if userList is missing
+    function extractAuthorsFromNodes(nodes) {
+        const users = [];
+        const seen = new Set();
+        if(!nodes) return users;
+        
+        nodes.forEach(n => {
+            if(n.author && !seen.has(n.author)) {
+                seen.add(n.author);
+                users.push({ id: n.author, name: n.author, role: 'student' });
+            }
+        });
+        return users;
+    }
+
     function initUserSwitcher(db) {
         const container = document.getElementById('nav-user-select-container');
         if (!container) return;
@@ -762,25 +807,26 @@
         select.className = "bg-indigo-700 text-white text-xs border border-indigo-500 rounded px-2 py-1 outline-none";
         select.id = "student-selector"; // Important for sync
         
+        let students = [];
+        let statusMsg = "";
+
         // DEBUG: Check db structure
         if (!db.userList) {
-            console.warn("DEBUG: db.userList is missing!", db);
-            document.getElementById('ai-feedback').innerHTML += `<br><span class="text-red-500 text-xs">錯誤：資料庫中找不到使用者列表 (userList)。請確認論壇是否有建立使用者。</span>`;
+            console.warn("DEBUG: db.userList is missing! Trying auto-discovery...");
+            statusMsg = `<br><span class="text-orange-500 text-xs">注意：找不到使用者名單，已從筆記自動偵測使用者。</span>`;
             
-            // Try to find userList in children if wrapped
-            if (db.kb_platform_v2_28_data && db.kb_platform_v2_28_data.userList) {
-                console.log("DEBUG: Found nested userList, recovering...");
-                db = db.kb_platform_v2_28_data;
-                globalDBData = db; // Fix global ref
-            } else {
-                 select.innerHTML = '<option>資料結構錯誤</option>';
-                 container.appendChild(select);
-                 return;
+            // Auto-discovery Fallback
+            if(db.nodes) {
+                students = extractAuthorsFromNodes(db.nodes);
             }
+        } else {
+            const users = Object.values(db.userList || {});
+            students = users.filter(u => u.role !== 'teacher');
         }
 
-        const users = Object.values(db.userList || {});
-        const students = users.filter(u => u.role !== 'teacher');
+        if (statusMsg) {
+             document.getElementById('ai-feedback').innerHTML += statusMsg;
+        }
 
         if (students.length === 0) {
             select.innerHTML = '<option>無學生資料</option>';
@@ -797,8 +843,9 @@
 
         // Auto select if no user selected
         if (students.length > 0 && !currentUserId) {
+            // Default selection logic
             let targetId = students[0].id;
-            if (db.currentUserKey && db.userList[db.currentUserKey] && db.userList[db.currentUserKey].role !== 'teacher') {
+            if (db.currentUserKey && db.userList && db.userList[db.currentUserKey] && db.userList[db.currentUserKey].role !== 'teacher') {
                 targetId = db.userList[db.currentUserKey].id;
             }
             select.value = targetId;
@@ -882,8 +929,17 @@
         currentUserId = userId;
         const db = getRealData();
         if (!db) return;
+        
+        // Enhanced User Lookup: Try userList first, then fallback to dummy object
+        let user = null;
+        if (db.userList) {
+             user = Object.values(db.userList).find(u => u.id === userId);
+        }
+        if (!user) {
+             // Create dummy user from ID if metadata missing
+             user = { id: userId, name: userId, role: 'student' };
+        }
 
-        const user = Object.values(db.userList).find(u => u.id === userId);
         if (user) {
             // Update Header
             document.getElementById('current-user-avatar').src = `https://ui-avatars.com/api/?name=${user.name}&background=random`;
@@ -892,6 +948,8 @@
 
             // Analyze
             const stats = analyzeStudentData(db, userId);
+            if (!stats) return; // Exit if analysis failed
+            
             currentUserStats = stats; // Save for Ref Modal
 
             // Update Dynamic Role UI
@@ -935,9 +993,6 @@
 
             // Update Network Role Label based on Logic Consistency
             let netRole = "周邊參與者 (Peripheral)";
-            // Consistency Check:
-            // High Builder score should likely be a Broker or Central
-            // High Sustainer/Initiator could be Central
             
             if (metrics.builder > 70 || stats.repliedCount > 5) {
                 netRole = "核心人物 (Central)";
@@ -1021,20 +1076,30 @@
 
             // Render Suggestions
             const feedbackContainer = document.getElementById('ai-feedback');
-            feedbackContainer.innerHTML = suggestions.map(s => `
-                <div class="bg-white p-3 rounded border-l-4 border-indigo-400 shadow-sm">
+            
+            // Preserve status message if exists
+            let statusHTML = "";
+            if (feedbackContainer.innerHTML.includes('資料庫同步完成')) {
+                 statusHTML = '<p class="text-green-600 font-bold mb-2"><i class="fas fa-check-circle"></i> 資料庫同步完成</p>';
+            }
+            
+            const suggestionsHTML = suggestions.map(s => `
+                <div class="bg-white p-3 rounded border-l-4 border-indigo-400 shadow-sm mt-2">
                     <h4 class="font-bold text-indigo-700 text-xs mb-1 flex items-center"><i class="fas fa-lightbulb mr-2"></i> ${s.title}</h4>
                     <p class="text-xs text-gray-600 mb-1">${s.action}</p>
                     <div class="text-[10px] text-gray-400 italic border-t pt-1 mt-1">依據: ${s.reason}</div>
                 </div>
             `).join('');
+            
+            // Append Debug Info if exists
+            const debugConsole = document.getElementById('debug-console');
+            
+            feedbackContainer.innerHTML = statusHTML + suggestionsHTML;
+            if (debugConsole) feedbackContainer.appendChild(debugConsole); // Re-attach debug console
         }
     }
 
     function syncData() {
-        // Since we are using Firebase onValue, data is already synced.
-        // This button now acts as a manual "Refresh UI" if something feels stuck,
-        // but mostly it's just visual feedback that things are connected.
         const btn = document.getElementById('sync-btn');
         const orgHtml = btn.innerHTML;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 同步中...';
@@ -1162,44 +1227,54 @@
         // Setup Firebase Realtime Listener
         dbRef.on('value', (snapshot) => {
             const val = snapshot.val();
-            // DEBUGGING LOG
-            console.log("Firebase Data Received:", val);
+            const debugConsole = document.getElementById('debug-console');
+            
+            console.log("Firebase Raw Data:", val);
             
             if (val) {
-                // IMPORTANT: Smart detection of nested data structure
-                // Sometimes data is saved under 'kb_platform_v2_28_data' key if migrated directly
-                let data = val;
+                // IMPORTANT: Smart Path Detection
+                let data = findValidData(val);
                 
-                if (!data.userList && data.kb_platform_v2_28_data) {
-                    console.log("DEBUG: Detected nested data structure.");
-                    data = data.kb_platform_v2_28_data;
+                if (data) {
+                    console.log("Valid Data Found at:", data === val ? "Root" : "Sub-path");
+                    globalDBData = data;
+                    updateConnectionStatus('connected');
+                    
+                    // Show Diagnostics
+                    let nodeCount = globalDBData.nodes ? globalDBData.nodes.length : 0;
+                    let userCount = globalDBData.userList ? Object.keys(globalDBData.userList).length : 0;
+                    
+                    // Re-init switcher
+                    const selector = document.getElementById('student-selector');
+                    const existingSelection = selector ? selector.value : null;
+                    
+                    initUserSwitcher(globalDBData);
+
+                    if (currentUserId) {
+                        switchUser(currentUserId);
+                    } else if (existingSelection && existingSelection !== '無學生資料') {
+                         switchUser(existingSelection);
+                    }
+                    
+                    document.getElementById('ai-feedback').innerHTML = 
+                        `<p class="text-green-600 font-bold"><i class="fas fa-check-circle"></i> 資料庫同步完成</p>
+                         <p class="text-xs text-gray-500 mt-1">偵測到 ${nodeCount} 篇筆記, ${userCount} 位已註冊使用者。</p>`;
+                    
+                    debugConsole.classList.add('hidden');
+
+                } else {
+                    console.warn("Data found but no 'nodes' array detected.");
+                    document.getElementById('ai-feedback').innerHTML = '<span class="text-orange-500">已連線但格式不符 (找不到 nodes)。請檢查論壇是否已存檔。</span>';
+                    // Dump keys for debugging
+                    debugConsole.innerHTML = "Root Keys Found:\n" + Object.keys(val).join('\n');
+                    debugConsole.classList.remove('hidden');
+                    updateConnectionStatus('error');
                 }
-
-                globalDBData = data;
-                
-                // Update Connection Status
-                updateConnectionStatus('connected');
-                
-                // Get current selection from dropdown if exists
-                const selector = document.getElementById('student-selector');
-                const existingSelection = selector ? selector.value : null;
-
-                // Re-init switcher (clears and rebuilds dropdown)
-                initUserSwitcher(globalDBData);
-
-                // Restore selection or refresh view
-                if (currentUserId && globalDBData.userList && globalDBData.userList[currentUserId]) {
-                    switchUser(currentUserId);
-                } else if (existingSelection) {
-                     switchUser(existingSelection);
-                }
-                
-                document.getElementById('ai-feedback').innerHTML = '<p class="text-green-600 font-bold"><i class="fas fa-check-circle"></i> 資料庫同步完成</p>';
                 
             } else {
-                console.log("No Data in Firebase");
+                console.log("No Data in Firebase (Null)");
                 globalDBData = { nodes: [], userList: {}, topics: [] }; // Empty fallback
-                document.getElementById('ai-feedback').innerHTML = '<span class="text-orange-500">資料庫已連線，但尚無資料。請先到論壇發表內容。</span>';
+                document.getElementById('ai-feedback').innerHTML = '<span class="text-orange-500">資料庫是空的 (Null)。請先到論壇發表內容。</span>';
                 updateConnectionStatus('empty');
             }
         }, (error) => {
