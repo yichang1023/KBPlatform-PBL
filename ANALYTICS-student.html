@@ -188,6 +188,10 @@
             </div>
             <div class="flex items-center space-x-2 sm:space-x-4 w-full sm:w-auto justify-center sm:justify-end overflow-x-auto pb-1 sm:pb-0">
                 <div class="flex items-center gap-2 mr-2">
+                    <span id="connection-status" class="text-xs px-2 py-1 rounded bg-indigo-800 text-gray-300 flex items-center gap-1">
+                        <i class="fas fa-circle text-gray-400 text-[8px]" id="status-dot"></i>
+                        <span id="status-text" class="hidden sm:inline">Connecting...</span>
+                    </span>
                     <a href="index.html" class="nav-btn bg-indigo-700 hover:bg-indigo-500 px-2 sm:px-3 py-1.5 rounded text-xs font-bold transition flex items-center gap-1 border border-indigo-500 whitespace-nowrap">
                         <i class="fas fa-home"></i> <span class="hidden sm:inline">首頁</span>
                     </a>
@@ -368,7 +372,7 @@
             </div>
 
             <div class="card border-l-4 border-indigo-500 bg-indigo-50/50">
-                <h3 class="font-bold text-indigo-900 mb-3 flex items-center"><i class="fas fa-robot text-indigo-600 mr-2"></i> 來自 AI 導師的建議</h3>
+                <h3 class="font-bold text-indigo-900 mb-3 flex items-center"><i class="fas fa-robot text-indigo-600 mr-2"></i> 系統狀態與 AI 建議</h3>
                 <div id="ai-feedback" class="text-sm text-slate-700 space-y-4 leading-relaxed">
                     <p><i class="fas fa-circle-notch fa-spin text-indigo-400 mr-2"></i> 正在分析你的學習歷程...</p>
                 </div>
@@ -731,6 +735,23 @@
         return globalDBData; // Return data from Firebase Sync
     }
 
+    // UPDATE: Update status indicator in Navbar
+    function updateConnectionStatus(status) {
+        const dot = document.getElementById('status-dot');
+        const text = document.getElementById('status-text');
+        
+        if (status === 'connected') {
+            dot.className = "fas fa-circle text-green-400 text-[8px]";
+            text.innerText = "Connected";
+        } else if (status === 'error') {
+            dot.className = "fas fa-circle text-red-500 text-[8px]";
+            text.innerText = "Error";
+        } else if (status === 'empty') {
+            dot.className = "fas fa-circle text-yellow-400 text-[8px]";
+            text.innerText = "No Data";
+        }
+    }
+
     function initUserSwitcher(db) {
         const container = document.getElementById('nav-user-select-container');
         if (!container) return;
@@ -741,6 +762,23 @@
         select.className = "bg-indigo-700 text-white text-xs border border-indigo-500 rounded px-2 py-1 outline-none";
         select.id = "student-selector"; // Important for sync
         
+        // DEBUG: Check db structure
+        if (!db.userList) {
+            console.warn("DEBUG: db.userList is missing!", db);
+            document.getElementById('ai-feedback').innerHTML += `<br><span class="text-red-500 text-xs">錯誤：資料庫中找不到使用者列表 (userList)。請確認論壇是否有建立使用者。</span>`;
+            
+            // Try to find userList in children if wrapped
+            if (db.kb_platform_v2_28_data && db.kb_platform_v2_28_data.userList) {
+                console.log("DEBUG: Found nested userList, recovering...");
+                db = db.kb_platform_v2_28_data;
+                globalDBData = db; // Fix global ref
+            } else {
+                 select.innerHTML = '<option>資料結構錯誤</option>';
+                 container.appendChild(select);
+                 return;
+            }
+        }
+
         const users = Object.values(db.userList || {});
         const students = users.filter(u => u.role !== 'teacher');
 
@@ -1124,9 +1162,23 @@
         // Setup Firebase Realtime Listener
         dbRef.on('value', (snapshot) => {
             const val = snapshot.val();
+            // DEBUGGING LOG
+            console.log("Firebase Data Received:", val);
+            
             if (val) {
-                console.log("Firebase Data Received", val);
-                globalDBData = val;
+                // IMPORTANT: Smart detection of nested data structure
+                // Sometimes data is saved under 'kb_platform_v2_28_data' key if migrated directly
+                let data = val;
+                
+                if (!data.userList && data.kb_platform_v2_28_data) {
+                    console.log("DEBUG: Detected nested data structure.");
+                    data = data.kb_platform_v2_28_data;
+                }
+
+                globalDBData = data;
+                
+                // Update Connection Status
+                updateConnectionStatus('connected');
                 
                 // Get current selection from dropdown if exists
                 const selector = document.getElementById('student-selector');
@@ -1136,19 +1188,24 @@
                 initUserSwitcher(globalDBData);
 
                 // Restore selection or refresh view
-                if (currentUserId && globalDBData.userList[currentUserId]) {
+                if (currentUserId && globalDBData.userList && globalDBData.userList[currentUserId]) {
                     switchUser(currentUserId);
                 } else if (existingSelection) {
                      switchUser(existingSelection);
                 }
+                
+                document.getElementById('ai-feedback').innerHTML = '<p class="text-green-600 font-bold"><i class="fas fa-check-circle"></i> 資料庫同步完成</p>';
+                
             } else {
                 console.log("No Data in Firebase");
                 globalDBData = { nodes: [], userList: {}, topics: [] }; // Empty fallback
-                document.getElementById('ai-feedback').innerHTML = "尚無數據";
+                document.getElementById('ai-feedback').innerHTML = '<span class="text-orange-500">資料庫已連線，但尚無資料。請先到論壇發表內容。</span>';
+                updateConnectionStatus('empty');
             }
         }, (error) => {
             console.error("Firebase Error:", error);
-            document.getElementById('ai-feedback').innerHTML = "資料庫連線失敗";
+            document.getElementById('ai-feedback').innerHTML = `<span class="text-red-500">資料庫連線失敗: ${error.message}</span>`;
+            updateConnectionStatus('error');
         });
         
         // Setup chart defaults
