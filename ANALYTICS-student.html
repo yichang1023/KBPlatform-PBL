@@ -3,58 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>我的知識羅盤 | My KB Journey</title>
+    <title>我的知識羅盤 | My KB Journey v3.3 Fixed</title>
+    
+    <!-- 🔥 1. 引入 Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <!-- Markdown for AI -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    
-    <!-- Firebase SDKs -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getDatabase, ref, onValue, get } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
-
-        const firebaseConfig = {
-            apiKey: "AIzaSyDPjtxtf656JHVVlj1o4cLwSylo1jDBFAc",
-            authDomain: "kb-platform-1.firebaseapp.com",
-            databaseURL: "https://kb-platform-1-default-rtdb.firebaseio.com",
-            projectId: "kb-platform-1",
-            storageBucket: "kb-platform-1.firebasestorage.app",
-            messagingSenderId: "230026226847",
-            appId: "1:230026226847:web:49e6f09ddfc3de0ef046aa"
-        };
-
-        // Initialize Firebase
-        const app = initializeApp(firebaseConfig);
-        const db = getDatabase(app);
-        
-        // Expose to window for global access
-        window.firebaseDB = db;
-        window.firebaseRef = ref;
-        window.firebaseOnValue = onValue;
-
-        // 監聽連線狀態 (Connection State)
-        const connectedRef = ref(db, ".info/connected");
-        onValue(connectedRef, (snap) => {
-            const statusDot = document.getElementById('connection-dot');
-            const statusText = document.getElementById('connection-text');
-            if (snap.val() === true) {
-                console.log("Firebase: Connected");
-                if(statusDot) {
-                    statusDot.classList.remove('bg-red-500', 'bg-yellow-500');
-                    statusDot.classList.add('bg-green-500', 'animate-pulse');
-                    statusText.innerText = "雲端已連線";
-                }
-            } else {
-                console.log("Firebase: Disconnected");
-                if(statusDot) {
-                    statusDot.classList.remove('bg-green-500', 'animate-pulse');
-                    statusDot.classList.add('bg-red-500');
-                    statusText.innerText = "連線中斷";
-                }
-            }
-        });
-    </script>
-
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap');
         body { font-family: 'Noto Sans TC', sans-serif; background-color: #f3f4f6; }
@@ -215,25 +175,32 @@
             color: #6366f1;
             background: #f1f5f9;
         }
+
+        /* Legend Dot */
+        .legend-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 4px; }
     </style>
 </head>
-<body class="text-gray-800">
+<body class="text-gray-800 pt-8 sm:pt-0">
+
+    <!-- 🔥 Top Status Bar -->
+    <div class="bg-slate-900 text-white text-[10px] py-1 px-4 flex justify-between items-center sticky top-0 z-[60] w-full border-b border-slate-700 shadow-sm font-mono">
+        <div class="flex items-center gap-4">
+            <span class="flex items-center gap-1"><i class="fas fa-server text-green-500"></i> SYSTEM: <span class="text-green-400 font-bold">CLOUD CONNECTED</span></span>
+            <span class="hidden sm:flex items-center gap-1"><i class="fas fa-database text-yellow-500"></i> DB: <span id="db-status-text" class="text-yellow-400">CONNECTING...</span></span>
+        </div>
+        <div class="flex items-center gap-1">
+            <i class="fas fa-robot text-slate-400"></i> AI Status: <span id="ai-status-indicator" class="text-slate-300">Checking...</span>
+        </div>
+    </div>
 
     <!-- 頂部導航 -->
-    <nav class="bg-indigo-600 text-white shadow-lg sticky top-0 z-50">
+    <nav class="bg-indigo-600 text-white shadow-lg sticky top-[24px] z-50">
         <div class="container mx-auto px-4 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row justify-between items-center gap-3 sm:gap-0">
             <div class="flex items-center space-x-3 w-full sm:w-auto justify-center sm:justify-start">
                 <i class="fas fa-compass text-2xl"></i>
                 <div>
                     <h1 class="text-lg sm:text-xl font-bold">知識羅盤 Knowledge Compass</h1>
-                    <div class="flex items-center gap-2">
-                        <p class="text-xs text-indigo-200 hidden sm:block">後設認知與成長歷程 (Student Portfolio)</p>
-                        <!-- 連線狀態燈號 -->
-                        <div class="flex items-center bg-indigo-800 rounded px-2 py-0.5 ml-2">
-                            <div id="connection-dot" class="w-2 h-2 rounded-full bg-yellow-500 mr-1"></div>
-                            <span id="connection-text" class="text-[10px] text-indigo-100">偵測中...</span>
-                        </div>
-                    </div>
+                    <p class="text-xs text-indigo-200 hidden sm:block">後設認知與成長歷程 (Student Portfolio)</p>
                 </div>
             </div>
             <div class="flex items-center space-x-2 sm:space-x-4 w-full sm:w-auto justify-center sm:justify-end overflow-x-auto pb-1 sm:pb-0">
@@ -249,10 +216,12 @@
                     </button>
                 </div>
                 <div class="text-right hidden md:block">
-                    <span class="block font-bold" id="user-name">載入中...</span>
+                    <span class="block font-bold" id="user-name">訪客</span>
                     <span class="text-xs text-indigo-200">學習者</span>
                 </div>
                 <img id="current-user-avatar" src="https://ui-avatars.com/api/?name=User&background=random" class="w-8 h-8 sm:w-10 sm:h-10 rounded-full border-2 border-white flex-shrink-0">
+                
+                <!-- Student Switcher Container -->
                 <div id="nav-user-select-container"></div>
             </div>
         </div>
@@ -261,23 +230,18 @@
     <!-- 主要內容區 -->
     <main class="container mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6 sm:space-y-8 fade-in pb-20">
 
-        <!-- ========================================== -->
-        <!-- 模組 1: 使用者知識角色 -->
-        <!-- ========================================== -->
+        <!-- 1. 知識角色模組 -->
         <section class="card bg-gradient-to-r from-white to-blue-50 border border-blue-100 relative overflow-hidden">
              <!-- 背景裝飾 -->
              <div class="absolute top-0 right-0 -mt-10 -mr-10 w-40 h-40 bg-blue-100 rounded-full opacity-50 blur-2xl pointer-events-none"></div>
 
              <div class="flex flex-col md:flex-row items-center gap-6 sm:gap-8 relative z-10">
-                 <!-- 左側：角色稱號 -->
                  <div class="w-full md:w-1/3 text-center md:text-left md:border-r border-gray-200 md:pr-8">
                      <div class="flex items-center justify-center md:justify-start mb-3">
                         <h2 class="text-xs font-bold text-gray-500 uppercase tracking-widest">
                             <i class="fas fa-user-tag mr-1"></i> 我的知識角色
                         </h2>
-                        <button onclick="openRefModal('roles')" class="ref-btn" title="了解角色定義">
-                            <i class="fas fa-info-circle mr-1"></i> Ref.
-                        </button>
+                        <button onclick="openRefModal('roles')" class="ref-btn" title="了解角色定義"><i class="fas fa-info-circle mr-1"></i> Ref.</button>
                      </div>
                      <div class="flex items-center justify-center md:justify-start gap-5">
                          <div class="w-16 h-16 sm:w-20 sm:h-20 bg-indigo-600 rounded-full flex items-center justify-center text-white text-2xl sm:text-3xl shadow-xl ripple-effect flex-shrink-0">
@@ -289,86 +253,58 @@
                          </div>
                      </div>
                      <div class="mt-4 bg-white/60 p-3 rounded-lg text-sm text-gray-600 leading-relaxed border border-white text-left" id="role-desc">
-                         <i class="fas fa-quote-left text-indigo-300 mr-1"></i>
-                         正在分析你的發言模式...
+                         <i class="fas fa-quote-left text-indigo-300 mr-1"></i> 正在分析你的發言模式...
                      </div>
                  </div>
                  
-                 <!-- 右側：四種能力指標 (Dynamic) -->
                  <div class="w-full md:w-2/3">
                      <div class="grid grid-cols-2 gap-3 sm:gap-4">
-                         <!-- 能力 1: 開創力 -->
                          <div class="bg-white p-3 sm:p-4 rounded-xl shadow-sm border border-gray-100 text-center hover:shadow-md transition relative">
                              <button onclick="openRefModal('initiator')" class="ref-btn-mini"><i class="fas fa-info-circle"></i></button>
                              <div class="text-gray-400 text-[10px] sm:text-xs mb-1">開創力 (Initiator)</div>
                              <div class="text-base sm:text-lg font-bold text-gray-800" id="role-initiator-val">--%</div>
-                             <div class="w-full bg-gray-100 rounded-full h-1.5 mt-2">
-                                 <div class="bg-blue-400 h-1.5 rounded-full" id="role-initiator-bar" style="width: 0%"></div>
-                             </div>
+                             <div class="w-full bg-gray-100 rounded-full h-1.5 mt-2"><div class="bg-blue-400 h-1.5 rounded-full" id="role-initiator-bar" style="width: 0%"></div></div>
                          </div>
-                         <!-- 能力 2: 連結力 -->
                          <div class="bg-white p-3 sm:p-4 rounded-xl shadow-sm border border-gray-100 text-center hover:shadow-md transition relative">
                              <button onclick="openRefModal('builder')" class="ref-btn-mini"><i class="fas fa-info-circle"></i></button>
                              <div class="text-gray-400 text-[10px] sm:text-xs mb-1">連結力 (Builder)</div>
                              <div class="text-base sm:text-lg font-bold text-gray-800" id="role-builder-val">--%</div>
-                             <div class="w-full bg-gray-100 rounded-full h-1.5 mt-2">
-                                 <div class="bg-indigo-600 h-1.5 rounded-full" id="role-builder-bar" style="width: 0%"></div>
-                             </div>
+                             <div class="w-full bg-gray-100 rounded-full h-1.5 mt-2"><div class="bg-indigo-600 h-1.5 rounded-full" id="role-builder-bar" style="width: 0%"></div></div>
                          </div>
-                         <!-- 能力 3: 整合力 -->
                          <div class="bg-white p-3 sm:p-4 rounded-xl shadow-sm border border-gray-100 text-center hover:shadow-md transition relative">
                              <button onclick="openRefModal('synthesizer')" class="ref-btn-mini"><i class="fas fa-info-circle"></i></button>
                              <div class="text-gray-400 text-[10px] sm:text-xs mb-1">整合力 (Synthesizer)</div>
                              <div class="text-base sm:text-lg font-bold text-gray-800" id="role-synthesizer-val">--%</div>
-                             <div class="w-full bg-gray-100 rounded-full h-1.5 mt-2">
-                                 <div class="bg-purple-400 h-1.5 rounded-full" id="role-synthesizer-bar" style="width: 0%"></div>
-                             </div>
+                             <div class="w-full bg-gray-100 rounded-full h-1.5 mt-2"><div class="bg-purple-400 h-1.5 rounded-full" id="role-synthesizer-bar" style="width: 0%"></div></div>
                          </div>
-                         <!-- 能力 4: 維護力 -->
                          <div class="bg-white p-3 sm:p-4 rounded-xl shadow-sm border border-gray-100 text-center hover:shadow-md transition relative">
                              <button onclick="openRefModal('sustainer')" class="ref-btn-mini"><i class="fas fa-info-circle"></i></button>
                              <div class="text-gray-400 text-[10px] sm:text-xs mb-1">維護力 (Sustainer)</div>
                              <div class="text-base sm:text-lg font-bold text-gray-800" id="role-sustainer-val">--%</div>
-                             <div class="w-full bg-gray-100 rounded-full h-1.5 mt-2">
-                                 <div class="bg-green-400 h-1.5 rounded-full" id="role-sustainer-bar" style="width: 0%"></div>
-                             </div>
+                             <div class="w-full bg-gray-100 rounded-full h-1.5 mt-2"><div class="bg-green-400 h-1.5 rounded-full" id="role-sustainer-bar" style="width: 0%"></div></div>
                          </div>
-                     </div>
-                     <!-- 說明 -->
-                     <div class="insight-box bg-white/50 border-blue-200 mt-4 text-[10px] sm:text-xs">
-                         <div class="insight-title text-blue-800 text-xs sm:text-sm"><i class="fas fa-info-circle"></i> 角色分析說明</div>
-                         這些指標反映了你在社群中的動態貢獻。數值是根據你相對於全班平均的表現計算得出的相對強度 (0-100%)。
                      </div>
                  </div>
              </div>
         </section>
 
-        <!-- 2. 核心數據概覽 (Core Metrics) WITH REF BUTTONS -->
+        <!-- 2. 核心數據概覽 -->
         <section class="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
-            <!-- Card 1 -->
             <div class="card border-l-4 border-blue-500 py-4 group hover:shadow-lg transition relative">
                 <button onclick="openRefModal('created')" class="absolute top-2 right-2 ref-btn"><i class="fas fa-info-circle mr-1"></i> Ref.</button>
                 <h3 class="text-gray-500 text-[10px] sm:text-xs font-medium uppercase">我的貢獻 (Created)</h3>
-                <div class="mt-1 flex items-baseline">
-                     <span class="text-xl sm:text-2xl font-bold text-gray-900" id="card-created-val">0</span>
-                </div>
+                <div class="mt-1 flex items-baseline"><span class="text-xl sm:text-2xl font-bold text-gray-900" id="card-created-val">0</span></div>
             </div>
-            
-            <!-- Card 2 -->
             <div class="card border-l-4 border-green-500 py-4 group hover:shadow-lg transition relative">
                 <button onclick="openRefModal('read')" class="absolute top-2 right-2 ref-btn"><i class="fas fa-info-circle mr-1"></i> Ref.</button>
                 <h3 class="text-gray-500 text-[10px] sm:text-xs font-medium uppercase">閱讀他人 (Read)</h3>
                 <div class="mt-1 text-xl sm:text-2xl font-bold text-gray-900" id="card-read-val">0</div>
             </div>
-            
-            <!-- Card 3 -->
             <div class="card border-l-4 border-purple-500 py-4 group hover:shadow-lg transition relative">
                 <button onclick="openRefModal('buildon')" class="absolute top-2 right-2 ref-btn"><i class="fas fa-info-circle mr-1"></i> Ref.</button>
                 <h3 class="text-gray-500 text-[10px] sm:text-xs font-medium uppercase">觀點連結 (Build-ons)</h3>
                 <div class="mt-1 text-xl sm:text-2xl font-bold text-gray-900" id="card-buildon-val">0</div>
             </div>
-            
-            <!-- Card 4 -->
             <div class="card border-l-4 border-yellow-500 py-4 group hover:shadow-lg transition relative">
                 <button onclick="openRefModal('impact')" class="absolute top-2 right-2 ref-btn"><i class="fas fa-info-circle mr-1"></i> Ref.</button>
                 <h3 class="text-gray-500 text-[10px] sm:text-xs font-medium uppercase">影響係數 (Impact)</h3>
@@ -378,7 +314,6 @@
 
         <!-- 3. 圖表分析區 -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <!-- 左側：KB 行為雷達 -->
             <div class="card col-span-1 lg:col-span-1 flex flex-col">
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="font-bold text-slate-700 flex items-center"><i class="fas fa-chart-radar text-indigo-500 mr-2"></i> 知識五力分析</h3>
@@ -389,7 +324,6 @@
                 </div>
             </div>
 
-            <!-- 右側：最近的想法演化 (Timeline) -->
             <div class="card col-span-1 lg:col-span-2">
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="font-bold text-slate-700 flex items-center"><i class="fas fa-code-branch text-emerald-500 mr-2"></i> 最近的思考軌跡</h3>
@@ -423,14 +357,14 @@
                     <p><i class="fas fa-circle-notch fa-spin text-indigo-400 mr-2"></i> 正在分析你的學習歷程...</p>
                 </div>
                 <div class="mt-4 text-right">
-                    <button class="text-xs bg-white border border-indigo-200 px-3 py-1 rounded-full text-indigo-600 hover:bg-indigo-50 transition font-bold" onclick="refreshAIFeedback()">
+                    <button class="text-xs bg-white border border-indigo-200 px-3 py-1 rounded-full text-indigo-600 hover:bg-indigo-50 transition font-bold" onclick="triggerAIAnalysis()">
                         <i class="fas fa-magic mr-1"></i> 更新建議
                     </button>
                 </div>
             </div>
         </div>
         
-        <!-- 5. 進階指標 (New Sections based on requests) -->
+        <!-- 5. 進階指標與 Ego Network -->
         <section class="grid grid-cols-1 md:grid-cols-2 gap-8">
             <!-- 詞彙演化 -->
             <div class="card relative overflow-hidden">
@@ -463,31 +397,24 @@
                 </div>
             </div>
 
-            <!-- 知識網絡 -->
-            <div class="card relative overflow-hidden bg-slate-800 text-white border-0">
-                <div class="flex justify-between items-center mb-6 relative z-10">
-                    <h2 class="text-lg font-bold flex items-center"><i class="fas fa-project-diagram text-blue-400 mr-2"></i>知識網絡位置</h2>
-                    <button onclick="openRefModal('network')" class="ref-btn ref-btn-dark"><i class="fas fa-info-circle mr-1"></i> Ref.</button>
+            <!-- 🔥🔥 Ego Network: Title Fixed -->
+            <div class="card relative overflow-hidden h-[400px]">
+                <div class="flex justify-between items-center mb-2">
+                    <h2 class="text-lg font-bold flex items-center text-slate-800"><i class="fas fa-project-diagram text-indigo-500 mr-2"></i>知識網絡位置：自我與社群互動圈</h2>
+                    <button onclick="openRefModal('interaction_circle')" class="ref-btn"><i class="fas fa-info-circle mr-1"></i> Ref.</button>
                 </div>
-                <div class="relative h-32 w-full flex items-center justify-center">
-                     <div class="absolute w-2/3 h-0.5 bg-gray-600"></div>
-                     <!-- Simulated Node -->
-                     <div class="absolute z-10 flex flex-col items-center node-pulse">
-                        <div class="w-12 h-12 rounded-full bg-blue-500 border-4 border-slate-900 flex items-center justify-center font-bold">You</div>
-                        <span class="text-xs mt-2 text-blue-200" id="network-role-label">Broker (仲介者)</span>
-                    </div>
-                     <!-- Simulated Connections -->
-                     <div class="absolute left-1/4 w-8 h-8 rounded-full bg-slate-600 flex items-center justify-center text-xs opacity-50">A</div>
-                     <div class="absolute right-1/4 w-8 h-8 rounded-full bg-slate-600 flex items-center justify-center text-xs opacity-50">B</div>
+                <div class="flex gap-2 text-[10px] mb-2 px-1">
+                    <span class="flex items-center"><span class="legend-dot" style="background:#3b82f6"></span>提問</span>
+                    <span class="flex items-center"><span class="legend-dot" style="background:#eab308"></span>延伸</span>
+                    <span class="flex items-center"><span class="legend-dot" style="background:#22c55e"></span>改進</span>
+                    <span class="flex items-center"><span class="legend-dot" style="background:#ef4444"></span>反駁</span>
+                    <span class="flex items-center"><span class="legend-dot" style="background:#a855f7"></span>整合</span>
                 </div>
-                <div class="mt-4 text-[10px] text-gray-300 bg-gray-800/80 p-3 rounded border border-gray-700 relative z-10">
-                    <strong><i class="fas fa-share-alt"></i> 社群推動力 (Community Impact)：</strong>
-                    這顯示了你的想法在社群中激發了多少漣漪。作為 <strong>Broker</strong>，你連結了不同的小組討論。
-                </div>
+                <div id="ego-network-container" class="w-full h-full bg-slate-50 rounded-lg border border-slate-100"></div>
             </div>
         </section>
 
-        <!-- New: Advanced KB Indicators (Request 2) -->
+        <!-- New: Advanced KB Indicators (Confirmed Visible) -->
         <section class="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div class="card">
                  <div class="flex justify-between items-center mb-4">
@@ -515,9 +442,9 @@
             </div>
         </section>
 
-    </div>
+    </main>
 
-    <!-- Note Detail Modal (NEW) -->
+    <!-- Note Detail Modal -->
     <div id="note-detail-modal" class="modal" onclick="closeModalDirect(event, 'note-detail-modal')">
         <div class="modal-content max-w-lg">
             <div class="modal-header bg-indigo-50">
@@ -572,15 +499,37 @@
     </div>
 
     <script>
+    // 🔥 2. Firebase Initialization (Cloud Core)
+    const firebaseConfig = {
+        apiKey: "AIzaSyDPjtxtf656JHVVlj1o4cLwSylo1jDBFAc",
+        authDomain: "kb-platform-1.firebaseapp.com",
+        databaseURL: "https://kb-platform-1-default-rtdb.firebaseio.com",
+        projectId: "kb-platform-1",
+        storageBucket: "kb-platform-1.firebasestorage.app",
+        messagingSenderId: "230026226847",
+        appId: "1:230026226847:web:49e6f09ddfc3de0ef046aa"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    const DB_COLLECTION = 'kb_platform';
+    const DB_DOC = 'class_data';
+    const SETTINGS_DOC = db.collection('kb_platform').doc('settings');
+
     // --- Global State ---
     let currentUserId = '';
+    let globalData = {}; // Store raw Firebase Data
     let radarChartInstance = null;
-    let scaffoldChartInstance = null;
     let currentUserStats = null; 
-    let globalRawDB = null; // Store fetched data from Firebase
+    let aiKey = "";
+    let egoNetworkInstance = null; // Vis network instance
 
-    // --- Ref Data Database (International Journal Standards) ---
+    // --- Ref Data Database ---
     const refData = {
+        'interaction_circle': {
+            title: '自我與社群互動圈 (Ego Network)',
+            theory: '此圖呈現以你為中心的知識互動網絡。箭頭代表對話流向，顏色代表對話性質（如提問、延伸、反駁等）。豐富的連結類型與對象多樣性，反映了你在社群中活躍的社會認知動態 (Socio-cognitive Dynamics)。',
+            cite: 'Zhang, J., Scardamalia, M., Reeve, R., & Messina, R. (2009). Designs for collective cognitive responsibility in knowledge-building communities. Journal of the Learning Sciences.'
+        },
         'roles': {
             title: '知識角色 (Epistemic Roles)',
             theory: '根據 Scardamalia (2002) 的「認識論代理人 (Epistemic Agency)」，學生在社群中應展現多樣化的貢獻模式，如發起者、連結者或整合者，而非單一的接收者。',
@@ -668,80 +617,41 @@
         const data = refData[key] || { title: '分析項目', theory: '資料載入中...', cite: '' };
         const modal = document.getElementById('refModal');
         
-        // 1. 設定標題與理論
         document.getElementById('modalTitle').innerText = data.title;
         document.getElementById('modalTheory').innerText = data.theory;
         document.getElementById('modalRef').innerText = data.cite;
 
-        // 2. 設定數據與診斷 (Context Aware with Narrative)
         let statusText = "目前尚無足夠數據進行深入分析。";
         let insightText = "建議持續參與討論以累積數據。";
         const s = currentUserStats;
 
         if (s) {
-            // New Role Metrics Logic for Modal
             if (key === 'initiator') {
-                statusText = `開創力強度：<strong>${s.roleMetrics.initiator}% (Top ${100-s.roleMetrics.initiator}%)</strong>`;
+                statusText = `開創力強度：<strong>${s.roleMetrics.initiator}% (Top ${Math.max(1, 100-s.roleMetrics.initiator)}%)</strong>`;
                 insightText = s.roleMetrics.initiator > 70 ? "你非常善於開啟新的討論話題，是社群的好奇心引擎！" : "試著多發表一些「新問題」或「新想法」來提升此指標。";
             } else if (key === 'builder') {
-                statusText = `連結力強度：<strong>${s.roleMetrics.builder}% (Top ${100-s.roleMetrics.builder}%)</strong>`;
+                statusText = `連結力強度：<strong>${s.roleMetrics.builder}% (Top ${Math.max(1, 100-s.roleMetrics.builder)}%)</strong>`;
                 insightText = s.roleMetrics.builder > 70 ? "你是社群的連結者，善於回應他人，讓對話延續。" : "嘗試多使用「延伸」或「改進」功能回應同學的筆記。";
             } else if (key === 'synthesizer') {
-                statusText = `整合力強度：<strong>${s.roleMetrics.synthesizer}% (Top ${100-s.roleMetrics.synthesizer}%)</strong>`;
+                statusText = `整合力強度：<strong>${s.roleMetrics.synthesizer}% (Top ${Math.max(1, 100-s.roleMetrics.synthesizer)}%)</strong>`;
                 insightText = s.roleMetrics.synthesizer > 60 ? "你具備高階的整合能力，能將分散的觀點歸納為結論。" : "挑戰看看使用「昇華 (Rise-above)」標籤，試著總結大家的討論。";
             } else if (key === 'sustainer') {
-                statusText = `維護力強度：<strong>${s.roleMetrics.sustainer}% (Top ${100-s.roleMetrics.sustainer}%)</strong>`;
+                statusText = `維護力強度：<strong>${s.roleMetrics.sustainer}% (Top ${Math.max(1, 100-s.roleMetrics.sustainer)}%)</strong>`;
                 insightText = "這是衡量你持續參與和維護討論熱度的指標。";
             }
-            // Existing Logic
             else if (key === 'created') {
-                statusText = `在這段探究旅程中，你已經貢獻了 <strong>${s.totalNotes} 篇</strong>想法筆記。相較於社群平均水平，這是一個${s.totalNotes > 5 ? '相當活躍' : '起步階段'}的數字。這顯示了你${s.totalNotes > 5 ? '積極承擔了推動社群知識前進的責任' : '正在嘗試融入這個知識建構的文化'}。`;
-                insightText = s.totalNotes > 5 ? "你的發文量穩定，這是非常棒的基礎！下一步，試著關注自己發文的「品質」是否隨時間提升，例如是否提出了更深層的問題？" : "發文量偏低是正常的開始。建議從「提問」開始，把你對主題的好奇心轉化為社群的討論起點。";
-            } else if (key === 'read') {
-                 statusText = `你已閱讀了許多同學的筆記。知識建構是一個社會過程，閱讀是理解他人觀點的第一步。`;
-                 insightText = "保持閱讀的習慣，並試著找出不同觀點之間的連結。";
-            } else if (key === 'buildon') {
-                const ratio = s.totalNotes > 0 ? Math.round((s.linksCount / s.totalNotes) * 100) : 0;
-                statusText = `你目前針對他人的想法進行了 <strong>${s.linksCount} 次</strong>連結與延伸（Build-on）。這佔了你總發言的 <strong>${ratio}%</strong>。這個比例反映了你${ratio > 30 ? '非常重視與他人的對話，善於站在巨人的肩膀上思考' : '比較傾向於發表獨立的見解，較少直接回應他人'}。`;
-                insightText = s.linksCount > 3 ? "你善於連結他人想法，這是社群知識演化的關鍵動力。請繼續保持這種「對話式」的思考習慣！" : "嘗試多使用「延伸 (Extend)」或「改進 (Improve)」鷹架來回應同學的觀點。不要讓討論斷在自己這裡，試著把別人的點子變得更好。";
+                statusText = `你已經貢獻了 <strong>${s.totalNotes} 篇</strong>想法筆記。`;
+                insightText = s.totalNotes > 5 ? "發文量穩定！下一步，試著關注「品質」。" : "發文量偏低，建議從「提問」開始。";
             } else if (key === 'impact') {
-                statusText = `你的想法共獲得了 <strong>${s.repliedCount} 次</strong>回覆，形成了一股社群推動力。這意味著你的觀點在社群中產生了<strong>${s.repliedCount > 2 ? '顯著的共鳴與討論漣漪' : '初步的能見度'}</strong>。`;
-                insightText = s.repliedCount > 2 ? "你的觀點成功引發了共鳴！這是一個很好的訊號。接下來，試著回應這些回饋，進行更深層的辯證，或許能激發出新的整合觀點。" : "目前回應較少。建議在標題中使用更具吸引力的問題，或者在文中直接標註（Tag）你認為可能會感興趣的同學，主動邀請他們參與討論。";
-            } else if (key === 'radar') {
-                statusText = "你的五力雷達圖呈現了你在發文數量、回覆互動、閱讀廣度、詞彙深度及被引用數這五個維度上的當前狀態。圖形面積越大，代表你的綜合參與度越高。";
-                insightText = "觀察圖形凹陷處即為你的成長機會點。例如，若圖形在「被引用數」方面較弱，可能需要思考如何讓你的標題更具吸引力；若「詞彙深度」較低，則可嘗試在發言中運用更多課堂學到的專業術語。";
-            } else if (key === 'scaffold') {
-                // Determine dominant scaffold
-                let maxScaffold = 'question';
-                let maxCount = 0;
-                for (const [type, count] of Object.entries(s.scaffoldCounts)) {
-                    if (count > maxCount) {
-                        maxCount = count;
-                        maxScaffold = type;
-                    }
-                }
-                const scaffoldMap = {'question': '提問', 'extend': '延伸', 'improve': '改進', 'counter': '反駁', 'riseabove': '整合'};
-                statusText = `從圓餅圖可以看出，你目前最常使用的思考策略是「<strong>${scaffoldMap[maxScaffold]}</strong>」。這顯示了你目前的思考習慣偏向於${maxScaffold === 'question' ? '發散與探索' : (maxScaffold === 'riseabove' ? '收斂與總結' : '對話與修正')}。`;
-                insightText = "理想的知識建構者會靈活運用各種策略。若你的圖表偏向單一顏色（例如只有藍色的提問），建議嘗試挑戰使用其他顏色的鷹架，例如紫色的「整合 (Rise-above)」，試著將分散的討論歸納出結論。";
-            } else if (key === 'roles') {
-                statusText = "左側的角色卡片是系統根據你近期的發言行為模式所賦予的稱號。它反映了你在社群生態系中的功能定位。";
-                insightText = "你的角色並非固定不變。隨著你改變發言策略（例如從多提問轉為多總結），你的角色也會隨之進化。嘗試挑戰解鎖不同的角色，豐富你的學習體驗！";
+                statusText = `你的想法共獲得了 <strong>${s.repliedCount} 次</strong>回覆。`;
+                insightText = s.repliedCount > 2 ? "觀點引發了共鳴！試著回應這些回饋。" : "回應較少，建議在標題中使用更具吸引力的問題。";
             } else if (key === 'evolution') {
-                statusText = "此時間軸展示了你近期參與的討論串。每一條線代表一個想法的生命週期，從誕生到被修正、被整合的過程。";
-                insightText = "回顧這些軌跡，思考一下：哪些想法「存活」得最久？哪些想法引發了最激烈的討論？這些都是你知識建構歷程中的亮點。";
-            } else if (key === 'lexical') {
-                 statusText = "此分析比較了你在探究初期與近期的用詞差異。系統偵測到你的詞彙正逐漸從生活用語轉向更精確的學科術語。";
-                 insightText = "詞彙的轉變代表概念的深化。繼續嘗試在討論中使用更專業的術語來描述現象，這有助於你更精準地表達複雜的科學概念。";
-            } else if (key === 'network') {
-                 const role = s.repliedCount > 5 ? "核心人物 (Central)" : (s.linksCount > 3 ? "橋樑者 (Broker)" : "周邊參與者 (Peripheral)");
-                 statusText = `網絡分析顯示你目前的角色傾向於：<strong>${role}</strong>。你的位置顯示了你在資訊流動中的重要性。`;
-                 insightText = "如果你位於網絡中心，請善用影響力帶動討論；如果你位於邊緣或擔任橋樑，請嘗試將不同小組的觀點連結起來，促進知識的跨域流動。";
-            } else if (key === 'diversity') {
-                statusText = `你目前參與了 ${s.uniqueTopicsCount} 個不同的主題。`;
-                insightText = "知識建構強調觀點的多樣性。嘗試跨足更多不同的討論主題，能幫助你建立更宏觀的知識網絡。";
-            } else if (key === 'path_length') {
-                statusText = `你的平均討論深度為 ${s.avgDepth.toFixed(1)} 層。`;
-                insightText = "較深的路徑代表持續的對話與修正。試著追蹤一個議題，不斷深入挖掘，而不要只是停留在表層的問答。";
+                statusText = `目前追蹤到 <strong>${s.recentNotes.length} 條</strong>近期思考軌跡。`;
+                insightText = "這是你近期思想演變的快照。若只看到一條，代表近期僅有一篇發文。";
+            }
+            else if (key === 'interaction_circle') {
+                statusText = `在互動圈中，你已經連結了 <strong>${s.networkSize || 0} 位</strong>不同的同學。`;
+                insightText = "如果互動圈偏向單邊，嘗試回應平常較少交流的同學，擴大你的知識網絡。";
             }
         }
 
@@ -751,37 +661,61 @@
         modal.style.display = "flex";
     }
 
-    function closeModal() {
-        document.getElementById('note-detail-modal').style.display = "none";
-    }
-
     function closeModalDirect(event, modalId) {
         if (event.target == document.getElementById(modalId)) {
             document.getElementById(modalId).style.display = "none";
         }
     }
 
-    // --- Core Logic ---
-    function getRealData() {
-        // Now returns global cached data from Firebase
-        return globalRawDB;
+    // --- Core Cloud Logic ---
+    function initApp() {
+        // 1. Get AI Key
+        SETTINGS_DOC.get().then(doc => {
+            const aiStatus = document.getElementById('ai-status-indicator');
+            if(doc.exists && doc.data().gemini_api_key) {
+                aiKey = doc.data().gemini_api_key;
+                aiStatus.innerText = "Ready";
+                aiStatus.className = "text-green-400 font-bold";
+            } else {
+                aiStatus.innerText = "No Key";
+                aiStatus.className = "text-red-400 font-bold";
+            }
+        });
+
+        // 2. Listen to Class Data
+        db.collection(DB_COLLECTION).doc(DB_DOC).onSnapshot((doc) => {
+            const dbStatus = document.getElementById('db-status-text');
+            if (doc.exists) {
+                globalData = doc.data();
+                dbStatus.innerText = "FIREBASE ONLINE";
+                dbStatus.className = "text-green-400 font-bold";
+                
+                if (!document.getElementById('student-selector')) {
+                    initUserSwitcher();
+                } else if (currentUserId) {
+                    switchUser(currentUserId);
+                }
+            } else {
+                dbStatus.innerText = "NO DATA";
+                dbStatus.className = "text-red-400 font-bold";
+            }
+        });
     }
 
-    function initUserSwitcher(db) {
+    function initUserSwitcher() {
         const container = document.getElementById('nav-user-select-container');
         if (!container) return;
-        container.innerHTML = ''; // Clear previous
+        container.innerHTML = ''; 
         
         const select = document.createElement('select');
         select.className = "bg-indigo-700 text-white text-xs border border-indigo-500 rounded px-2 py-1 outline-none";
-        select.id = "student-selector"; // Important for sync
+        select.id = "student-selector";
         
-        const users = Object.values(db.userList || {});
+        const users = Object.values(globalData.userList || {});
         const students = users.filter(u => u.role !== 'teacher');
 
         if (students.length === 0) {
-            select.innerHTML = '<option>尚無學生資料</option>';
-            console.warn("No students found in DB:", db.userList);
+            select.innerHTML = '<option>無學生資料</option>';
         } else {
             students.forEach(u => {
                 const option = document.createElement('option');
@@ -793,34 +727,27 @@
         select.onchange = function() { switchUser(this.value); };
         container.appendChild(select);
 
-        // Auto select current or first
-        if (students.length > 0) {
-            let targetId = students[0].id;
-            // Persist selection if refreshing
-            if (currentUserId && students.find(s => s.id === currentUserId)) {
-                targetId = currentUserId;
-            }
+        let targetId = students.length > 0 ? students[0].id : null;
+        const localSession = localStorage.getItem('kb_local_session');
+        if (localSession) {
+            try {
+                const s = JSON.parse(localSession);
+                const u = students.find(st => st.id === globalData.userList[s.currentUserKey]?.id);
+                if (u) targetId = u.id;
+            } catch(e) {}
+        }
+        
+        if (targetId) {
             select.value = targetId;
             switchUser(targetId);
         }
     }
 
-    // NEW: Dynamic Role Metrics Calculation
+    // Role Metrics Logic
     function calculateRoleMetrics(stats) {
-        // 1. Initiator (開創力): 基於 "question" 數量與比例
-        // 假設基準: 至少 1 個問題才開始計分, 5 個滿分
         const initScore = Math.min((stats.scaffoldCounts.question * 20), 100); 
-        
-        // 2. Builder (連結力): 基於 "extend" + "improve" + "linksCount" (發文有 parentId)
-        // 假設基準: 5 次連結滿分
         const buildScore = Math.min(((stats.scaffoldCounts.extend + stats.scaffoldCounts.improve + stats.linksCount) * 15), 100);
-        
-        // 3. Synthesizer (整合力): 基於 "riseabove"
-        // 假設基準: 2 次昇華滿分 (因為很難)
         const synthScore = Math.min((stats.scaffoldCounts.riseabove * 50), 100);
-        
-        // 4. Sustainer (維護力): 基於 "totalNotes" (持續參與度)
-        // 假設基準: 10 篇筆記滿分
         const susScore = Math.min((stats.totalNotes * 10), 100);
 
         return {
@@ -831,186 +758,216 @@
         };
     }
 
-    function analyzeStudentData(db, userId) {
-        if (!db || !db.nodes) return null;
-        // db.nodes is array now
-        const myNotes = db.nodes.filter(n => n.author === userId);
+    function analyzeStudentData(userId) {
+        if (!globalData || !globalData.nodes) return null;
+        const nodes = globalData.nodes || [];
+        const myNotes = nodes.filter(n => n.author === userId);
         const myNoteIds = myNotes.map(n => n.id);
         
-        // Impact Calc
+        // Impact
         let repliedCount = 0;
-        db.nodes.forEach(n => {
+        nodes.forEach(n => {
             if (n.parentId && myNoteIds.includes(n.parentId) && n.author !== userId) repliedCount++;
         });
 
-        // Scaffold Calc
+        // Scaffolds
         const scaffoldCounts = { 'question': 0, 'extend': 0, 'improve': 0, 'counter': 0, 'riseabove': 0 };
         myNotes.forEach(n => { if (scaffoldCounts[n.type] !== undefined) scaffoldCounts[n.type]++; });
 
-        const totalLength = myNotes.reduce((acc, n) => acc + (n.content ? n.content.length : 0), 0);
-        const avgLength = myNotes.length ? Math.round(totalLength / myNotes.length) : 0;
         const linksCount = myNotes.filter(n => n.parentId).length; 
-        
-        // New: Topic Diversity
         const uniqueTopics = new Set(myNotes.map(n => n.topicId)).size;
-        
-        // New: Avg Depth (Mock - usually requires tree traversal)
         const avgDepth = linksCount > 0 ? (linksCount / myNotes.length) * 2 + 1 : 1; 
 
-        // Calc Role Metrics Dynamically
+        // Role Metrics
         const tempStats = { scaffoldCounts, linksCount, totalNotes: myNotes.length };
         const roleMetrics = calculateRoleMetrics(tempStats);
+
+        // 🔥 [FIXED] Robust Date Sort Logic (Handles mixed Timestamp/String formats)
+        const sortedNotes = myNotes.sort((a,b) => {
+            const da = new Date(a.date).getTime();
+            const db = new Date(b.date).getTime();
+            return db - da; // Descending (Newest first)
+        });
+
+        // Network Size Calculation for Ref Modal
+        const interactants = new Set();
+        nodes.forEach(n => {
+            if(n.parentId) {
+                const parent = nodes.find(p => p.id === n.parentId);
+                if(parent) {
+                    if(n.author === userId && parent.author !== userId) interactants.add(parent.author);
+                    if(parent.author === userId && n.author !== userId) interactants.add(n.author);
+                }
+            }
+        });
 
         return {
             totalNotes: myNotes.length,
             repliedCount: repliedCount,
             linksCount: linksCount,
             scaffoldCounts: scaffoldCounts,
-            avgLength: avgLength,
-            replyOthersCount: linksCount, // Simplified
-            recentNotes: myNotes.sort((a,b) => b.date - a.date).slice(0, 5),
-            roleMetrics: roleMetrics, // Add this
+            recentNotes: sortedNotes.slice(0, 5),
+            roleMetrics: roleMetrics,
             uniqueTopicsCount: uniqueTopics,
-            avgDepth: avgDepth
+            avgDepth: avgDepth,
+            networkSize: interactants.size
         };
     }
 
     function switchUser(userId) {
         currentUserId = userId;
-        const db = getRealData();
-        if (!db) return;
+        const user = Object.values(globalData.userList).find(u => u.id === userId);
+        if (!user) return;
 
-        const user = Object.values(db.userList).find(u => u.id === userId);
-        if (user) {
-            // Update Header
-            document.getElementById('current-user-avatar').src = `https://ui-avatars.com/api/?name=${user.name}&background=random`;
-            document.getElementById('user-name').innerText = user.name;
-            document.getElementById('user-avatar-large').innerText = user.name[0];
+        // Update Header
+        document.getElementById('current-user-avatar').src = user.avatar || `https://ui-avatars.com/api/?name=${user.name}&background=random`;
+        document.getElementById('user-name').innerText = user.name;
+        document.getElementById('user-avatar-large').innerText = user.name[0];
 
-            // Analyze
-            const stats = analyzeStudentData(db, userId);
-            currentUserStats = stats; // Save for Ref Modal
+        // Analyze
+        const stats = analyzeStudentData(userId);
+        currentUserStats = stats; // Save for Ref Modal
 
-            // Update Dynamic Role UI
-            document.getElementById('role-initiator-val').innerText = `${stats.roleMetrics.initiator}%`;
-            document.getElementById('role-initiator-bar').style.width = `${stats.roleMetrics.initiator}%`;
-            
-            document.getElementById('role-builder-val').innerText = `${stats.roleMetrics.builder}%`;
-            document.getElementById('role-builder-bar').style.width = `${stats.roleMetrics.builder}%`;
-            
-            document.getElementById('role-synthesizer-val').innerText = `${stats.roleMetrics.synthesizer}%`;
-            document.getElementById('role-synthesizer-bar').style.width = `${stats.roleMetrics.synthesizer}%`;
-            
-            document.getElementById('role-sustainer-val').innerText = `${stats.roleMetrics.sustainer}%`;
-            document.getElementById('role-sustainer-bar').style.width = `${stats.roleMetrics.sustainer}%`;
+        // Update Dynamic Role UI
+        document.getElementById('role-initiator-val').innerText = `${stats.roleMetrics.initiator}%`;
+        document.getElementById('role-initiator-bar').style.width = `${stats.roleMetrics.initiator}%`;
+        
+        document.getElementById('role-builder-val').innerText = `${stats.roleMetrics.builder}%`;
+        document.getElementById('role-builder-bar').style.width = `${stats.roleMetrics.builder}%`;
+        
+        document.getElementById('role-synthesizer-val').innerText = `${stats.roleMetrics.synthesizer}%`;
+        document.getElementById('role-synthesizer-bar').style.width = `${stats.roleMetrics.synthesizer}%`;
+        
+        document.getElementById('role-sustainer-val').innerText = `${stats.roleMetrics.sustainer}%`;
+        document.getElementById('role-sustainer-bar').style.width = `${stats.roleMetrics.sustainer}%`;
 
-            // Update Role Title based on best metric
-            const metrics = stats.roleMetrics;
-            let bestRole = '探索者';
-            let bestScore = -1; // Allow 0 to be best if all are 0
-            let roleSub = "The Knowledge Explorer";
-            
-            // Check max score
-            if (metrics.initiator > bestScore) { bestScore = metrics.initiator; bestRole = '開創者'; roleSub = 'The Initiator'; }
-            if (metrics.builder > bestScore) { bestScore = metrics.builder; bestRole = '連結者'; roleSub = 'The Builder'; }
-            if (metrics.synthesizer > bestScore) { bestScore = metrics.synthesizer; bestRole = '整合者'; roleSub = 'The Synthesizer'; }
-            if (metrics.sustainer > bestScore) { bestScore = metrics.sustainer; bestRole = '維護者'; roleSub = 'The Sustainer'; }
+        // Update Role Title
+        const metrics = stats.roleMetrics;
+        let bestRole = '探索者';
+        let roleSub = "The Knowledge Explorer";
+        let bestScore = -1;
+        
+        if (metrics.initiator > bestScore) { bestScore = metrics.initiator; bestRole = '開創者'; roleSub = 'The Initiator'; }
+        if (metrics.builder > bestScore) { bestScore = metrics.builder; bestRole = '連結者'; roleSub = 'The Builder'; }
+        if (metrics.synthesizer > bestScore) { bestScore = metrics.synthesizer; bestRole = '整合者'; roleSub = 'The Synthesizer'; }
+        if (metrics.sustainer > bestScore) { bestScore = metrics.sustainer; bestRole = '維護者'; roleSub = 'The Sustainer'; }
+        if (stats.totalNotes === 0) { bestRole = '新手'; roleSub = 'The Newcomer'; }
 
-            // If no activity at all
-            if (stats.totalNotes === 0) { bestRole = '新手'; roleSub = 'The Newcomer'; }
+        document.getElementById('role-title').innerText = bestRole;
+        document.getElementById('role-subtitle').innerText = roleSub;
+        document.getElementById('role-desc').innerHTML = `<i class="fas fa-quote-left text-indigo-300 mr-1"></i> 根據分析，你在「${bestRole}」方面表現最為突出。`;
 
-            document.getElementById('role-title').innerText = bestRole;
-            document.getElementById('role-subtitle').innerText = roleSub;
-            document.getElementById('role-desc').innerHTML = `<i class="fas fa-quote-left text-indigo-300 mr-1"></i> 根據分析，你在「${bestRole}」方面表現最為突出。`;
+        // Update Indicators
+        document.getElementById('topic-count-val').innerText = stats.uniqueTopicsCount;
+        document.getElementById('topic-diversity-bar').style.width = `${Math.min(stats.uniqueTopicsCount * 20, 100)}%`;
+        document.getElementById('avg-depth-val').innerText = stats.avgDepth.toFixed(1);
+        document.getElementById('avg-depth-bar').style.width = `${Math.min(stats.avgDepth * 20, 100)}%`;
 
-            // Update New Indicator Bars
-            document.getElementById('topic-count-val').innerText = stats.uniqueTopicsCount;
-            document.getElementById('topic-diversity-bar').style.width = `${Math.min(stats.uniqueTopicsCount * 20, 100)}%`;
-            
-            document.getElementById('avg-depth-val').innerText = stats.avgDepth.toFixed(1);
-            document.getElementById('avg-depth-bar').style.width = `${Math.min(stats.avgDepth * 20, 100)}%`;
+        // Update Network Role
+        let netRole = "周邊參與者 (Peripheral)";
+        if (metrics.builder > 70 || stats.repliedCount > 5) netRole = "核心人物 (Central)";
+        else if (metrics.builder > 40 || stats.linksCount > 3) netRole = "橋樑者 (Broker)";
+        // document.getElementById('network-role-label').innerText = netRole; // Removed in this view
 
-            // Update Network Role Label based on Logic Consistency
-            let netRole = "周邊參與者 (Peripheral)";
-            // Consistency Check:
-            // High Builder score should likely be a Broker or Central
-            // High Sustainer/Initiator could be Central
-            
-            if (metrics.builder > 70 || stats.repliedCount > 5) {
-                netRole = "核心人物 (Central)";
-            } else if (metrics.builder > 40 || stats.linksCount > 3) {
-                netRole = "橋樑者 (Broker)";
+        // Render Numbers
+        animateValue("card-created-val", 0, stats.totalNotes, 800);
+        animateValue("card-read-val", 0, Math.floor(stats.totalNotes * 5.5 + 10), 800);
+        animateValue("card-buildon-val", 0, stats.linksCount, 800);
+        animateValue("card-impact-val", 0, stats.repliedCount, 800);
+
+        // Render Visuals
+        renderTimeline(stats.recentNotes, globalData.nodes);
+        renderScaffoldBars(stats.scaffoldCounts);
+        
+        const s_init = Math.min((stats.scaffoldCounts['question'] * 10) + 20, 100);
+        const s_build = Math.min((stats.linksCount * 8) + 20, 100);
+        const s_read = 75; // Mock
+        const s_vocab = Math.min((stats.totalNotes * 5) + 30, 90);
+        const s_impact = Math.min((stats.repliedCount * 15) + 10, 100);
+        renderRadarChart([s_init, s_build, s_read, s_vocab, s_impact], user.name);
+        
+        // 🔥 Render Ego Network
+        renderEgoNetwork(userId);
+
+        // Reset AI
+        document.getElementById('ai-feedback').innerHTML = '<p class="text-slate-400 italic">點擊下方按鈕以獲取 AI 建議...</p>';
+    }
+
+    // New: Render Ego Network
+    function renderEgoNetwork(userId) {
+        const container = document.getElementById('ego-network-container');
+        if(!container) return;
+        
+        const nodes = globalData.nodes || [];
+        const users = globalData.userList || {};
+        
+        // Colors mapping
+        const typeColors = { 
+            question: '#3b82f6', // Blue
+            extend: '#eab308',   // Yellow
+            improve: '#22c55e',  // Green
+            counter: '#ef4444',  // Red
+            riseabove: '#a855f7' // Purple
+        };
+
+        const interactants = new Set();
+        interactants.add(userId);
+        
+        const edges = [];
+        
+        nodes.forEach(n => {
+            if(n.parentId) {
+                const p = nodes.find(x => x.id === n.parentId);
+                if(p) {
+                    if (n.author === userId && p.author !== userId) {
+                        interactants.add(p.author);
+                        edges.push({ from: userId, to: p.author, color: {color: typeColors[n.type] || '#cbd5e1'}, arrows: 'to' });
+                    }
+                    if (p.author === userId && n.author !== userId) {
+                        interactants.add(n.author);
+                        edges.push({ from: n.author, to: userId, color: {color: typeColors[n.type] || '#cbd5e1'}, arrows: 'to' });
+                    }
+                }
             }
-            
-            document.getElementById('network-role-label').innerText = netRole;
+        });
 
+        const visNodes = Array.from(interactants).map(id => {
+            const u = Object.values(users).find(usr => usr.id === id);
+            const isMe = id === userId;
+            return {
+                id: id,
+                label: u ? u.name : id,
+                shape: 'dot',
+                size: isMe ? 30 : 20,
+                color: isMe ? '#4f46e5' : '#94a3b8',
+                font: { color: '#1e293b' }
+            };
+        });
 
-            // Render Numbers
-            animateValue("card-created-val", 0, stats.totalNotes, 800);
-            animateValue("card-read-val", 0, Math.floor(stats.totalNotes * 5.5 + 10), 800);
-            animateValue("card-buildon-val", 0, stats.linksCount, 800);
-            animateValue("card-impact-val", 0, stats.repliedCount, 800);
-
-            // Render Visuals
-            renderTimeline(stats.recentNotes, db.nodes);
-            renderScaffoldBars(stats.scaffoldCounts);
-            
-            // Radar Data Prep
-            const s_init = Math.min((stats.scaffoldCounts['question'] * 10) + 20, 100);
-            const s_build = Math.min((stats.linksCount * 8) + 20, 100);
-            const s_read = 75; // Mock
-            const s_vocab = Math.min((stats.totalNotes * 5) + 30, 90);
-            const s_impact = Math.min((stats.repliedCount * 15) + 10, 100);
-            renderRadarChart([s_init, s_build, s_read, s_vocab, s_impact], user.name);
-
-            // Generate AI Feedback (Local Logic)
-            const suggestions = [];
-            
-            if (metrics.initiator < 40) {
-                suggestions.push({ title: "勇於提問", action: "嘗試在討論區發起一個新的問題，或者對現有的觀點提出「為什麼」。", reason: "提問是知識建構的起點 (Epistemic Agency)。" });
-            } else {
-                suggestions.push({ title: "深化問題", action: "試著提出「如何 (How)」或「解釋 (Explanation)」類型的問題，而不僅是事實性問題。", reason: "高層次問題能引發更深入的討論 (Scardamalia, 2002)。" });
-            }
-
-            if (metrics.builder < 40) {
-                 suggestions.push({ title: "建立連結", action: "閱讀同學的筆記，並使用「延伸」或「改進」標籤來回應他們。", reason: "知識是在社群互動中被改進的 (Idea Improvement)。" });
-            } else {
-                 suggestions.push({ title: "跨域連結", action: "嘗試連結兩個看似不相關的觀點，找出它們的共同點或矛盾點。", reason: "橋樑者 (Broker) 能促進社群知識的整合 (Burt, 2004)。" });
-            }
-
-            if (metrics.synthesizer < 30 && stats.totalNotes > 5) {
-                 suggestions.push({ title: "嘗試昇華", action: "試著總結目前的討論串，提出一個能解釋多個觀點的上位理論。", reason: "昇華 (Rise-above) 是達成集體智慧的關鍵步驟。" });
-            } else {
-                 suggestions.push({ title: "持續維護", action: "定期回顧舊的討論，看看是否有新的證據可以更新之前的結論。", reason: "知識是可改進的 (Improvable Ideas)。" });
-            }
-
-            const feedbackContainer = document.getElementById('ai-feedback');
-            feedbackContainer.innerHTML = suggestions.map(s => `
-                <div class="bg-white p-3 rounded border-l-4 border-indigo-400 shadow-sm">
-                    <h4 class="font-bold text-indigo-700 text-xs mb-1 flex items-center"><i class="fas fa-lightbulb mr-2"></i> ${s.title}</h4>
-                    <p class="text-xs text-gray-600 mb-1">${s.action}</p>
-                    <div class="text-[10px] text-gray-400 italic border-t pt-1 mt-1">依據: ${s.reason}</div>
-                </div>
-            `).join('');
+        if(egoNetworkInstance) { egoNetworkInstance.destroy(); egoNetworkInstance = null; }
+        
+        const data = { nodes: visNodes, edges: edges };
+        const options = {
+            nodes: { borderWidth: 2, borderWidthSelected: 4 },
+            physics: { stabilization: true, barnesHut: { gravitationalConstant: -2000 } }
+        };
+        
+        if (visNodes.length <= 1) {
+            container.innerHTML = '<div class="flex h-full items-center justify-center text-slate-400 text-xs">尚無互動紀錄</div>';
+        } else {
+            container.innerHTML = ''; // Clear empty msg
+            egoNetworkInstance = new vis.Network(container, data, options);
         }
     }
 
     function syncData() {
         const btn = document.getElementById('sync-btn');
         const orgHtml = btn.innerHTML;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 偵測中...';
-        
-        // Force refresh via console for user feedback
-        console.log("Forcing data refresh...");
-        if(globalRawDB) {
-             console.log("Current Data in RAM:", globalRawDB);
-             initUserSwitcher(globalRawDB);
-             if(currentUserId) switchUser(currentUserId);
-             setTimeout(() => { btn.innerHTML = orgHtml; }, 500);
-        } else {
-             console.warn("No data in RAM yet.");
-             setTimeout(() => { btn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> 無數據'; }, 500);
-        }
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 同步中...';
+        setTimeout(() => {
+            if(currentUserId) switchUser(currentUserId);
+            btn.innerHTML = orgHtml;
+        }, 500);
     }
 
     function animateValue(id, start, end, duration) {
@@ -1050,7 +1007,7 @@
             const html = `
                 <div class="relative flex gap-4 mb-6 evolution-node group evolution-item">
                     <div class="w-10 h-10 rounded-full ${typeColor} flex items-center justify-center shadow-sm border-2 border-white flex-shrink-0 z-10"><i class="fas ${typeIcon}"></i></div>
-                    <div class="flex-1 bg-white p-3 rounded-lg border border-slate-100 shadow-sm hover:shadow-md transition">
+                    <div class="flex-1 bg-white p-3 rounded-lg border border-slate-100 shadow-sm hover:shadow-md transition cursor-pointer" onclick="viewNoteDetail('${note.id}')">
                         <div class="flex justify-between items-start"><h4 class="font-bold text-slate-700 text-sm mb-1">${note.title || '無標題'}</h4><span class="text-[10px] text-slate-400">${new Date(note.date).toLocaleDateString()}</span></div>
                         ${contextHtml}
                         <p class="text-xs text-slate-600 line-clamp-2">${note.content}</p>
@@ -1058,6 +1015,22 @@
                 </div>`;
             container.insertAdjacentHTML('beforeend', html);
         });
+    }
+
+    // New: View Note Detail
+    function viewNoteDetail(noteId) {
+        const note = globalData.nodes.find(n => n.id === noteId);
+        if(!note) return;
+        
+        document.getElementById('nd-title').innerText = note.title || '無標題';
+        document.getElementById('nd-content').innerText = note.content;
+        document.getElementById('nd-date').innerText = new Date(note.date).toLocaleString();
+        document.getElementById('nd-type').innerText = note.type.toUpperCase();
+        
+        const author = Object.values(globalData.userList).find(u => u.id === note.author);
+        document.getElementById('nd-author').innerText = author ? author.name : note.author;
+        
+        document.getElementById('note-detail-modal').style.display = "flex";
     }
 
     function renderScaffoldBars(counts) {
@@ -1103,15 +1076,43 @@
         });
     }
 
-    function refreshAIFeedback() {
-        const container = document.getElementById('ai-feedback');
-        container.innerHTML = '<p><i class="fas fa-spinner fa-spin text-indigo-400 mr-2"></i> 分析中...</p>';
-        setTimeout(() => { if(currentUserId) switchUser(currentUserId); }, 600); 
+    // 🔥 [AI LOGIC]
+    async function triggerAIAnalysis() {
+        const btn = document.querySelector('button[onclick="triggerAIAnalysis()"]');
+        const feedbackContainer = document.getElementById('ai-feedback');
+        
+        if (!aiKey) { alert("未偵測到 API Key。請聯繫老師或至首頁設定。"); return; }
+        
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 生成中...';
+        
+        // Prepare Context
+        const s = currentUserStats;
+        const context = `學生角色：${document.getElementById('role-title').innerText}。
+        數據：發文${s.totalNotes}篇，回覆${s.linksCount}次，被引用${s.repliedCount}次。
+        鷹架使用：提問${s.scaffoldCounts.question}，延伸${s.scaffoldCounts.extend}，改進${s.scaffoldCounts.improve}，整合${s.scaffoldCounts.riseabove}。
+        請給予該學生3點具體的知識建構改進建議 (繁體中文，語氣鼓勵)。`;
+
+        try {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${aiKey}`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ contents: [{ parts: [{ text: context }] }] })
+            });
+            const data = await response.json();
+            const aiText = data.candidates[0].content.parts[0].text;
+            feedbackContainer.innerHTML = marked.parse(aiText);
+        } catch (e) {
+            console.error(e);
+            feedbackContainer.innerHTML = '<span class="text-red-500">AI 分析失敗，請稍後再試。</span>';
+        }
+        
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-magic mr-1"></i> 更新建議';
     }
 
     // --- Init ---
     window.onload = function() {
-        // 1. Key Listener
+        // Global Keydown Listener for ESC
         window.addEventListener('keydown', function(event) {
             if (event.key === "Escape") {
                 document.getElementById('refModal').style.display = "none";
@@ -1119,61 +1120,7 @@
             }
         });
 
-        // 2. Firebase Listener (With enhanced debugging and structure detection)
-        window.firebaseOnValue(window.firebaseRef(window.firebaseDB, '/'), (snapshot) => {
-            const val = snapshot.val();
-            
-            if (val) {
-                // Feature: Smart Data Detection
-                // Some users have data nested under a key like 'kb_platform_data' or 'default-rtdb-export'
-                let realData = val;
-                
-                // If 'userList' is NOT at the top level, try to find it in the first child
-                if (!val.userList) {
-                    const keys = Object.keys(val);
-                    if (keys.length > 0 && typeof val[keys[0]] === 'object' && val[keys[0]].userList) {
-                        console.log("Found nested data structure, adjusting...");
-                        realData = val[keys[0]];
-                    }
-                }
-
-                // Fix Data Structure from Firebase Object to Array
-                const fixedData = {
-                    ...realData,
-                    nodes: realData.nodes ? Object.values(realData.nodes) : [],
-                    topics: realData.topics ? Object.values(realData.topics) : [],
-                    userList: realData.userList || {}
-                };
-                
-                globalRawDB = fixedData;
-                console.log("Firebase DB Synced:", fixedData);
-                
-                // Initialize Switcher
-                const switcher = document.getElementById('student-selector');
-                // Always re-init switcher if data changes to catch new users
-                initUserSwitcher(fixedData);
-                
-                // Refresh Current User View if selected
-                if(currentUserId) {
-                    switchUser(currentUserId);
-                } else {
-                    document.getElementById('ai-feedback').innerHTML = "請從上方選擇一位使用者以開始分析";
-                }
-            } else {
-                 console.warn("Received null data from Firebase");
-                 document.getElementById('ai-feedback').innerHTML = "尚無數據 (Database is empty)";
-            }
-        }, (error) => {
-            console.error("Firebase Read Error:", error);
-            const statusDot = document.getElementById('connection-dot');
-            const statusText = document.getElementById('connection-text');
-            if(statusDot) {
-                statusDot.classList.remove('bg-green-500');
-                statusDot.classList.add('bg-red-500');
-                statusText.innerText = "權限/連線錯誤";
-            }
-            alert("讀取資料失敗：請檢查 Firebase Console 的 Rules 是否已設為 read: true");
-        });
+        initApp();
         
         // Setup chart defaults
         Chart.defaults.font.family = "'Noto Sans TC', sans-serif";
