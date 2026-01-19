@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>我的知識羅盤 | My KB Journey v3.8 AI-Portfolio</title>
+    <title>我的知識羅盤 | My KB Journey v3.11 Timeline-Fixed</title>
     
     <!-- 🔥 1. 引入 Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
@@ -26,11 +26,12 @@
             position: absolute;
             left: 20px;
             top: 40px;
-            bottom: -20px;
+            bottom: -24px; /* Slightly longer to connect better */
             width: 2px;
             background-color: #e5e7eb;
             z-index: 0;
         }
+        /* Hide line for the last item */
         .evolution-item:last-child .evolution-line { display: none; }
         
         /* 社群推動力的漣漪動畫效果 */
@@ -323,7 +324,6 @@
                 <div class="flex-1 min-h-[250px] relative">
                     <canvas id="studentRadarChart"></canvas>
                 </div>
-                <!-- 🔥 [MODIFIED] Added decision text area -->
                 <div id="radar-decision-text" class="text-xs text-slate-500 mt-2 p-2 bg-slate-50 rounded border border-slate-100">
                     <i class="fas fa-spinner fa-spin mr-1"></i> 正在分析思維模式...
                 </div>
@@ -357,7 +357,7 @@
             </div>
 
             <div class="card border-l-4 border-indigo-500 bg-indigo-50/50">
-                <!-- 🔥 [MODIFIED] AI Section Title & Button -->
+                <!-- 🔥 AI Section Title & Button -->
                 <div class="flex justify-between items-center mb-3">
                     <h3 class="font-bold text-indigo-900 flex items-center"><i class="fas fa-robot text-indigo-600 mr-2"></i> 來自 AI 導師的建議</h3>
                     <div class="flex gap-2">
@@ -836,7 +836,7 @@
             repliedCount: repliedCount,
             linksCount: linksCount,
             scaffoldCounts: scaffoldCounts,
-            recentNotes: sortedNotes.slice(0, 5),
+            recentNotes: sortedNotes.slice(0, 20), // 🔥 [MODIFIED] Increased slice from 5 to 20
             roleMetrics: roleMetrics,
             uniqueTopicsCount: uniqueTopics,
             avgDepth: avgDepth,
@@ -1160,18 +1160,14 @@
         const s = currentUserStats;
         let promptText = "";
         
+        // 🔥 [OPTIMIZED] Pruned context for speed
+        const contextSummary = `角色:${document.getElementById('role-title').innerText}。發文:${s.totalNotes},回覆:${s.linksCount},被引:${s.repliedCount}。鷹架:${s.scaffoldCounts.question}/${s.scaffoldCounts.extend}/${s.scaffoldCounts.improve}/${s.scaffoldCounts.riseabove}。`;
+
         if (mode === 'advice') {
-            promptText = `學生角色：${document.getElementById('role-title').innerText}。
-            數據：發文${s.totalNotes}篇，回覆${s.linksCount}次，被引用${s.repliedCount}次。
-            鷹架使用：提問${s.scaffoldCounts.question}，延伸${s.scaffoldCounts.extend}，改進${s.scaffoldCounts.improve}，整合${s.scaffoldCounts.riseabove}。
-            請給予該學生3點具體的知識建構改進建議 (繁體中文，語氣鼓勵，150字以內)。`;
+            promptText = `根據數據：${contextSummary} 給予該學生3點具體的知識建構改進建議 (繁體中文，語氣鼓勵，限150字內)。`;
         } else {
             // Portfolio Mode
-            promptText = `任務：請根據以下數據，為學生撰寫一份「學習歷程檔案」的自我反思草稿 (Reflection Draft)。
-            角色定位：${document.getElementById('role-title').innerText}。
-            量化證據：發文${s.totalNotes}篇，引發${s.repliedCount}次討論。
-            質性特徵：擅長使用${s.scaffoldCounts.improve > s.scaffoldCounts.question ? '改進觀點' : '提出問題'}。
-            寫作風格：第一人稱，學術且真誠，強調「觀點的演變」與「社群貢獻」。約 300 字。`;
+            promptText = `根據數據：${contextSummary} 為學生撰寫一份「學習歷程檔案」的自我反思草稿 (Reflection Draft)。第一人稱，學術且真誠，強調「觀點演變」與「貢獻」。限200字內。`;
         }
 
         try {
