@@ -3,21 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>KB 分析中樞 (旗艦學術版) | Teacher Dashboard v20.45 Ref-Upgrade</title>
+    <title>KB 分析中樞 (旗艦學術版) | Teacher Dashboard v20.48 Stable</title>
     
     <!-- ========================================== -->
-    <!-- 1. 引入 Firebase SDK (與論壇一致) -->
+    <!-- 1. 引入 Firebase SDK -->
     <!-- ========================================== -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 
+    <!-- 核心函式庫 -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
-    <!-- Markdown Parser for AI response -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <!-- 字型與樣式 -->
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap');
         body { font-family: 'Noto Sans TC', sans-serif; background-color: #f1f5f9; color: #1e293b; }
@@ -47,7 +49,7 @@
             position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6);
             display: flex; justify-content: center; align-items: center; z-index: 100;
             opacity: 0; visibility: hidden; transition: all 0.3s; backdrop-filter: blur(2px);
-            padding: 1rem; /* Mobile padding */
+            padding: 1rem;
         }
         .modal-overlay.open { opacity: 1; visibility: visible; }
         .modal-content {
@@ -59,45 +61,35 @@
         .modal-header { background: #f8fafc; padding: 16px 20px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; }
         .modal-body { padding: 20px; font-size: 0.95rem; line-height: 1.7; color: #334155; overflow-y: auto; flex-grow: 1; -webkit-overflow-scrolling: touch; }
         
-        /* Ref Modal Section Styles (Updated) */
+        /* Ref Modal Section Styles */
         .ref-section { margin-bottom: 24px; border-bottom: 1px dashed #e2e8f0; padding-bottom: 20px; }
         .ref-section:last-child { border-bottom: none; }
         .ref-section-title { font-weight: 800; font-size: 0.95rem; margin-bottom: 10px; display: flex; align-items: center; letter-spacing: 0.02em; }
         
-        /* 1. Theory */
         .ref-theory-title { color: #1e40af; }
         .ref-theory-box { background: #eff6ff; padding: 16px; border-radius: 8px; border-left: 4px solid #3b82f6; color: #1e3a8a; }
 
-        /* 2. Diagnosis */
         .ref-diag-title { color: #b45309; }
         .ref-diag-box { background: #fffbeb; padding: 16px; border-radius: 8px; border-left: 4px solid #f59e0b; color: #92400e; }
 
-        /* 3. Status */
         .ref-status-title { color: #047857; }
-        .ref-status-box { background: #ecfdf5; padding: 16px; border-radius: 8px; border-left: 4px solid #10b981; color: #065f46; font-family: 'Noto Sans TC', sans-serif; font-weight: bold; }
+        .ref-status-box { background: #ecfdf5; padding: 16px; border-radius: 8px; border-left: 4px solid #10b981; color: #065f46; font-weight: bold; }
 
-        /* 4. Source */
         .ref-source-title { color: #475569; }
         .ref-source-box { background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px solid #e2e8f0; color: #64748b; font-style: italic; font-size: 0.85rem; }
 
-        /* 5. AI */
         .ref-ai-title { color: #7e22ce; }
         .ref-ai-box { background: #faf5ff; padding: 12px; border-radius: 8px; border: 1px solid #d8b4fe; color: #6b21a8; cursor: pointer; transition: all 0.2s; }
         .ref-ai-box:hover { background: #f3e8ff; border-color: #a855f7; }
 
-        /* AI Button & Content */
+        /* AI Button */
         .ai-btn {
             background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%); color: white;
             border: none; padding: 8px 16px; border-radius: 6px; font-size: 0.85rem; font-weight: bold;
             cursor: pointer; display: inline-flex; align-items: center; transition: all 0.3s;
-            box-shadow: 0 4px 6px -1px rgba(99, 102, 241, 0.3);
-            white-space: nowrap;
+            box-shadow: 0 4px 6px -1px rgba(99, 102, 241, 0.3); white-space: nowrap;
         }
         .ai-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 10px -1px rgba(99, 102, 241, 0.4); }
-        .ai-btn:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
-        .ai-content h1, .ai-content h2 { font-weight: bold; margin-top: 1em; margin-bottom: 0.5em; color: #1e293b; }
-        .ai-content ul { list-style-type: disc; padding-left: 1.5em; margin-bottom: 1em; }
-        .ai-content strong { color: #4338ca; }
 
         /* Lens & Legend */
         .legend-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 4px; }
@@ -108,71 +100,32 @@
         .example-quote { background: rgba(255,255,255,0.6); padding: 8px; border-radius: 6px; margin-top: 8px; font-size: 0.85rem; font-style: italic; border: 1px dashed rgba(0,0,0,0.1); }
         .example-author { font-weight: bold; font-style: normal; color: #475569; font-size: 0.75rem; }
 
-        /* Timeline for Idea Evolution */
+        /* Timeline */
         .timeline-line { position: absolute; left: 28px; top: 10px; bottom: 10px; width: 2px; background: #cbd5e1; z-index: 0; }
-        @keyframes pulse-dot { 
-            0% { transform: scale(1); opacity: 1; box-shadow: 0 0 0 0px rgba(255, 255, 255, 0.7); } 
-            50% { transform: scale(1.3); opacity: 0.8; box-shadow: 0 0 0 4px rgba(255, 255, 255, 0); } 
-            100% { transform: scale(1); opacity: 1; box-shadow: 0 0 0 0px rgba(255, 255, 255, 0); } 
-        }
+        @keyframes pulse-dot { 0% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.3); opacity: 0.8; } 100% { transform: scale(1); opacity: 1; } }
         .hotspot-dot { animation: pulse-dot 2s infinite ease-in-out; }
 
-        /* New Offline Insight Box */
-        .insight-box {
-            background: linear-gradient(to right, #f0f9ff, #e0f2fe);
-            border: 1px solid #bae6fd;
-            border-left: 5px solid #0ea5e9;
-            padding: 1.25rem;
-            border-radius: 8px;
-            margin-bottom: 1.5rem;
-        }
-        .insight-header {
-            color: #0369a1;
-            font-weight: 700;
-            display: flex;
-            align-items: center;
-            margin-bottom: 0.75rem;
-        }
+        /* Insight Box */
+        .insight-box { background: linear-gradient(to right, #f0f9ff, #e0f2fe); border: 1px solid #bae6fd; border-left: 5px solid #0ea5e9; padding: 1.25rem; border-radius: 8px; margin-bottom: 1.5rem; }
+        .insight-header { color: #0369a1; font-weight: 700; display: flex; align-items: center; margin-bottom: 0.75rem; }
 
-        /* Content Analysis Panel */
-        .content-log-item {
-            border-bottom: 1px solid #f1f5f9;
-            padding: 10px 0;
-            font-size: 0.9rem;
-        }
-        .content-log-item:last-child { border-bottom: none; }
-        .keyword-tag {
-            display: inline-block; background: #e0e7ff; color: #4338ca;
-            padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; margin: 2px;
-            cursor: pointer; transition: all 0.2s;
-        }
-        .keyword-tag:hover { background: #c7d2fe; }
+        /* Content Log */
+        .content-log-item { border-bottom: 1px solid #f1f5f9; padding: 10px 0; font-size: 0.9rem; }
+        .keyword-tag { display: inline-block; background: #e0e7ff; color: #4338ca; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; margin: 2px; }
 
-        /* Sequential Matrix Style */
-        .seq-table { width: 100%; font-size: 0.8rem; border-collapse: collapse; text-align: center; }
-        .seq-table th { font-weight: bold; color: #475569; padding: 4px; border-bottom: 2px solid #e2e8f0; }
-        .seq-table td { padding: 6px; border: 1px solid #f1f5f9; }
-        .seq-cell { border-radius: 4px; display: inline-block; width: 100%; height: 100%; min-height: 20px; display: flex; align-items: center; justify-content: center; }
-        .seq-header-row th:first-child { text-align: right; padding-right: 8px; color: #64748b; font-style: italic; }
+        /* Custom Scrollbar */
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
-        /* Mobile specific adjustments */
-        .mobile-header {
-            display: none;
-        }
+        /* Mobile */
+        .mobile-header { display: none; }
         @media (max-width: 768px) {
             .mobile-header { display: flex; }
-            #sidebar { 
-                position: fixed; 
-                height: 100%; 
-                z-index: 50; 
-                transform: translateX(-100%); 
-                transition: transform 0.3s ease-in-out; 
-            }
+            #sidebar { position: fixed; height: 100%; z-index: 50; transform: translateX(-100%); transition: transform 0.3s ease-in-out; }
             #sidebar.open { transform: translateX(0); }
-            .sidebar-overlay { 
-                position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 40; 
-                display: none; opacity: 0; transition: opacity 0.3s;
-            }
+            .sidebar-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 40; display: none; opacity: 0; transition: opacity 0.3s; }
             .sidebar-overlay.visible { display: block; opacity: 1; }
         }
     </style>
@@ -182,15 +135,13 @@
     <!-- Mobile Header -->
     <header class="mobile-header bg-slate-900 text-white p-4 justify-between items-center shrink-0 z-30 shadow-md">
         <h1 class="font-bold flex items-center text-lg"><i class="fas fa-network-wired mr-2 text-blue-500"></i> KB ANALYTICS</h1>
-        <button onclick="toggleSidebar()" class="text-slate-300 hover:text-white p-2">
-            <i class="fas fa-bars text-xl"></i>
-        </button>
+        <button onclick="toggleSidebar()" class="text-slate-300 hover:text-white p-2"><i class="fas fa-bars text-xl"></i></button>
     </header>
 
-    <!-- Mobile Sidebar Overlay -->
+    <!-- Overlay -->
     <div id="sidebar-overlay" class="sidebar-overlay" onclick="toggleSidebar()"></div>
 
-    <!-- Note Detail Modal -->
+    <!-- Modals -->
     <div id="note-detail-modal" class="modal-overlay" onclick="closeModal(event)">
         <div class="modal-content max-w-lg" onclick="event.stopPropagation()">
             <div class="modal-header bg-indigo-50">
@@ -212,7 +163,6 @@
         </div>
     </div>
 
-    <!-- Ref Modal (RESTRUCTURED) -->
     <div id="ref-modal" class="modal-overlay" onclick="closeModal(event)">
         <div class="modal-content" onclick="event.stopPropagation()">
             <div class="modal-header">
@@ -229,7 +179,7 @@
     <aside id="sidebar" class="w-64 bg-slate-900 text-slate-400 flex flex-col shadow-2xl flex-shrink-0 md:relative absolute top-0 bottom-0 left-0">
         <div class="p-6 border-b border-slate-800 hidden md:block">
             <h1 class="text-xl font-bold tracking-wider text-white flex items-center"><i class="fas fa-network-wired mr-2 text-blue-500"></i> KB ANALYTICS</h1>
-            <p class="text-xs text-slate-500 mt-1 ml-6">v20.45 Ref-Upgrade</p>
+            <p class="text-xs text-slate-500 mt-1 ml-6">v20.48 Stable</p>
         </div>
         
         <div class="p-4 border-b border-slate-800 md:hidden flex justify-between items-center">
@@ -255,6 +205,12 @@
                 <a href="Knowledge Building Forum.html" class="nav-item w-full flex items-center space-x-3 px-4 py-3 rounded-r-lg hover:bg-slate-800 transition text-left text-blue-400 hover:text-blue-300">
                     <i class="fas fa-comments w-5"></i><span>前往論壇 (Forum)</span>
                 </a>
+                
+                <!-- 新增：前往知識輪盤 -->
+                <a href="roulette.html" class="nav-item w-full flex items-center space-x-3 px-4 py-3 rounded-r-lg hover:bg-slate-800 transition text-left text-amber-400 hover:text-amber-300 mt-1">
+                    <i class="fas fa-dharmachakra w-5"></i><span>前往知識輪盤 (Roulette)</span>
+                </a>
+
                 <button onclick="refreshDashboardData()" id="btn-refresh" class="nav-item w-full flex items-center space-x-3 px-4 py-3 rounded-r-lg hover:bg-slate-800 transition text-left text-green-400 hover:text-green-300 mt-1">
                     <i class="fas fa-sync-alt w-5"></i><span>刷新數據 (Sync Data)</span>
                 </button>
@@ -278,18 +234,14 @@
                     <select id="topic-selector-overview" onchange="filterDataByTopic(this.value)" class="bg-white border border-slate-300 text-slate-700 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 shadow-sm">
                         <option value="all" selected>所有主題 (All Topics)</option>
                     </select>
-                    <button onclick="openRef('class_diagnosis')" class="ai-btn bg-purple-600 hover:bg-purple-700 shadow-md whitespace-nowrap">
-                        <i class="fas fa-brain mr-2"></i> 全班深度診斷
-                    </button>
+                    <button onclick="openRef('class_diagnosis')" class="ai-btn bg-purple-600 hover:bg-purple-700 shadow-md whitespace-nowrap"><i class="fas fa-brain mr-2"></i> 全班深度診斷</button>
                     <span class="bg-white px-3 py-1 rounded-full text-xs border border-slate-200 shadow-sm flex items-center ml-2 whitespace-nowrap"><i class="fas fa-calendar-alt mr-2 text-slate-400"></i> <span id="current-date-display">Week 5</span></span>
                 </div>
             </header>
             
             <div class="insight-box" id="offline-insight-container">
                 <div class="insight-header"><i class="fas fa-lightbulb text-yellow-500 mr-2 text-xl"></i> 💡 數據診斷與教學導引 (Data-Driven Insight)</div>
-                <div class="text-sm text-slate-700 leading-relaxed" id="offline-insight-content">
-                    正在分析班級數據...
-                </div>
+                <div class="text-sm text-slate-700 leading-relaxed" id="offline-insight-content">正在分析班級數據...</div>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
@@ -317,58 +269,36 @@
 
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
                 <div class="card bg-slate-50 border border-slate-200">
-                    <div class="flex justify-between items-start mb-2">
-                        <div class="text-xs text-slate-500 font-bold uppercase">參與平等性 (Gini)</div>
-                        <button class="ref-btn px-1 py-0 h-5 text-[10px]" onclick="openRef('gini')"><i class="fas fa-book"></i> Ref</button>
-                    </div>
+                    <div class="flex justify-between items-start mb-2"><div class="text-xs text-slate-500 font-bold uppercase">參與平等性 (Gini)</div><button class="ref-btn px-1 py-0 h-5 text-[10px]" onclick="openRef('gini')"><i class="fas fa-book"></i> Ref</button></div>
                     <div class="text-2xl font-bold text-slate-700" id="gini-coefficient">0.00</div>
                     <div class="text-[10px] text-slate-400 mt-1">越接近 0 越平等 (理想 < 0.4)</div>
                 </div>
                 <div class="card bg-slate-50 border border-slate-200">
-                    <div class="flex justify-between items-start mb-2">
-                        <div class="text-xs text-slate-500 font-bold uppercase">平均對話深度 (Thread Depth)</div>
-                        <button class="ref-btn px-1 py-0 h-5 text-[10px]" onclick="openRef('thread_depth')"><i class="fas fa-book"></i> Ref</button>
-                    </div>
+                    <div class="flex justify-between items-start mb-2"><div class="text-xs text-slate-500 font-bold uppercase">平均對話深度 (Thread Depth)</div><button class="ref-btn px-1 py-0 h-5 text-[10px]" onclick="openRef('thread_depth')"><i class="fas fa-book"></i> Ref</button></div>
                     <div class="text-2xl font-bold text-slate-700" id="avg-thread-depth">0.0</div>
                     <div class="text-[10px] text-slate-400 mt-1">Sustained Inquiry (理想 > 3.0)</div>
                 </div>
                 <div class="col-span-1 md:col-span-2 card bg-slate-50 border border-slate-200">
-                    <div class="flex justify-between items-center mb-2">
-                        <div class="text-xs text-slate-500 font-bold uppercase">知識推進軌跡 (Trajectory)</div>
-                        <button class="ref-btn px-1 py-0 h-5 text-[10px]" onclick="openRef('kb_trajectory')"><i class="fas fa-book"></i> Ref</button>
-                    </div>
-                    <div class="h-20 w-full relative">
-                        <canvas id="overviewTrajectoryChart"></canvas>
-                    </div>
+                    <div class="flex justify-between items-center mb-2"><div class="text-xs text-slate-500 font-bold uppercase">知識推進軌跡 (Trajectory)</div><button class="ref-btn px-1 py-0 h-5 text-[10px]" onclick="openRef('kb_trajectory')"><i class="fas fa-book"></i> Ref</button></div>
+                    <div class="h-20 w-full relative"><canvas id="overviewTrajectoryChart"></canvas></div>
                 </div>
             </div>
 
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
                 <div class="card">
                     <div class="flex justify-between items-center mb-4">
-                        <div>
-                            <h3 class="font-bold text-slate-800"><i class="fas fa-random text-indigo-500 mr-2"></i>言談序列轉移分析 (Sequential Analysis)</h3>
-                            <p class="text-xs text-slate-500">對話基因圖譜：分析「某類型發言」後通常接續「哪種回應」？</p>
-                        </div>
+                        <div><h3 class="font-bold text-slate-800"><i class="fas fa-random text-indigo-500 mr-2"></i>言談序列轉移分析 (Sequential Analysis)</h3><p class="text-xs text-slate-500">對話基因圖譜：分析「某類型發言」後通常接續「哪種回應」？</p></div>
                         <button class="ref-btn" onclick="openRef('lag_sequence')"><i class="fas fa-book"></i> Ref:</button>
                     </div>
-                    <div class="overflow-x-auto">
-                        <div id="sequential-matrix-container" class="min-w-[300px]"></div>
-                    </div>
+                    <div class="overflow-x-auto"><div id="sequential-matrix-container" class="min-w-[300px]"></div></div>
                     <div class="mt-2 text-xs text-slate-400 italic text-right">* 數值代表轉移機率 (%)，顏色越深機率越高。參考 Jeong (2003)。</div>
                 </div>
-
                 <div class="card">
                     <div class="flex justify-between items-center mb-4">
-                        <div>
-                            <h3 class="font-bold text-slate-800"><i class="fas fa-users-cog text-teal-500 mr-2"></i>關鍵知識經紀人 (Knowledge Brokers)</h3>
-                            <p class="text-xs text-slate-500">中介中心性 (Betweenness Centrality) 分析：誰是連結不同群體的橋樑？</p>
-                        </div>
+                        <div><h3 class="font-bold text-slate-800"><i class="fas fa-users-cog text-teal-500 mr-2"></i>關鍵知識經紀人 (Knowledge Brokers)</h3><p class="text-xs text-slate-500">中介中心性 (Betweenness Centrality) 分析：誰是連結不同群體的橋樑？</p></div>
                         <button class="ref-btn" onclick="openRef('brokers')"><i class="fas fa-book"></i> Ref:</button>
                     </div>
-                    <div id="brokers-list-container" class="space-y-3">
-                        <div class="text-center text-slate-400 text-sm py-4">分析中...</div>
-                    </div>
+                    <div id="brokers-list-container" class="space-y-3"><div class="text-center text-slate-400 text-sm py-4">分析中...</div></div>
                 </div>
             </div>
 
@@ -390,7 +320,7 @@
             </div>
         </div>
 
-        <!-- VIEW 2: 個別學生分析 (內容省略但保留結構) -->
+        <!-- VIEW 2: 個別學生分析 -->
         <div id="view-students" class="section-view space-y-4 md:space-y-6">
             <header class="flex justify-between items-center">
                 <div><h2 class="text-xl md:text-2xl font-bold text-slate-800">個別學生深度診斷</h2><p class="text-sm text-slate-500">微觀分析：認知成長與社交結構</p></div>
@@ -421,35 +351,24 @@
                             </div>
                             <div class="text-right flex flex-col items-end">
                                 <div class="text-2xl md:text-3xl font-bold text-slate-800" id="profile-notes-count">0</div>
-                                <div class="text-[10px] md:text-xs text-slate-500 uppercase flex items-center justify-end gap-1">
-                                    Total Notes <button class="ref-btn px-1 py-0 h-4 text-[9px]" onclick="openRef('total_notes')"><i class="fas fa-book"></i> Ref</button>
-                                </div>
+                                <div class="text-[10px] md:text-xs text-slate-500 uppercase flex items-center justify-end gap-1">Total Notes <button class="ref-btn px-1 py-0 h-4 text-[9px]" onclick="openRef('total_notes')"><i class="fas fa-book"></i> Ref</button></div>
                             </div>
                         </div>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div class="card">
-                            <div class="flex justify-between items-center mb-4">
-                                <h4 class="font-bold text-sm text-slate-700 uppercase">KB 核心能力 (Core Competency)</h4>
-                                <button class="ref-btn" onclick="openRef('radar')"><i class="fas fa-book"></i> Ref:</button>
-                            </div>
+                            <div class="flex justify-between items-center mb-4"><h4 class="font-bold text-sm text-slate-700 uppercase">KB 核心能力 (Core Competency)</h4><button class="ref-btn" onclick="openRef('radar')"><i class="fas fa-book"></i> Ref:</button></div>
                             <div class="h-48 relative"><canvas id="radarChart"></canvas></div>
                         </div>
                         <div class="card">
-                            <div class="flex justify-between items-center mb-2">
-                                <h4 class="font-bold text-sm text-slate-700 uppercase mr-2">自我互動圈 (Ego Network)</h4>
-                                <button class="ref-btn" onclick="openRef('ego')"><i class="fas fa-book"></i> Ref:</button>
-                            </div>
+                            <div class="flex justify-between items-center mb-2"><h4 class="font-bold text-sm text-slate-700 uppercase mr-2">自我互動圈 (Ego Network)</h4><button class="ref-btn" onclick="openRef('ego')"><i class="fas fa-book"></i> Ref:</button></div>
                             <div class="h-48 bg-slate-50 rounded border border-slate-100 relative"><div id="ego-network-container" class="absolute inset-0"></div></div>
                             <div class="text-xs text-right mt-2 text-slate-500" id="ego-metric">顯示該學生與他人的直接互動</div>
                         </div>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div class="card border-t-4 border-indigo-400">
-                            <div class="flex justify-between items-center mb-4">
-                                <h4 class="font-bold text-sm text-slate-700 flex items-center"><i class="fas fa-balance-scale text-indigo-500 mr-2"></i> 社群認知平衡 (Balance)</h4>
-                                <button class="ref-btn" onclick="openRef('balance')"><i class="fas fa-book"></i> Ref:</button>
-                            </div>
+                            <div class="flex justify-between items-center mb-4"><h4 class="font-bold text-sm text-slate-700 flex items-center"><i class="fas fa-balance-scale text-indigo-500 mr-2"></i> 社群認知平衡 (Balance)</h4><button class="ref-btn" onclick="openRef('balance')"><i class="fas fa-book"></i> Ref:</button></div>
                             <div class="flex items-center gap-4">
                                 <div class="w-1/2 h-32 relative"><canvas id="balanceChart"></canvas></div>
                                 <div class="w-1/2 text-xs space-y-2">
@@ -460,13 +379,8 @@
                             </div>
                         </div>
                         <div class="card border-t-4 border-amber-400">
-                            <div class="flex justify-between items-center mb-4">
-                                <h4 class="font-bold text-sm text-slate-700 flex items-center"><i class="fas fa-fingerprint text-amber-500 mr-2"></i> 詞彙貢獻指紋 (Keywords)</h4>
-                                <button class="ref-btn" onclick="openRef('lexical_fingerprint')"><i class="fas fa-book"></i> Ref:</button>
-                            </div>
-                            <div class="flex flex-wrap gap-2 h-32 overflow-y-auto content-start" id="student-keywords-container">
-                                <span class="text-xs text-slate-400 italic">請選擇學生以查看其常用概念詞彙...</span>
-                            </div>
+                            <div class="flex justify-between items-center mb-4"><h4 class="font-bold text-sm text-slate-700 flex items-center"><i class="fas fa-fingerprint text-amber-500 mr-2"></i> 詞彙貢獻指紋 (Keywords)</h4><button class="ref-btn" onclick="openRef('lexical_fingerprint')"><i class="fas fa-book"></i> Ref:</button></div>
+                            <div class="flex flex-wrap gap-2 h-32 overflow-y-auto content-start" id="student-keywords-container"><span class="text-xs text-slate-400 italic">請選擇學生以查看其常用概念詞彙...</span></div>
                         </div>
                     </div>
                     <div class="grid grid-cols-1 gap-6">
@@ -1111,7 +1025,7 @@
                     if (activeViewEl && activeViewEl.id === 'view-quality') { 
                         initDeepLens(); 
                         initStreamChart(); 
-                        initQualityNewMetrics(); // New Quality Metrics
+                        initQualityNewMetrics(); // Updated trigger
                     } 
                     else if (activeViewEl && activeViewEl.id === 'view-academic') { initAcademicAnalysis(); } 
                     else if (activeViewEl && activeViewEl.id === 'view-students') {
