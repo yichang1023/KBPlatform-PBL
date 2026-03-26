@@ -625,7 +625,7 @@
     <!-- ========================================== -->
     <!-- 2. 引入雲端外掛 (Core Engine) -->
     <!-- ========================================== -->
-    <script src="kb-cloud-engine.js"></script>
+  
 
     <script>
         // --- 0. 全域狀態與設置 (保留原檔邏輯) ---
@@ -671,14 +671,13 @@
         }
 
         // --- 1. 資料庫連接核心 (Cloud-Aware Modification) ---
-        function getRealData() {
-            if (window.state && window.state.nodes && window.state.nodes.length > 0) {
-                console.log("Teacher Analytics: Reading from Cloud Engine (window.state)");
-                return { nodes: window.state.nodes, topics: window.state.topics, userList: window.state.userList };
-            }
-            const raw = localStorage.getItem(STORAGE_KEY);
-            return raw ? JSON.parse(raw) : null;
-        }
+     function getRealData() {
+         // 【修改】直接回傳最新的雲端狀態，徹底拋棄舊版快取
+         if (window.state) {
+             return window.state;
+         }
+         return { nodes: [], topics: [], userList: {} };
+     }
 
         // --- 2. 班級總體計算 (Class Overview) ---
         let overviewTrajectoryChart;
