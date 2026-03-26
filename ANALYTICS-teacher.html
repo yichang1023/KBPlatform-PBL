@@ -1151,7 +1151,9 @@
             dbStatus.innerText = "Syncing...";
             dbStatus.className = "text-yellow-400 font-bold";
 
-            cloudDb.collection('kb_platform').doc('class_data_v26_g2_fix').onSnapshot((doc) => {
+            // 方便你未來修改測試區
+            const DB_DOC = 'class_data_v26_g2_fix'; 
+            cloudDb.collection('kb_platform').doc(DB_DOC).onSnapshot((doc) => {
                 if (doc.exists) {
                     const data = doc.data();
                     console.log("Teacher Analytics: Firebase 同步成功！");
