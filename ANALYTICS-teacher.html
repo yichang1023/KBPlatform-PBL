@@ -1122,7 +1122,7 @@
             if(window.innerWidth < 768) toggleSidebar();
         }
 
-        // --- Init Function ---
+       // --- Init Function (強制對準 Forum 基準) ---
         window.onload = function() {
             window.addEventListener('keydown', (e) => {
                 if(e.key === 'Escape') closeModal();
@@ -1133,23 +1133,52 @@
             const hasKey = localStorage.getItem('kb_ai_key') || localStorage.getItem('gemini_api_key');
             if (aiStatus) aiStatus.innerText = hasKey ? "Ready" : "No Key";
 
-            const checkCloudData = () => {
-                const db = getRealData();
-                if (db && db.nodes && db.nodes.length > 0) {
-                    console.log("Teacher Analytics: Cloud Data Synced!");
+            // === 強制讓老師端直連 class_data_v26_g2_fix ===
+            const firebaseConfig = {
+                apiKey: "AIzaSyDPjtxtf656JHVVlj1o4cLwSylo1jDBFAc",
+                authDomain: "kb-platform-1.firebaseapp.com",
+                databaseURL: "https://kb-platform-1-default-rtdb.firebaseio.com",
+                projectId: "kb-platform-1",
+                storageBucket: "kb-platform-1.firebasestorage.app",
+                messagingSenderId: "230026226847",
+                appId: "1:230026226847:web:49e6f09ddfc3de0ef046aa"
+            };
+            
+            if (!firebase.apps.length) {
+                firebase.initializeApp(firebaseConfig);
+            }
+            const cloudDb = firebase.firestore();
+
+            dbStatus.innerText = "Syncing...";
+            dbStatus.className = "text-yellow-400 font-bold";
+
+            cloudDb.collection('kb_platform').doc('class_data_v26_g2_fix').onSnapshot((doc) => {
+                if (doc.exists) {
+                    const data = doc.data();
+                    console.log("Teacher Analytics: Firebase 同步成功！");
+                    
+                    window.state = {
+                        nodes: data.nodes || [],
+                        topics: data.topics || [],
+                        userList: data.userList || {}
+                    };
+                    
                     dbStatus.innerText = "Cloud Online";
                     dbStatus.className = "text-green-400 font-bold";
-                    renderStudentSidebar(db);
-                    initOverview(db);
-                    switchView('overview');
+                    
+                    const currentDb = getRealData();
+                    if (currentDb) {
+                        renderStudentSidebar(currentDb);
+                        initOverview(currentDb);
+                        if (!document.querySelector('.section-view.active')) {
+                            switchView('overview');
+                        }
+                    }
                 } else {
-                    console.log("Teacher Analytics: Waiting for cloud...");
-                    dbStatus.innerText = "Syncing...";
-                    dbStatus.className = "text-yellow-400 font-bold";
-                    setTimeout(checkCloudData, 1000);
+                    dbStatus.innerText = "NO DATA";
+                    dbStatus.className = "text-red-400 font-bold";
                 }
-            };
-            checkCloudData();
+            });
         };
 
         // --- Chart Helper Functions ---
