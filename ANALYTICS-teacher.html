@@ -666,86 +666,32 @@
         }
 
         // --- 1. 真實 Gemini API 呼叫模組 ---
-        // ✅ 全域金鑰與模型設定
-        let apiKey = ""; 
-        let aiModelUrl = "";
-
-        // 動態從儲存空間或雲端抓取金鑰
-        async function initApiKey(cloudDb) {
-            const localKey = localStorage.getItem('kb_ai_key');
-            if (localKey) {
-                apiKey = localKey;
-                console.log("[AI System] 從 LocalStorage 載入金鑰");
-            } else if (cloudDb) {
-                try {
-                    const doc = await cloudDb.collection('kb_platform').doc('settings').get();
-                    if (doc.exists && doc.data().gemini_api_key) {
-                        apiKey = doc.data().gemini_api_key;
-                        console.log("[AI System] 從 Firebase 載入金鑰");
-                    }
-                } catch (e) { console.error("Firebase Key Fetch Error:", e); }
-            }
-
-            if (apiKey) {
-                aiModelUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
-                return true;
-            }
-            return false;
-        }
-
-        // 核心 AI 呼叫函數
         async function callGeminiAPI(promptText) {
-            if (!apiKey) {
-                alert("API Key 尚未設定，請先至首頁輸入金鑰！");
-                throw new Error("Missing API Key");
-            }
-            let delays = [1000, 2000, 4000];
-            for (let i = 0; i < 3; i++) {
+            if (!apiKey) return "⚠️ API Key 尚未載入，請確認執行環境。(模擬結果：這是一段 AI 分析的佔位文字。實際串接後將呈現真實的分析結果。)";
+            
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+            const payload = {
+                contents: [{ parts: [{ text: promptText }] }],
+                systemInstruction: { parts: [{ text: "你是一位專精於知識建構(Knowledge Building)理論的教育數據分析專家。請用繁體中文回答，語氣專業但白話，給予第一線教師具體、可操作的教學建議。請不要使用過多抽象的學術名詞。" }] }
+            };
+
+            for (let attempt = 0; attempt < 3; attempt++) {
                 try {
-                    const response = await fetch(aiModelUrl, {
+                    const response = await fetch(url, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            contents: [{ parts: [{ text: promptText }] }],
-                            systemInstruction: { parts: [{ text: "你是一位教育數據分析大師，專精於知識建構理論。請根據數據給出精確、具體的繁體中文建議。" }] }
-                        })
+                        body: JSON.stringify(payload)
                     });
-                    if (!response.ok) throw new Error(`Status: ${response.status}`);
-                    const data = await response.json();
-                    return data.candidates[0].content.parts[0].text;
-                } catch (e) {
-                    if (i === 2) throw e;
-                    await new Promise(res => setTimeout(res, delays[i]));
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    const result = await response.json();
+                    return result.candidates?.[0]?.content?.parts?.[0]?.text || "無法生成內容。";
+                } catch (error) {
+                    if (attempt === 2) return "⚠️ AI 伺服器連線或運算失敗，請稍後再試。";
+                    await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt))); 
                 }
             }
         }
-// 執行進階 AI 指標諮詢
-        async function fetchRefAIInsight(key, promptBase, val, status) {
-            const resultDiv = document.getElementById(`ref-ai-result-${key}`);
-            
-            // 防呆檢查
-            if (!apiKey) {
-                alert("請先至系統首頁輸入並儲存 Gemini API Key，才能啟動 AI 協助！");
-                return;
-            }
 
-            resultDiv.classList.remove('hidden');
-            resultDiv.innerHTML = `<div class="mt-3 p-4 bg-indigo-50 rounded-lg text-xs border border-indigo-200 text-indigo-700 animate-pulse"><i class="fas fa-spinner fa-spin mr-2"></i>AI 正在閱讀理論並分析數據中...</div>`;
-
-            try {
-                const prompt = `針對知識建構指標「${refContent[key].title}」，目前數據為「${val}」，狀態為「${status}」。請根據這項指標的理論背景（${refContent[key].theory}），給予老師具體的教學介入建議。`;
-                const aiResponse = await callGeminiAPI(prompt);
-                
-                resultDiv.innerHTML = `
-                    <div class="mt-3 p-4 bg-white rounded-lg text-sm border border-indigo-100 shadow-sm prose prose-sm prose-indigo">
-                        <div class="font-bold text-indigo-600 mb-2"><i class="fas fa-robot mr-2"></i> AI 專家引導建議：</div>
-                        ${marked.parse(aiResponse)}
-                    </div>
-                `;
-            } catch (e) {
-                resultDiv.innerHTML = `<div class="mt-3 p-4 bg-red-50 text-red-600 text-xs rounded border border-red-200">AI 分析失敗，請檢查網路或金鑰權限。</div>`;
-            }
-        }
         // --- 2. 資料庫連接核心 ---
         function getRealData() {
             if (window.state) {
@@ -1316,19 +1262,7 @@
                 firebase.initializeApp(firebaseConfig);
             }
             const cloudDb = firebase.firestore();
-// --- 啟動 AI 金鑰讀取與狀態燈號 ---
-            const aiStatus = document.getElementById('ai-status-indicator');
-            aiStatus.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Checking...';
-            
-            initApiKey(cloudDb).then(success => {
-                if (success) {
-                    aiStatus.innerHTML = '<i class="fas fa-check-circle mr-1"></i>Ready (AI Connected)';
-                    aiStatus.className = "text-emerald-400 font-bold";
-                } else {
-                    aiStatus.innerHTML = '<i class="fas fa-exclamation-triangle mr-1"></i>Offline (No Key)';
-                    aiStatus.className = "text-amber-400 font-bold";
-                }
-            });
+
             dbStatus.innerText = "Syncing...";
             dbStatus.className = "text-yellow-400 font-bold";
 
