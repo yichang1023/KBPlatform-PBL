@@ -188,7 +188,7 @@
         </div>
 
         <div class="px-2 pt-4 pb-2">
-            <a href="index.html" class="w-full flex items-center space-x-3 px-4 py-3 rounded-lg bg-slate-800 text-slate-200 hover:bg-slate-700 transition hover:text-white border border-slate-700">
+            <a href="#" class="w-full flex items-center space-x-3 px-4 py-3 rounded-lg bg-slate-800 text-slate-200 hover:bg-slate-700 transition hover:text-white border border-slate-700">
                 <i class="fas fa-home w-5 text-blue-400"></i><span class="font-bold">返回首頁</span>
             </a>
         </div>
@@ -202,12 +202,11 @@
             <button onclick="switchView('academic')" id="nav-academic" class="nav-item w-full flex items-center space-x-3 px-4 py-3 rounded-r-lg hover:bg-slate-800 transition text-left text-purple-300 hover:text-purple-200"><i class="fas fa-graduation-cap w-5"></i><span>學術深度指標 (Academic)</span></button>
             
             <div class="pt-4 mt-4 border-t border-slate-800">
-                <a href="Knowledge Building Forum.html" class="nav-item w-full flex items-center space-x-3 px-4 py-3 rounded-r-lg hover:bg-slate-800 transition text-left text-blue-400 hover:text-blue-300">
+                <a href="#" class="nav-item w-full flex items-center space-x-3 px-4 py-3 rounded-r-lg hover:bg-slate-800 transition text-left text-blue-400 hover:text-blue-300">
                     <i class="fas fa-comments w-5"></i><span>前往論壇 (Forum)</span>
                 </a>
                 
-                <!-- 新增：前往知識輪盤 -->
-                <a href="ANALYTICS-student.html" class="nav-item w-full flex items-center space-x-3 px-4 py-3 rounded-r-lg hover:bg-slate-800 transition text-left text-amber-400 hover:text-amber-300 mt-1">
+                <a href="#" class="nav-item w-full flex items-center space-x-3 px-4 py-3 rounded-r-lg hover:bg-slate-800 transition text-left text-amber-400 hover:text-amber-300 mt-1">
                     <i class="fas fa-dharmachakra w-5"></i><span>前往知識輪盤 (Roulette)</span>
                 </a>
 
@@ -219,7 +218,7 @@
         <div class="p-4 bg-slate-950 border-t border-slate-800 text-xs text-slate-500 shrink-0">
             System: <span class="text-green-500">Connected</span><br>
             DB Status: <span id="db-status-text">Checking...</span><br>
-            AI Status: <span id="ai-status-indicator" class="text-slate-400">Init...</span>
+            AI Status: <span id="ai-status-indicator" class="text-green-400 font-bold"><i class="fas fa-check-circle mr-1"></i>Ready</span>
         </div>
     </aside>
 
@@ -234,7 +233,6 @@
                     <select id="topic-selector-overview" onchange="filterDataByTopic(this.value)" class="bg-white border border-slate-300 text-slate-700 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 shadow-sm">
                         <option value="all" selected>所有主題 (All Topics)</option>
                     </select>
-                    <button onclick="openRef('class_diagnosis')" class="ai-btn bg-purple-600 hover:bg-purple-700 shadow-md whitespace-nowrap"><i class="fas fa-brain mr-2"></i> 全班深度診斷</button>
                     <span class="bg-white px-3 py-1 rounded-full text-xs border border-slate-200 shadow-sm flex items-center ml-2 whitespace-nowrap"><i class="fas fa-calendar-alt mr-2 text-slate-400"></i> <span id="current-date-display">Week 5</span></span>
                 </div>
             </header>
@@ -388,7 +386,12 @@
                             <div class="flex justify-between items-center mb-4"><h4 class="font-bold text-sm text-slate-700 uppercase">認知深度演化 (Depth Trajectory)</h4><button class="ref-btn" onclick="openRef('depth_trajectory')"><i class="fas fa-book"></i> Ref:</button></div>
                             <div class="h-48 relative"><canvas id="studentDepthChart"></canvas></div>
                         </div>
-                        <div class="card border-l-4" id="ai-card"><h4 class="font-bold text-sm text-slate-700 uppercase mb-3 flex items-center"><i class="fas fa-robot mr-2 text-blue-500"></i> AI 綜合行動建議</h4><div class="space-y-3" id="ai-suggestions"><div class="text-sm text-slate-500">請選擇學生以檢視建議。</div></div></div>
+                        <div class="card border-l-4" id="ai-card">
+                            <h4 class="font-bold text-sm text-slate-700 uppercase mb-3 flex items-center"><i class="fas fa-robot mr-2 text-blue-500"></i> AI 綜合行動建議</h4>
+                            <div id="ai-suggestions">
+                                <div class="text-sm text-slate-500">請選擇學生以檢視建議。</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -435,7 +438,7 @@
                         <p class="text-xs text-slate-500 mt-1">聚合該主題所有討論內容，提供自動化摘要與數據統計。</p>
                     </div>
                     <button onclick="triggerTopicSummaryAI()" class="ai-btn bg-indigo-600 hover:bg-indigo-700 shadow-md w-full md:w-auto justify-center">
-                        <i class="fas fa-magic mr-2"></i> AI 內容總結
+                        <i class="fas fa-magic mr-2"></i> 執行 AI 內容總結
                     </button>
                 </div>
                 
@@ -636,136 +639,44 @@
   
 
     <script>
-        // --- 0. 全域狀態與設置 (保留原檔邏輯) ---
+        // --- 0. 全域狀態、快取與 Gemini AI 設定 ---
         const STORAGE_KEY = 'kb_platform_v15_data';
         let globalClassStats = {}; 
         let globalAllNotes = []; 
         let globalRawDB = {};
-        let currentModalTopic = ''; 
         let activeTopicFilter = 'all';
 
-        // ==========================================
-        // 真實 AI 引擎模組 (Gemini API & Cache System)
-        // ==========================================
-        const apiKey = ""; // 執行環境會自動注入
-        const aiTopicCache = {};
-        const aiStudentCache = {};
-        const aiRefCache = {};
+        // AI Cache 初始化
+        window.aiCache = { topics: {}, students: {}, class: null, refs: {} };
 
-        async function generateGeminiContent(prompt) {
+        // 核心 AI 呼叫函數 (具備重試機制)
+        async function callGeminiAPI(promptText) {
+            const apiKey = ""; // 系統環境變數自動注入
             const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
-            const payload = { contents: [{ parts: [{ text: prompt }] }] };
-            const delays = [1000, 2000, 4000, 8000, 16000]; // 指數退避重試
+            let delays = [1000, 2000, 4000, 8000, 16000];
             
             for (let i = 0; i < 5; i++) {
                 try {
                     const response = await fetch(url, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
+                        body: JSON.stringify({
+                            contents: [{ parts: [{ text: promptText }] }],
+                            systemInstruction: { parts: [{ text: "你是一位專業的教育數據分析師，專精於 Knowledge Building 理論。請根據提供的數據給出精煉、具體且高指導價值的繁體中文分析，切勿廢話。" }] }
+                        })
                     });
+                    
                     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                     const data = await response.json();
-                    return data.candidates?.[0]?.content?.parts?.[0]?.text || "AI 暫無回應。";
+                    if (data.candidates && data.candidates.length > 0) {
+                        return data.candidates[0].content.parts[0].text;
+                    }
+                    throw new Error("No candidates returned");
                 } catch (e) {
-                    if (i === 4) return "AI 分析失敗，請確認網路連線或稍後再試。";
-                    await new Promise(r => setTimeout(r, delays[i]));
+                    if (i === 4) throw e;
+                    await new Promise(res => setTimeout(res, delays[i]));
                 }
             }
-        }
-
-        async function triggerTopicSummaryAI(force = false) {
-            const topicId = activeTopicFilter;
-            const resultDiv = document.getElementById('topic-ai-summary-result');
-            resultDiv.classList.remove('hidden');
-
-            if (!force && aiTopicCache[topicId]) {
-                resultDiv.innerHTML = aiTopicCache[topicId];
-                return;
-            }
-
-            resultDiv.innerHTML = '<div class="text-center py-4 text-purple-600"><i class="fas fa-spinner fa-spin mr-2"></i>AI 正在深度閱讀並精煉總結...</div>';
-
-            if (globalAllNotes.length === 0) {
-                resultDiv.innerHTML = '<div class="text-slate-500 text-center py-2">此主題尚無資料可供分析。</div>';
-                return;
-            }
-
-            // 擷取真實資料餵給 AI (限制長度以防 token 溢出)
-            const notesText = globalAllNotes.map(n => `[${kbTypeMap[n.type]||'一般'}] ${n.title}: ${n.content}`).join('\n').substring(0, 5000);
-            const prompt = `請扮演一位資深的學習科學專家。根據以下學生的真實討論內容，給出一段「精煉、洞察深刻」的摘要（約100字以內），並指出學生目前的認知盲點或下一步可深入探索的方向：\n\n${notesText}`;
-
-            const aiText = await generateGeminiContent(prompt);
-            const finalHtml = `
-                <div class="flex justify-between items-start mb-2 border-b border-purple-200 pb-2">
-                    <strong class="text-purple-800"><i class="fas fa-robot mr-1"></i> AI 精煉摘要與洞察：</strong>
-                    <button onclick="triggerTopicSummaryAI(true)" class="text-[10px] bg-purple-100 text-purple-700 hover:bg-purple-200 px-2 py-1 rounded transition"><i class="fas fa-redo mr-1"></i>重新分析</button>
-                </div>
-                <div class="text-slate-700 leading-relaxed text-sm">${marked.parse(aiText)}</div>
-            `;
-            aiTopicCache[topicId] = finalHtml;
-            resultDiv.innerHTML = finalHtml;
-        }
-
-        async function generateStudentAI(userId, force = false) {
-            const sugBox = document.getElementById('ai-suggestions');
-            if (!force && aiStudentCache[userId]) {
-                sugBox.innerHTML = aiStudentCache[userId];
-                return;
-            }
-            
-            sugBox.innerHTML = '<div class="p-4 text-center text-indigo-600 text-sm"><i class="fas fa-spinner fa-spin mr-2"></i>AI 正在剖析個人認知軌跡...</div>';
-
-            const data = calculateStudentMetrics(getRealData(), userId);
-            const prefStr = Object.entries(data.scaffoldCounts).map(x => `${kbTypeMap[x[0]]||x[0]}:${x[1]}`).join(', ');
-            
-            const prompt = `身為學習科學導師，請根據這名學生在知識建構平台上的真實參與數據，進行「精煉的」個人化深度點評（限制80字以內）。
-            實際數據：產出 ${data.noteCount} 篇發言，被他人回覆 ${data.inDegree} 次，主動回覆他人 ${data.outDegree} 次。
-            發言行為偏好：${prefStr}。
-            雷達圖最高能力為：${data.role}。
-            請根據以上特徵，給出他學習上的具體亮點，以及一個能幫助他突破現狀的實質教學建議。`;
-
-            const aiText = await generateGeminiContent(prompt);
-            const finalHtml = `
-                <div class="p-3 bg-indigo-50 border-l-4 border-indigo-500 text-sm text-indigo-900 rounded-r shadow-sm">
-                    <div class="flex justify-between items-center mb-2 border-b border-indigo-200 pb-1">
-                        <strong class="text-indigo-800"><i class="fas fa-robot mr-1"></i> AI 專屬深度點評</strong>
-                        <button onclick="generateStudentAI('${userId}', true)" class="text-[10px] text-indigo-500 hover:text-indigo-700 hover:underline"><i class="fas fa-redo"></i> 重新分析</button>
-                    </div>
-                    <div class="leading-relaxed text-slate-700">${marked.parse(aiText)}</div>
-                </div>
-            `;
-            aiStudentCache[userId] = finalHtml;
-            sugBox.innerHTML = finalHtml;
-        }
-
-        async function fetchRefAI(promptText, key, force = false) {
-            const box = document.getElementById('ref-ai-result-box');
-            if (!box) return;
-
-            if (!force && aiRefCache[key]) {
-                box.innerHTML = aiRefCache[key];
-                return;
-            }
-
-            box.classList.remove('hidden');
-            box.innerHTML = '<div class="text-center py-4 text-purple-500 text-sm"><i class="fas fa-spinner fa-spin mr-2"></i>AI 導師思考中...</div>';
-
-            const context = `目前班級真實數據：總發文 ${globalClassStats.totalNotes} 篇，社群密度 ${globalClassStats.density}，知識昇華率 ${globalClassStats.raRate}%，有 ${globalClassStats.riskCount} 名學生完全潛水。`;
-            const prompt = `身為師培教授，請針對以下老師遇到的問題，結合「班級目前真實數據」，給予一段具體且精煉的教學策略建議(請勿超過100字)：\n現狀：${context}\n問題：${promptText}`;
-
-            const aiText = await generateGeminiContent(prompt);
-            const finalHtml = `
-                <div class="mt-4 p-3 bg-purple-50 rounded border border-purple-200 text-sm text-purple-900">
-                    <div class="flex justify-between items-center mb-2 border-b border-purple-200 pb-1">
-                        <strong><i class="fas fa-magic text-purple-600 mr-1"></i> AI 實務策略建議</strong>
-                        <button onclick="fetchRefAI('${promptText}', '${key}', true)" class="text-[10px] text-purple-600 hover:underline"><i class="fas fa-redo"></i> 重新生成</button>
-                    </div>
-                    <div class="leading-relaxed">${marked.parse(aiText)}</div>
-                </div>
-            `;
-            aiRefCache[key] = finalHtml;
-            box.innerHTML = finalHtml;
         }
 
         const kbTypeMap = {
@@ -803,14 +714,10 @@
             if(lensInteractions['Synthesis']) lensInteractions['Synthesis'].example = findNote(['riseabove']);
         }
 
-        // --- 1. 資料庫連接核心 (Cloud-Aware Modification) ---
-     function getRealData() {
-         // 直接回傳最新的雲端狀態
-         if (window.state) {
-             return window.state;
-         }
-         return { nodes: [], topics: [], userList: {} };
-     }
+        function getRealData() {
+            if (window.state) return window.state;
+            return { nodes: [], topics: [], userList: {} };
+        }
 
         // --- 2. 班級總體計算 (Class Overview) ---
         let overviewTrajectoryChart;
@@ -933,9 +840,7 @@
             }
 
             if(roots.length === 0 && nodes.length > 0) return 1;
-
             roots.forEach(r => getDepths(r, 1));
-            
             return pathCount > 0 ? totalDepth / pathCount : 0;
         }
 
@@ -973,16 +878,7 @@
                         { label: '發展的理論 (Theories)', data: dataI, borderColor: '#a855f7', tension: 0.4, pointRadius: 0 }
                     ]
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: { 
-                        x: { display: false }, 
-                        y: { display: false } 
-                    },
-                    elements: { point: { radius: 0 } }
-                }
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { display: false }, y: { display: false } }, elements: { point: { radius: 0 } } }
             });
         }
 
@@ -1006,28 +902,22 @@
                             let t2 = n.type;
                             if(t1 === 'counter') t1 = 'improve';
                             if(t2 === 'counter') t2 = 'improve';
-                            
-                            if(matrix[t1] && matrix[t1][t2] !== undefined) {
-                                matrix[t1][t2]++;
-                            }
+                            if(matrix[t1] && matrix[t1][t2] !== undefined) matrix[t1][t2]++;
                         }
                     }
                 });
 
                 let html = `<table class="seq-table w-full text-center border-collapse"><tr class="seq-header-row"><th class="border-b p-2">From \\ To</th>${types.map(t => `<th class="text-xs border-b p-2">${labels[t]}</th>`).join('')}</tr>`;
-                
                 types.forEach(rowType => {
                     html += `<tr><th class="text-xs border-b p-2">${labels[rowType]}</th>`;
                     types.forEach(colType => {
                         const count = matrix[rowType][colType];
                         const rowTotal = types.reduce((acc, t) => acc + matrix[rowType][t], 0);
                         const pct = rowTotal > 0 ? Math.round((count / rowTotal) * 100) : 0;
-                        let bg = '#ffffff';
-                        let text = '#64748b';
+                        let bg = '#ffffff'; let text = '#64748b';
                         if(pct > 0) {
                             bg = `rgba(59, 130, 246, ${pct/100 * 0.8 + 0.1})`;
-                            if(pct > 50) text = 'white';
-                            else text = '#1e3a8a';
+                            if(pct > 50) text = 'white'; else text = '#1e3a8a';
                         }
                         html += `<td class="border-b p-2"><div class="seq-cell py-1 rounded" style="background-color:${bg}; color:${text}">${pct}%</div></td>`;
                     });
@@ -1047,23 +937,20 @@
                 if(n.parentId) {
                     const p = nodes.find(x => x.id === n.parentId);
                     if(p && String(p.author) !== String(n.author)) {
-                        const a1 = String(n.author);
-                        const a2 = String(p.author);
+                        const a1 = String(n.author); const a2 = String(p.author);
                         if(adj[a1] && !adj[a1].includes(a2)) adj[a1].push(a2);
                         if(adj[a2] && !adj[a2].includes(a1)) adj[a2].push(a1);
                     }
                 }
             });
 
-            const CB = {};
-            studentIds.forEach(id => CB[id] = 0);
+            const CB = {}; studentIds.forEach(id => CB[id] = 0);
 
             studentIds.forEach(s => {
                 const S = []; const P = {}; const sigma = {}; const d = {};
                 studentIds.forEach(v => { P[v] = []; sigma[v] = 0; d[v] = -1; });
                 sigma[s] = 1; d[s] = 0;
                 const Q = [s]; 
-                
                 while (Q.length > 0) {
                     const v = Q.shift(); S.push(v);
                     if (adj[v]) {
@@ -1073,8 +960,7 @@
                         });
                     }
                 }
-                const delta = {};
-                studentIds.forEach(v => delta[v] = 0);
+                const delta = {}; studentIds.forEach(v => delta[v] = 0);
                 while (S.length > 0) {
                     const w = S.pop();
                     P[w].forEach(v => { delta[v] += (sigma[v] / sigma[w]) * (1 + delta[w]); });
@@ -1091,19 +977,16 @@
                 container.innerHTML = '<div class="text-center text-slate-400 text-xs py-4">社群連結過於鬆散，無法識別經紀人 (Score=0)</div>';
             } else {
                 container.innerHTML = sortedBrokers.map((item, idx) => {
-                    const uid = item[0];
-                    const score = item[1].toFixed(1);
+                    const uid = item[0]; const score = item[1].toFixed(1);
                     const user = students.find(s => String(s.id) === uid);
-                    const name = user && user.name ? user.name : uid; // 防止 user.name 報錯
+                    const name = user && user.name ? user.name : uid; 
                     const colors = ['bg-yellow-100 text-yellow-700 border-yellow-300', 'bg-slate-100 text-slate-600', 'bg-slate-50 text-slate-500'];
                     const icons = ['fa-crown', 'fa-medal', 'fa-award'];
-                    
                     return `<div class="flex items-center justify-between p-2 rounded border ${colors[idx] || colors[2]}"><div class="flex items-center gap-3"><div class="w-6 h-6 rounded-full bg-white flex items-center justify-center text-xs shadow-sm"><i class="fas ${icons[idx]}"></i></div><span class="font-bold text-sm">${name}</span></div><div class="text-xs font-mono opacity-80">Score: ${score}</div></div>`;
                 }).join('');
             }
         }
 
-        // [Original generateLocalInsight, renderStaticDiagnosis, etc.]
         function generateLocalInsight(key, stats) {
             if (key === 'density') {
                 const d = parseFloat(stats.density || 0);
@@ -1130,15 +1013,65 @@
             return "數據分析完成。";
         }
 
+        // ====== AI Class Diagnosis ======
+        async function triggerClassAI(force = false) {
+            const container = document.getElementById('offline-insight-content');
+            if(!force && window.aiCache.class) {
+                renderClassAIResult(window.aiCache.class, container);
+                return;
+            }
+            container.innerHTML = '<div class="text-slate-500 py-2"><i class="fas fa-spinner fa-spin mr-2"></i>AI 正在綜合分析全班數據...</div>';
+            try {
+                const stats = globalClassStats;
+                const prompt = `作為教育分析師，根據以下班級整體數據，用 150 字以內給出總體狀態評估與具體的下一步教學介入策略：
+                總發文: ${stats.totalNotes} 篇
+                參與人數: ${stats.studentCount} 人
+                社群密度: ${stats.density} (目標>0.5)
+                整合型觀點比例: ${stats.raRate}%
+                Gini不平等係數: ${stats.gini} (目標<0.4)
+                未發言人數: ${stats.riskCount} 人`;
+                
+                const aiText = await callGeminiAPI(prompt);
+                window.aiCache.class = aiText;
+                renderClassAIResult(aiText, container);
+            } catch(e) {
+                container.innerHTML = '<span class="text-red-500"><i class="fas fa-exclamation-triangle"></i> AI 分析失敗，請重試。</span>';
+            }
+        }
+
+        function renderClassAIResult(text, container) {
+            const formattedText = marked.parse(text);
+            container.innerHTML = `
+                <div class="relative">
+                    <button onclick="triggerClassAI(true)" class="absolute -top-2 right-0 text-xs text-sky-600 bg-white px-2 py-1 rounded shadow-sm border border-sky-200 hover:bg-sky-50 z-10"><i class="fas fa-redo mr-1"></i>重新分析</button>
+                    <div class="prose prose-sm prose-sky pr-16">${formattedText}</div>
+                </div>
+            `;
+        }
+
         function renderStaticDiagnosis(stats) {
             const container = document.getElementById('offline-insight-content');
             if(!container) return;
+            
+            if (window.aiCache.class) {
+                renderClassAIResult(window.aiCache.class, container);
+                return;
+            }
+
             const msgs = [];
             msgs.push(generateLocalInsight('density', stats));
             msgs.push(generateLocalInsight('rise_above', stats));
             if(stats.gini) msgs.push(generateLocalInsight('gini', stats));
             if(stats.threadDepth) msgs.push(generateLocalInsight('thread_depth', stats));
-            container.innerHTML = `<ul class="list-disc pl-5 space-y-2">${msgs.map(m => `<li>${m}</li>`).join('')}</ul>`;
+            
+            container.innerHTML = `
+                <div class="flex justify-between items-start">
+                    <ul class="list-disc pl-5 space-y-2 flex-1 text-sm text-slate-700">${msgs.map(m => `<li>${m}</li>`).join('')}</ul>
+                    <button onclick="triggerClassAI()" class="ml-4 shrink-0 bg-sky-100 text-sky-700 hover:bg-sky-200 px-3 py-1.5 rounded text-xs font-bold transition flex items-center shadow-sm border border-sky-200">
+                        <i class="fas fa-robot mr-1"></i> AI 全班診斷
+                    </button>
+                </div>
+            `;
         }
 
         function populateTopicSelectors(topics) {
@@ -1179,7 +1112,7 @@
                     if (activeViewEl && activeViewEl.id === 'view-quality') { 
                         initDeepLens(); 
                         initStreamChart(); 
-                        initQualityNewMetrics(); // Updated trigger
+                        initQualityNewMetrics(); 
                     } 
                     else if (activeViewEl && activeViewEl.id === 'view-academic') { initAcademicAnalysis(); } 
                     else if (activeViewEl && activeViewEl.id === 'view-students') {
@@ -1246,7 +1179,7 @@
             const nodesData = stats.students.map((u, index) => ({ id: String(u.id), label: u.name || '?', color: colorPalette[index % colorPalette.length], shape: 'dot', size: 15, font: { color: '#1e293b' } }));
             const edgesData = [];
             stats.nodes.forEach(n => { if(n.parentId) { const p = stats.nodes.find(x => x.id === n.parentId); if(p && String(p.author) !== String(n.author)) { edgesData.push({from: String(n.author), to: String(p.author)}); } } });
-            overviewNetwork = new vis.Network(container, { nodes: new vis.DataSet(nodesData), edges: new vis.DataSet(edgesData) }, { nodes: { font: { face: 'Noto Sans TC' } }, physics: { stabilization: { iterations: 200, fit: true } } });
+            overviewNetwork = new vis.Network(container, { nodes: new vis.DataSet(nodesData), edges: new vis.DataSet(edgesData) }, { nodes: { font: { face: 'Noto Sans TC' } }, physics: { stabilization: true } });
             
             const ctx1 = document.getElementById('principlesChart').getContext('2d');
             const typeCounts = { question:0, extend:0, improve:0, counter:0, riseabove:0 };
@@ -1293,7 +1226,7 @@
             if (viewName === 'quality') setTimeout(() => { 
                 initDeepLens(); 
                 initStreamChart(); 
-                initQualityNewMetrics(); // Updated trigger
+                initQualityNewMetrics(); 
             }, 100);
             else if (viewName === 'topics') setTimeout(() => { 
                 initConceptNetwork(); 
@@ -1314,18 +1247,15 @@
             if(window.innerWidth < 768) toggleSidebar();
         }
 
-       // --- Init Function (強制對準 Forum 基準) ---
+       // --- Init Function ---
         window.onload = function() {
             window.addEventListener('keydown', (e) => {
                 if(e.key === 'Escape') closeModal();
             });
 
             const dbStatus = document.getElementById('db-status-text');
-            const aiStatus = document.getElementById('ai-status-indicator');
-            const hasKey = localStorage.getItem('kb_ai_key') || localStorage.getItem('gemini_api_key');
-            if (aiStatus) aiStatus.innerText = hasKey ? "Ready" : "No Key";
 
-            // === 強制讓老師端直連 class_data_v26_g2_fix ===
+            // Firebase Config
             const firebaseConfig = {
                 apiKey: "AIzaSyDPjtxtf656JHVVlj1o4cLwSylo1jDBFAc",
                 authDomain: "kb-platform-1.firebaseapp.com",
@@ -1341,7 +1271,6 @@
             }
             const cloudDb = firebase.firestore();
             
-            // 解決在 iframe 或受限網路環境下 WebSocket 連線逾時的問題
             cloudDb.settings({
                 experimentalForceLongPolling: true,
                 useFetchStreams: false
@@ -1354,7 +1283,6 @@
             cloudDb.collection('kb_platform').doc(DB_DOC).onSnapshot((doc) => {
                 if (doc.exists) {
                     const data = doc.data();
-                    console.log("Teacher Analytics: Firebase 同步成功！");
                     
                     window.state = {
                         nodes: data.nodes || [],
@@ -1407,7 +1335,7 @@
                 { from: 'Theory', to: 'Theory', arrows:'to' }, 
                 { from: 'Theory', to: 'Synthesis', arrows:'to' } 
             ]);
-            lensNetwork = new vis.Network(container, { nodes, edges }, { nodes: { scaling: { min: 15, max: 45 }, font: { face: 'Noto Sans TC' } }, physics: { stabilization: { iterations: 200, fit: true } } });
+            lensNetwork = new vis.Network(container, { nodes, edges }, { nodes: { scaling: { min: 15, max: 45 }, font: { face: 'Noto Sans TC' } }, physics: { stabilization: true } });
             lensNetwork.on("click", function (params) {
                 const detailBox = document.getElementById('lens-detail');
                 let info = null;
@@ -1538,6 +1466,47 @@
             let authorName = n.author; if (globalRawDB.userList) { const u = Object.values(globalRawDB.userList).find(u => String(u.id) === String(n.author)); if (u) authorName = u.name || '?'; }
             document.getElementById('nd-author').innerText = authorName;
             document.getElementById('note-detail-modal').classList.add('open');
+        }
+
+        // ====== AI Topic Summary ======
+        async function triggerTopicSummaryAI(force = false) {
+            const resultDiv = document.getElementById('topic-ai-summary-result');
+            const topicId = activeTopicFilter;
+            
+            if (!force && window.aiCache.topics[topicId]) {
+                renderTopicAIResult(window.aiCache.topics[topicId]);
+                return;
+            }
+            
+            resultDiv.classList.remove('hidden');
+            resultDiv.innerHTML = '<i class="fas fa-spinner fa-spin mr-2 text-purple-500"></i><span class="text-purple-600">AI 正在深度閱讀並總結本主題...</span>';
+            
+            try {
+                // 節錄最多 50 篇筆記避免超出 Token
+                const notes = globalAllNotes.filter(n => topicId === 'all' || n.topicId === topicId).slice(0, 50);
+                const textContext = notes.map(n => `[${n.type}] ${n.title}: ${n.content}`).join('\n');
+                
+                const prompt = `根據以下學生討論內容，請用 150 字以內精煉總結：\n1. 核心爭議點\n2. 知識建構進展\n3. 下一步教學建議。\n\n討論內容：\n${textContext.substring(0, 3000)}`;
+                
+                const aiText = await callGeminiAPI(prompt);
+                window.aiCache.topics[topicId] = aiText;
+                renderTopicAIResult(aiText);
+            } catch (err) {
+                resultDiv.innerHTML = '<span class="text-red-500"><i class="fas fa-exclamation-triangle"></i> AI 分析失敗，請稍後再試。</span>';
+            }
+        }
+        
+        function renderTopicAIResult(text) {
+             const resultDiv = document.getElementById('topic-ai-summary-result');
+             resultDiv.classList.remove('hidden');
+             const formattedText = marked.parse(text); 
+             resultDiv.innerHTML = `
+                <div class="flex justify-between items-start mb-2">
+                    <strong class="text-purple-700"><i class="fas fa-robot mr-1"></i> AI 摘要與洞察：</strong>
+                    <button onclick="triggerTopicSummaryAI(true)" class="text-xs text-purple-500 hover:text-purple-700 bg-purple-100 hover:bg-purple-200 px-2 py-1 rounded transition border border-purple-200 shadow-sm"><i class="fas fa-redo mr-1"></i>重新分析</button>
+                </div>
+                <div class="prose prose-sm prose-purple leading-relaxed">${formattedText}</div>
+             `;
         }
 
         function initTopicContentAnalysis() {
@@ -1691,6 +1660,45 @@
             checklistContainer.innerHTML = checks.map(c => `<div class="flex items-start p-2 border-b border-yellow-100 last:border-0"><div class="mr-3 mt-1">${c.pass ? '<i class="fas fa-check-circle text-green-500"></i>' : '<i class="fas fa-exclamation-circle text-red-400"></i>'}</div><div><div class="font-bold text-sm text-slate-700">${c.title}</div><div class="text-xs text-slate-500">${c.desc}</div><div class="text-xs font-mono font-bold ${c.pass ? 'text-green-600' : 'text-red-500'} mt-1">Val: ${c.val}</div></div></div>`).join('');
         }
 
+        // ====== AI Individual Student Diagnosis ======
+        async function triggerStudentAI(userId, force = false) {
+            const sugBox = document.getElementById('ai-suggestions');
+            if (!force && window.aiCache.students[userId]) {
+                renderStudentAIResult(userId, window.aiCache.students[userId], sugBox);
+                return;
+            }
+            sugBox.innerHTML = '<div class="text-center py-4 text-blue-500"><i class="fas fa-spinner fa-spin mr-2"></i>AI 專屬教練生成中...</div>';
+            
+            try {
+                const db = getRealData();
+                const metrics = calculateStudentMetrics(db, userId); 
+                const prompt = `你是一位專業的教育教練。根據這位學生的知識建構表現，用 100 字以內提供「直接、精準」的下一步教學引導建議，不要用廢話開場。
+                學生: ${metrics.user.name}
+                發文數: ${metrics.noteCount} 篇
+                被回覆次數(社群影響力): ${metrics.inDegree} 次
+                回覆他人(協作貢獻): ${metrics.outDegree} 次
+                整合(Rise-above)次數: ${metrics.scaffoldCounts.riseabove}
+                提問次數: ${metrics.scaffoldCounts.question}
+                常用詞彙: ${metrics.topKeywords.join(', ')}`;
+                
+                const aiText = await callGeminiAPI(prompt);
+                window.aiCache.students[userId] = aiText;
+                renderStudentAIResult(userId, aiText, sugBox);
+            } catch(e) {
+                sugBox.innerHTML = '<span class="text-red-500"><i class="fas fa-exclamation-triangle"></i> AI 診斷生成失敗。</span>';
+            }
+        }
+
+        function renderStudentAIResult(userId, text, container) {
+            const formattedText = marked.parse(text);
+            container.innerHTML = `
+                <div class="bg-blue-50 border-l-4 border-blue-400 p-3 rounded-r text-sm text-slate-700 relative shadow-sm">
+                    <button onclick="triggerStudentAI('${userId}', true)" class="absolute top-2 right-2 text-xs text-blue-500 hover:text-blue-700 bg-white px-2 py-0.5 rounded border border-blue-200 transition shadow-sm"><i class="fas fa-redo"></i> 重算</button>
+                    <div class="prose prose-sm prose-blue pr-12 leading-relaxed">${formattedText}</div>
+                </div>
+            `;
+        }
+
         function calculateStudentMetrics(db, userId) {
             if (!db || !db.userList) return null;
             const uIdStr = String(userId);
@@ -1749,7 +1757,6 @@
                 else if (outDegree > 3) { role = "連結者"; badgeColor = "bg-yellow-100 text-yellow-600 border-yellow-200"; }
             }
 
-            // 優化：擴充停用詞字典，過濾口語雜訊，提取真正具有學術/認知價值的詞彙指紋
             const stopWords = ['的','是','在','有','和','了','與','就','也','但','我','你','他','我們','嗎','吧','個','這','那','不','人','都','很', '因為', '所以', '然後', '如果', '覺得', '可以', '可能', '一個', '什麼', '怎麼', '為什麼', '其實']; 
             const tokens = myTextContent.toLowerCase().split(/[\s,，.。:：!?！？"”'’()（）]+/); 
             const freq = {}; tokens.forEach(w => { if(w.length > 1 && !stopWords.includes(w) && isNaN(w)) freq[w] = (freq[w] || 0) + 1; });
@@ -1759,7 +1766,6 @@
             const collaborateCount = noteCount - initiateCount; 
             const balanceData = [initiateCount, collaborateCount];
 
-            // --- 核心能力計分優化 (修復雷達圖的真實配分機制) ---
             const baseAgency = (scaffoldCounts.question * 15 + scaffoldCounts.improve * 10 + scaffoldCounts.riseabove * 20);
             const agencyScore = Math.min(baseAgency + (scaffoldCounts.other * 2), 100); 
             
@@ -1770,26 +1776,21 @@
             
             const radarData = [agencyScore, communityScore, ideaImpScore, synthesisScore, inquiryScore];
             
-            // --- 徹底重寫：深度演化軌跡 (真實時間軸與動態數據萃取) ---
             const classSortedNotes = [...globalAllNotes].sort((a, b) => a.dateTime - b.dateTime);
             let depthTrend = [0, 0, 0, 0, 0];
             
             if (classSortedNotes.length > 0 && myNodes.length > 0) {
                 const startT = classSortedNotes[0].dateTime;
                 const endT = classSortedNotes[classSortedNotes.length - 1].dateTime;
-                // 將整個主題的時間跨度切分為 5 個等長區間
                 const interval = Math.max((endT - startT) / 5, 1000);
                 
                 let cumulativeDepth = 0;
                 for(let i=0; i<5; i++) {
                     const bStart = startT + i*interval;
-                    const bEnd = i === 4 ? endT + 1000 : bStart + interval; // 確保最後一個區間包容所有誤差
-                    
-                    // 找出該學生落在這個時間區間內的發文
+                    const bEnd = i === 4 ? endT + 1000 : bStart + interval; 
                     const periodNotes = myNodes.filter(n => n.dateTime >= bStart && n.dateTime < bEnd);
                     
                     periodNotes.forEach(n => {
-                        // 依照發文的知識層次賦予不同深度積分
                         if (n.type === 'question') cumulativeDepth += 2;
                         else if (n.type === 'extend') cumulativeDepth += 3;
                         else if (n.type === 'improve' || n.type === 'counter') cumulativeDepth += 5;
@@ -1799,19 +1800,8 @@
                     depthTrend[i] = cumulativeDepth; 
                 }
             }
-            
-            // --- AI 綜合行動建議動態判斷優化 ---
-            const suggestions = [];
-            if (noteCount === 0) {
-                suggestions.push("在當前選擇的主題下，該生尚無發言紀錄。建議鼓勵他從提出一個簡單的疑問開始參與。");
-            } else {
-                if (outDegree === 0) suggestions.push("該生在此主題有提出想法，但尚未回覆任何人。引導他去閱讀同儕的筆記並嘗試使用「延伸」鷹架。");
-                if (scaffoldCounts.riseabove === 0 && noteCount > 3) suggestions.push("該生已累積多篇發言，具備總結的潛力。請提醒他嘗試將自己與他人的觀點進行「整合 (Rise-above)」。");
-                if (inDegree === 0 && noteCount > 2) suggestions.push("該生的發言目前尚未獲得同儕迴響。老師可以在課堂上刻意提及他的觀點，增加他在社群中的能見度。");
-                if (suggestions.length === 0) suggestions.push("該生在當前主題的發言質量與互動均表現優異，請鼓勵他持續保持高度的社群貢獻！");
-            }
 
-            return { user, noteCount, scaffoldCounts, visNodes, visEdges: egoEdges, depthTrend, suggestions, radarData, role, badgeColor, topKeywords, balanceData };
+            return { user, noteCount, scaffoldCounts, visNodes, visEdges: egoEdges, depthTrend, radarData, role, badgeColor, topKeywords, balanceData, inDegree, outDegree };
         }
 
         let egoNetworkInstance, radarChartInstance, balanceChartInstance, studentDepthChartInstance;
@@ -1831,14 +1821,13 @@
             const badge = document.getElementById('kb-role-badge'); badge.innerText = data.role; badge.className = `text-[10px] px-2 py-0.5 rounded-full border font-bold tracking-wide ${data.badgeColor}`; badge.classList.remove('hidden');
             document.getElementById('student-keywords-container').innerHTML = data.topKeywords.length > 0 ? data.topKeywords.map(k => `<span class="bg-amber-50 text-amber-700 border border-amber-200 px-2 py-1 rounded text-xs">${k}</span>`).join('') : '<span class="text-xs text-slate-400">無相關詞彙記錄</span>';
             const ctxR = document.getElementById('radarChart').getContext('2d'); if(radarChartInstance) radarChartInstance.destroy(); radarChartInstance = new Chart(ctxR, { type: 'radar', data: { labels: ['主體性','社群互動','觀點改進','昇華整合','持續探究'], datasets: [{ label: displayName, data: data.radarData, backgroundColor:'rgba(59,130,246,0.2)', borderColor:'#3B82F6' }] }, options: { responsive:true, maintainAspectRatio:false, scales: { r: { suggestedMin: 0, suggestedMax: 100, ticks:{display:false} } } } });
-            const container = document.getElementById('ego-network-container'); if(egoNetworkInstance) { egoNetworkInstance.destroy(); egoNetworkInstance = null; } egoNetworkInstance = new vis.Network(container, { nodes: new vis.DataSet(data.visNodes), edges: new vis.DataSet(data.visEdges) }, { nodes: { shape: 'dot' }, physics: { stabilization: { iterations: 200, fit: true } } });
+            const container = document.getElementById('ego-network-container'); if(egoNetworkInstance) { egoNetworkInstance.destroy(); egoNetworkInstance = null; } egoNetworkInstance = new vis.Network(container, { nodes: new vis.DataSet(data.visNodes), edges: new vis.DataSet(data.visEdges) }, { nodes: { shape: 'dot' }, physics: { stabilization: true } });
             const ctxB = document.getElementById('balanceChart').getContext('2d'); if(balanceChartInstance) balanceChartInstance.destroy(); 
             const totalBal = data.balanceData[0] + data.balanceData[1];
             document.getElementById('bal-init').innerText = totalBal > 0 ? Math.round(data.balanceData[0]/totalBal*100) + '%' : '0%'; 
             document.getElementById('bal-build').innerText = totalBal > 0 ? Math.round(data.balanceData[1]/totalBal*100) + '%' : '0%';
             balanceChartInstance = new Chart(ctxB, { type: 'doughnut', data: { labels: ['自主', '協作'], datasets: [{ data: data.balanceData, backgroundColor: ['#3b82f6', '#22c55e'] }] }, options: { responsive: true, cutout: '70%', plugins: { legend: { display: false } } } });
             
-            // 釋放 Y 軸固定 100 的上限，讓累積深度能隨著真實發文量自由飆升
             const ctxD = document.getElementById('studentDepthChart').getContext('2d'); if(studentDepthChartInstance) studentDepthChartInstance.destroy(); 
             studentDepthChartInstance = new Chart(ctxD, { 
                 type: 'line', 
@@ -1849,13 +1838,18 @@
                 options: { responsive:true, maintainAspectRatio:false, scales: { y: { beginAtZero: true } } } 
             });
             
+            // AI Suggestions Block Update
             const sugBox = document.getElementById('ai-suggestions');
-            if (aiStudentCache[userId]) {
-                sugBox.innerHTML = aiStudentCache[userId];
+            if (window.aiCache.students[userId]) {
+                renderStudentAIResult(userId, window.aiCache.students[userId], sugBox);
             } else {
-                let html = data.suggestions.map(s => `<div class="p-3 bg-blue-50 border-l-4 border-blue-400 text-sm text-blue-800 rounded-r shadow-sm mb-2"><i class="fas fa-lightbulb mr-2"></i> ${s}</div>`).join('');
-                html += `<button onclick="generateStudentAI('${userId}')" class="mt-2 w-full text-center text-xs bg-gradient-to-r from-indigo-500 to-purple-600 text-white py-2.5 rounded shadow-sm hover:shadow-md hover:-translate-y-px transition"><i class="fas fa-robot mr-1"></i> 導入 AI 個別深度分析</button>`;
-                sugBox.innerHTML = html;
+                sugBox.innerHTML = `
+                    <div class="text-center py-4">
+                        <button onclick="triggerStudentAI('${userId}')" class="bg-white border border-blue-300 text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg font-bold text-sm transition shadow-sm">
+                            <i class="fas fa-magic mr-2"></i>生成 AI 專屬個人診斷
+                        </button>
+                    </div>
+                `;
             }
         }
 
@@ -1867,7 +1861,6 @@
             users.forEach(s => {
                 const el = document.createElement('div'); el.className = 'student-item p-3 rounded-lg cursor-pointer border border-transparent hover:bg-slate-50 transition mb-2'; el.id = `student-btn-${s.id}`; el.onclick = () => loadStudentData(s.id);
                 
-                // 加入嚴格防錯機制，避免因缺少姓名導致迴圈中斷
                 const displayName = s.name || 'Unknown';
                 const initial = displayName[0];
 
@@ -1876,123 +1869,64 @@
             });
         }
 
-        function showAIAlert(promptText) {
-            const existing = document.getElementById('ai-alert-modal');
-            if(existing) existing.remove();
-            document.body.insertAdjacentHTML('beforeend', `
-                <div id="ai-alert-modal" class="modal-overlay open" onclick="this.remove()">
-                    <div class="modal-content max-w-sm m-auto p-6 text-center" onclick="event.stopPropagation()">
-                        <div class="text-purple-500 text-4xl mb-4"><i class="fas fa-robot"></i></div>
-                        <h3 class="text-lg font-bold text-slate-800 mb-2">AI 諮詢功能開發中</h3>
-                        <p class="text-sm text-slate-600 mb-6 bg-slate-50 p-3 rounded border border-slate-100">${promptText}</p>
-                        <button onclick="document.getElementById('ai-alert-modal').remove()" class="bg-purple-600 text-white px-6 py-2 rounded-lg shadow hover:bg-purple-700 transition">知道了</button>
-                    </div>
-                </div>
-            `);
+        // ====== AI Ref Modal Generation ======
+        async function triggerRefAI(key, promptBase) {
+            const btn = document.getElementById(`ref-ai-btn-${key}`);
+            const resultDiv = document.getElementById(`ref-ai-result-${key}`);
+            
+            if (window.aiCache.refs[key]) {
+                resultDiv.classList.remove('hidden');
+                resultDiv.innerHTML = `<div class="prose prose-sm prose-purple leading-relaxed">${marked.parse(window.aiCache.refs[key])}</div>`;
+                return;
+            }
+
+            btn.innerHTML = '<span><i class="fas fa-spinner fa-spin mr-2"></i>AI 正在思考解決方案...</span>';
+            
+            try {
+                const prompt = `作為教育專家，針對知識建構(Knowledge Building)指標提問：「${promptBase}」。請結合學習科學理論，用 150 字以內給出具體且實用的繁體中文教學引導建議。`;
+                const aiText = await callGeminiAPI(prompt);
+                
+                window.aiCache.refs[key] = aiText;
+                
+                btn.innerHTML = `<span><i class="fas fa-check-circle mr-2 text-green-500"></i> AI 建議已生成</span>`;
+                resultDiv.classList.remove('hidden');
+                resultDiv.innerHTML = `<div class="prose prose-sm prose-purple leading-relaxed">${marked.parse(aiText)}</div>`;
+            } catch (e) {
+                btn.innerHTML = '<span class="text-red-500"><i class="fas fa-exclamation-triangle mr-2"></i>分析失敗，請重試</span>';
+            }
         }
 
         // ===========================================
         //  UPDATED REF CONTENT & FUNCTION
         // ===========================================
         const refContent = {
-            // General Metrics
-            'total_notes': {
-                title: '總發文數',
-                theory: '社會互動論 (Vygotsky)：量變是質變的基礎。在 CSCL 環境中，足夠的對話量是社群知識建構的前提。',
-                diagnosis: '低發文量 (<10) 通常導致社群連結斷裂；高發文量則需進一步檢視內容品質。',
-                source: 'Scardamalia, M., & Bereiter, C. (2006). Knowledge building: Theory, pedagogy, and technology.',
-                ai_prompt: '如何激勵低參與度的學生發言？'
-            },
-            'density': {
-                title: '社群密度',
-                theory: '社會網絡分析 (SNA)：密度反映了群體內部的資訊流通效率與凝聚力。',
-                diagnosis: '密度 < 0.2：對話鬆散，缺乏回應。密度 > 0.5：互動熱絡，形成緊密社群。',
-                source: 'Zhang, J., et al. (2009). Designs for collective cognitive responsibility in knowledge-building communities.',
-                ai_prompt: '如何提升班級的對話互動密度？'
-            },
-            'rise_above': {
-                title: '知識昇華率',
-                theory: '知識建構理論 (KB)：Rise-above 代表觀點的整合與昇華，是知識創造的關鍵指標。',
-                diagnosis: '若比例 < 5%，代表討論流於發散，缺乏歸納。',
-                source: 'Scardamalia, M. (2002). Collective cognitive responsibility for the advancement of knowledge.',
-                ai_prompt: '如何引導學生進行觀點整合與昇華？'
-            },
-            'risk': {
-                title: '需引導名單',
-                theory: '學習落後預警機制：及早識別邊緣參與者，避免「馬太效應」(強者恆強)。',
-                diagnosis: '邊緣學生通常缺乏「被回應」的經驗，導致自我效能感低落。',
-                source: '',
-                ai_prompt: '針對低參與度學生的介入策略？'
-            },
-            // Advanced Metrics
-            'gini': {
-                title: '參與平等性',
-                theory: '洛倫茲曲線 (Lorenz Curve)：測量資源（此處為發言權）分配的不平等程度。',
-                diagnosis: 'Gini 係數越接近 0 越平等。若 > 0.6，代表討論被少數「話語霸權」壟斷。',
-                source: 'Gini, C. (1912). Variability and Mutability.',
-                ai_prompt: '如何平衡班級內的發言權結構？'
-            },
-            'thread_depth': {
-                title: '對話深度',
-                theory: '持續性探究 (Sustained Inquiry)：深度代表對話的延續性與深入程度。',
-                diagnosis: '深度 > 3 表示觀點有經過反覆辯證；深度 < 1.5 代表多為單次發言。',
-                source: 'Hakkarainen, K. (2003). Progressive inquiry in a computer‐supported science learning environment.',
-                ai_prompt: '如何設計問題以引發更深層的對話？'
-            },
-            // Quality Metrics
-            'lens': {
-                title: '深度對話透視',
-                theory: '認知層次分類 (Cognitive Depth)：區分事實陳述 (Fact) 與理論建構 (Theory/Explanation)。',
-                diagnosis: '理想的 KB 對話應從 Fact 轉向 Theory，並勇於提出 Challenge。',
-                source: 'Bloom, B. S. (1956). Taxonomy of Educational Objectives.',
-                ai_prompt: '如何引導學生從描述事實轉向解釋理論？'
-            },
-            'stream': {
-                title: '關鍵對話流',
-                theory: '時間序列分析 (Time-Series)：觀察討論熱度隨時間的變化模式。',
-                diagnosis: '識別「冷場期」與「爆發期」，並分析引發爆發的關鍵事件。',
-                source: 'Reimann, P. (2009). Time is precious: Variable-and event-centred approaches to process analysis.',
-                ai_prompt: '如何維持長期的討論熱度？'
-            },
-            // New Metrics
-            'emotion': {
-                title: '認知情緒溫譜',
-                theory: '認知情緒 (Epistemic Emotions)：好奇、困惑、驚訝是推動探究的內在動力。',
-                diagnosis: '缺乏「困惑」的討論可能流於表面；缺乏「驚訝」代表缺乏認知衝突。',
-                source: 'Pekrun, R., et al. (2017). Epistemic emotions.',
-                ai_prompt: '如何設計引發認知衝突與驚訝的教學活動？'
-            },
-            'lexical_growth_index': {
-                title: '詞彙成長指數',
-                theory: '學術語言社會化 (Academic Socialization)：從生活語言轉向該領域的專業社群語言。',
-                diagnosis: '學術詞彙曲線應隨時間上升，若持平則代表知識停留在常識層次。',
-                source: 'Snow, C. E. (2010). Academic language and the challenge of reading for learning.',
-                ai_prompt: '如何透過鷹架提升學生的學術詞彙使用？'
-            },
-            'scaffold_transition': {
-                title: '鷹架轉移矩陣',
-                theory: '對話流動結構 (Discourse Flow)：分析言談行動 (Speech Acts) 的序列關係。',
-                diagnosis: '「提問 -> 改進」是高生產力模式；「提問 -> 提問」可能代表迷失方向。',
-                source: 'Jeong, A. (2005). The effects of transition probabilities on sequential patterns.',
-                ai_prompt: '如何優化班級的對話回應模式？'
-            },
-            // Default fallbacks handled gracefully now
-            'kb_trajectory': { title:'知識推進軌跡', theory: '知識演化路徑與理論發展的關係。', diagnosis: '觀察「提出的問題」與「發展的理論」兩條線的增長趨勢。', source: '', ai_prompt: '' },
-            'lag_sequence': { title:'言談序列轉移', theory: '序列轉移機率 (Lag Sequential Analysis)。', diagnosis: '分析發言的行為模式，找出對話如何接續的慣性。', source: 'Jeong (2003)', ai_prompt: '' },
-            'brokers': { title:'知識經紀人', theory: '社會網絡中的中介中心性 (Betweenness Centrality)。', diagnosis: '識別在不同群體間傳遞資訊的關鍵守門人與橋樑。', source: '', ai_prompt: '' },
-            'sna': { title:'社群互動結構', theory: '社會網絡結構視覺化 (SNA)。', diagnosis: '直觀觀察互動網路的緊密度，尋找邊緣與核心成員。', source: '', ai_prompt: '' },
-            'principles': { title:'鷹架分佈分析', theory: '知識建構的多元鷹架設計原則。', diagnosis: '檢視各種發言類型是否均衡，避免僅有提問而缺乏統整。', source: 'Scardamalia (2002)', ai_prompt: '' },
-            'kb12': { title:'KB 12原則落實', theory: 'KB 12原則的系統性實證檢核。', diagnosis: '透過各項數據閾值，客觀評估班級是否達到高品質知識建構社群標準。', source: '', ai_prompt: '' },
-            'impact_scatter': { title:'互動影響力矩陣', theory: '產出-影響力矩陣 (Socio-cognitive dynamics)。', diagnosis: '區分高產出低影響與低產出高影響的學生，給予不同策略。', source: 'Zhang et al. (2007)', ai_prompt: '' },
-            'scaffold_profile': { title:'認知鷹架指紋', theory: '認知策略與個人化學習風格分析。', diagnosis: '比較全班與高產出學生的發言習慣差異。', source: '', ai_prompt: '' },
-            'promisingness': { title:'潛力觀點分析', theory: '觀點潛力評估 (Idea Promisingness)。', diagnosis: '找出社群內受到高度關注且具備深化價值的想法。', source: 'Chen et al. (2012)', ai_prompt: '' },
-            'concept_network': { title:'概念網絡分析', theory: '概念關聯與語義網絡共現性。', diagnosis: '視覺化知識結構的豐富度，觀察關鍵詞如何被連結。', source: '', ai_prompt: '' },
-            'lexical_growth': { title:'學術詞彙成長', theory: '專業詞彙的累積與社會化。', diagnosis: '檢視知識深度是否隨著時間與討論量而有效累積。', source: '', ai_prompt: '' },
-            'radar': { title:'KB 五力雷達圖', theory: '綜合認知能力的多維度評估。', diagnosis: '透過五大指標(主體、社群、改進、整合、探究)了解學生全貌。', source: '', ai_prompt: '' },
-            'ego': { title:'自我互動圈', theory: '自我中心網絡 (Ego Network)。', diagnosis: '檢視個人在社群中所擁有的社交資本與互動對象。', source: '', ai_prompt: '' },
-            'balance': { title:'自主協作平衡', theory: '個人貢獻與社群協作的平衡度。', diagnosis: '比較主動發起話題與依附他人觀點的比例。', source: '', ai_prompt: '' },
-            'depth_trajectory': { title:'深度演化軌跡', theory: '個體思考層次的時序追蹤。', diagnosis: '觀察學生隨時間推進，其認知深度的提升歷程。', source: '', ai_prompt: '' },
-            'lexical_fingerprint': { title:'個人詞彙指紋', theory: '個人思維慣用語分析。', diagnosis: '提取個人高頻詞彙，了解其關注焦點與思考層次。', source: '', ai_prompt: '' }
+            'total_notes': { title: '總發文數', theory: '社會互動論 (Vygotsky)：量變是質變的基礎。在 CSCL 環境中，足夠的對話量是社群知識建構的前提。', diagnosis: '低發文量 (<10) 通常導致社群連結斷裂；高發文量則需進一步檢視內容品質。', source: 'Scardamalia, M., & Bereiter, C. (2006). Knowledge building: Theory, pedagogy, and technology.', ai_prompt: '如何激勵低參與度的學生發言？' },
+            'density': { title: '社群密度', theory: '社會網絡分析 (SNA)：密度反映了群體內部的資訊流通效率與凝聚力。', diagnosis: '密度 < 0.2：對話鬆散，缺乏回應。密度 > 0.5：互動熱絡，形成緊密社群。', source: 'Zhang, J., et al. (2009). Designs for collective cognitive responsibility in knowledge-building communities.', ai_prompt: '如何提升班級的對話互動密度？' },
+            'rise_above': { title: '知識昇華率', theory: '知識建構理論 (KB)：Rise-above 代表觀點的整合與昇華，是知識創造的關鍵指標。', diagnosis: '若比例 < 5%，代表討論流於發散，缺乏歸納。', source: 'Scardamalia, M. (2002). Collective cognitive responsibility for the advancement of knowledge.', ai_prompt: '如何引導學生進行觀點整合與昇華？' },
+            'risk': { title: '需引導名單', theory: '學習落後預警機制：及早識別邊緣參與者，避免「馬太效應」(強者恆強)。', diagnosis: '邊緣學生通常缺乏「被回應」的經驗，導致自我效能感低落。', source: '', ai_prompt: '針對低參與度學生的介入策略？' },
+            'gini': { title: '參與平等性', theory: '洛倫茲曲線 (Lorenz Curve)：測量資源（此處為發言權）分配的不平等程度。', diagnosis: 'Gini 係數越接近 0 越平等。若 > 0.6，代表討論被少數「話語霸權」壟斷。', source: 'Gini, C. (1912). Variability and Mutability.', ai_prompt: '如何平衡班級內的發言權結構？' },
+            'thread_depth': { title: '對話深度', theory: '持續性探究 (Sustained Inquiry)：深度代表對話的延續性與深入程度。', diagnosis: '深度 > 3 表示觀點有經過反覆辯證；深度 < 1.5 代表多為單次發言。', source: 'Hakkarainen, K. (2003). Progressive inquiry in a computer‐supported science learning environment.', ai_prompt: '如何設計問題以引發更深層的對話？' },
+            'lens': { title: '深度對話透視', theory: '認知層次分類 (Cognitive Depth)：區分事實陳述 (Fact) 與理論建構 (Theory/Explanation)。', diagnosis: '理想的 KB 對話應從 Fact 轉向 Theory，並勇於提出 Challenge。', source: 'Bloom, B. S. (1956). Taxonomy of Educational Objectives.', ai_prompt: '如何引導學生從描述事實轉向解釋理論？' },
+            'stream': { title: '關鍵對話流', theory: '時間序列分析 (Time-Series)：觀察討論熱度隨時間的變化模式。', diagnosis: '識別「冷場期」與「爆發期」，並分析引發爆發的關鍵事件。', source: 'Reimann, P. (2009). Time is precious: Variable-and event-centred approaches to process analysis.', ai_prompt: '如何維持長期的討論熱度？' },
+            'emotion': { title: '認知情緒溫譜', theory: '認知情緒 (Epistemic Emotions)：好奇、困惑、驚訝是推動探究的內在動力。', diagnosis: '缺乏「困惑」的討論可能流於表面；缺乏「驚訝」代表缺乏認知衝突。', source: 'Pekrun, R., et al. (2017). Epistemic emotions.', ai_prompt: '如何設計引發認知衝突與驚訝的教學活動？' },
+            'lexical_growth_index': { title: '詞彙成長指數', theory: '學術語言社會化 (Academic Socialization)：從生活語言轉向該領域的專業社群語言。', diagnosis: '學術詞彙曲線應隨時間上升，若持平則代表知識停留在常識層次。', source: 'Snow, C. E. (2010). Academic language and the challenge of reading for learning.', ai_prompt: '如何透過鷹架提升學生的學術詞彙使用？' },
+            'scaffold_transition': { title: '鷹架轉移矩陣', theory: '對話流動結構 (Discourse Flow)：分析言談行動 (Speech Acts) 的序列關係。', diagnosis: '「提問 -> 改進」是高生產力模式；「提問 -> 提問」可能代表迷失方向。', source: 'Jeong, A. (2005). The effects of transition probabilities on sequential patterns.', ai_prompt: '如何優化班級的對話回應模式？' },
+            'kb_trajectory': { title:'知識推進軌跡', theory: '知識演化路徑與理論發展的關係。', diagnosis: '觀察「提出的問題」與「發展的理論」兩條線的增長趨勢。', source: '', ai_prompt: '如何將提問轉化為理論建構？' },
+            'lag_sequence': { title:'言談序列轉移', theory: '序列轉移機率 (Lag Sequential Analysis)。', diagnosis: '分析發言的行為模式，找出對話如何接續的慣性。', source: 'Jeong (2003)', ai_prompt: '如何改變學生總是附和而不質疑的對話慣性？' },
+            'brokers': { title:'知識經紀人', theory: '社會網絡中的中介中心性 (Betweenness Centrality)。', diagnosis: '識別在不同群體間傳遞資訊的關鍵守門人與橋樑。', source: '', ai_prompt: '如何培養班級中的知識經紀人？' },
+            'sna': { title:'社群互動結構', theory: '社會網絡結構視覺化 (SNA)。', diagnosis: '直觀觀察互動網路的緊密度，尋找邊緣與核心成員。', source: '', ai_prompt: '如何改善過於鬆散的社群互動網絡？' },
+            'principles': { title:'鷹架分佈分析', theory: '知識建構的多元鷹架設計原則。', diagnosis: '檢視各種發言類型是否均衡，避免僅有提問而缺乏統整。', source: 'Scardamalia (2002)', ai_prompt: '學生一直停留在「提問」階段，如何引導他們使用其他鷹架？' },
+            'kb12': { title:'KB 12原則落實', theory: 'KB 12原則的系統性實證檢核。', diagnosis: '透過各項數據閾值，客觀評估班級是否達到高品質知識建構社群標準。', source: '', ai_prompt: '如何提升 KB 12原則中的「集體認知責任」？' },
+            'impact_scatter': { title:'互動影響力矩陣', theory: '產出-影響力矩陣 (Socio-cognitive dynamics)。', diagnosis: '區分高產出低影響與低產出高影響的學生，給予不同策略。', source: 'Zhang et al. (2007)', ai_prompt: '如何幫助「高產出但低影響力」的學生獲得社群共鳴？' },
+            'scaffold_profile': { title:'認知鷹架指紋', theory: '認知策略與個人化學習風格分析。', diagnosis: '比較全班與高產出學生的發言習慣差異。', source: '', ai_prompt: '如何引導學生跳出慣用的思考策略？' },
+            'promisingness': { title:'潛力觀點分析', theory: '觀點潛力評估 (Idea Promisingness)。', diagnosis: '找出社群內受到高度關注且具備深化價值的想法。', source: 'Chen et al. (2012)', ai_prompt: '如何在課堂中妥善利用被標記為「高潛力」的想法？' },
+            'concept_network': { title:'概念網絡分析', theory: '概念關聯與語義網絡共現性。', diagnosis: '視覺化知識結構的豐富度，觀察關鍵詞如何被連結。', source: '', ai_prompt: '如何透過概念網路圖引導學生找出尚未討論到的知識盲區？' },
+            'lexical_growth': { title:'學術詞彙成長', theory: '專業詞彙的累積與社會化。', diagnosis: '檢視知識深度是否隨著時間與討論量而有效累積。', source: '', ai_prompt: '如何引導學生自然地將生活語言轉化為學科專業詞彙？' },
+            'radar': { title:'KB 五力雷達圖', theory: '綜合認知能力的多維度評估。', diagnosis: '透過五大指標(主體、社群、改進、整合、探究)了解學生全貌。', source: '', ai_prompt: '如何設計任務來提升學生的「知識整合」能力？' },
+            'ego': { title:'自我互動圈', theory: '自我中心網絡 (Ego Network)。', diagnosis: '檢視個人在社群中所擁有的社交資本與互動對象。', source: '', ai_prompt: '如何幫助在互動圈中孤立的學生建立穩定的同儕連結？' },
+            'balance': { title:'自主協作平衡', theory: '個人貢獻與社群協作的平衡度。', diagnosis: '比較主動發起話題與依附他人觀點的比例。', source: '', ai_prompt: '針對只喜歡「附和他人」而不「主動發起」的學生，有什麼引導策略？' },
+            'depth_trajectory': { title:'深度演化軌跡', theory: '個體思考層次的時序追蹤。', diagnosis: '觀察學生隨時間推進，其認知深度的提升歷程。', source: '', ai_prompt: '如果學生的認知深度軌跡出現停滯，該如何給予挑戰？' },
+            'lexical_fingerprint': { title:'個人詞彙指紋', theory: '個人思維慣用語分析。', diagnosis: '提取個人高頻詞彙，了解其關注焦點與思考層次。', source: '', ai_prompt: '如何利用學生的個人高頻詞彙，設計個人化的延伸探究任務？' }
         };
 
         function openRef(key) {
@@ -2000,194 +1934,104 @@
             const body = document.getElementById('ref-modal-body');
             const content = refContent[key] || refContent['total_notes']; 
             
-            // 核心：動態抓取當前數值並轉換為具體的白話文解讀 (meaningText)
-            let dynamicVal = "N/A";
-            let dynamicStatus = "分析中...";
-            let meaningText = "暫無解讀資料。";
+            let dynamicVal = "N/A"; let dynamicStatus = "分析中..."; let meaningText = "暫無解讀資料。";
 
-            // 1. 全域 / 班級整體指標
             if (key === 'density') {
                 const d = parseFloat(globalClassStats.density || 0);
-                dynamicVal = d.toFixed(2);
-                dynamicStatus = d < 0.2 ? '偏低 (需加強互動)' : (d > 0.5 ? '良好 (社群緊密)' : '尚可 (發展中)');
-                meaningText = `👉 系統偵測到目前班級的社群密度數值為 <strong>${d.toFixed(2)}</strong>。<br><br>`;
-                meaningText += d < 0.2 ? '<strong>【真實現況】</strong> 大多數學生目前都是各說各話，像是在佈告欄貼紙條，互相沒有交集與回應，缺乏討論的火花。建議老師可指派互評或要求必須延伸他人想法的任務。'
-                            : (d > 0.5 ? '<strong>【真實現況】</strong> 班上同學的互動非常熱絡！大家不僅發言，還頻繁地互相回覆、補充，已經形成一個緊密交織的知識網路，具備深層探究的絕佳狀態。'
-                            : '<strong>【真實現況】</strong> 班上開始出現一些小型的討論聚落（例如幾個人在某個話題聊開了），但還沒擴及全班。目前屬於知識建構的發展期，老師可以適時將不同小組的討論焦點串聯起來。');
-            } 
-            else if (key === 'rise_above') {
+                dynamicVal = d.toFixed(2); dynamicStatus = d < 0.2 ? '偏低 (需加強互動)' : (d > 0.5 ? '良好 (社群緊密)' : '尚可 (發展中)');
+                meaningText = `👉 系統偵測到目前班級的社群密度數值為 <strong>${d.toFixed(2)}</strong>。<br><br>` + (d < 0.2 ? '<strong>【真實現況】</strong> 大多數學生目前都是各說各話，像是在佈告欄貼紙條，互相沒有交集與回應，缺乏討論的火花。建議老師可指派互評或要求必須延伸他人想法的任務。' : (d > 0.5 ? '<strong>【真實現況】</strong> 班上同學的互動非常熱絡！大家不僅發言，還頻繁地互相回覆、補充，已經形成一個緊密交織的知識網路，具備深層探究的絕佳狀態。' : '<strong>【真實現況】</strong> 班上開始出現一些小型的討論聚落（例如幾個人在某個話題聊開了），但還沒擴及全班。目前屬於知識建構的發展期，老師可以適時將不同小組的討論焦點串聯起來。'));
+            } else if (key === 'rise_above') {
                 const r = globalClassStats.raRate || 0;
-                dynamicVal = r + '%';
-                dynamicStatus = r >= 5 ? '表現優異' : '有待提升';
-                meaningText = `👉 系統偵測到目前班級的知識昇華率為 <strong>${r}%</strong>。<br><br>`;
-                meaningText += r >= 5 ? '<strong>【真實現況】</strong> 學生目前不僅僅是在丟點子，他們已經開始能夠回頭檢視大家的討論，並嘗試把不同的觀點收斂、歸納成更高層次的結論。這是非常棒的高階思維展現！'
-                            : '<strong>【真實現況】</strong> 學生目前的對話大多停留在「提出新想法」或是「表層的贊同/反對」，大家一直在開新話題，卻很少人願意幫忙總結這串到底討論出了什麼結果。建議老師可以親自示範一次如何把幾個不同的想法串聯起來。';
-            } 
-            else if (key === 'total_notes') {
-                const t = globalClassStats.totalNotes || 0;
-                const sc = globalClassStats.studentCount || 1;
-                const avg = (t / sc).toFixed(1);
-                dynamicVal = t + ' 篇';
-                dynamicStatus = '發言動能累積中';
-                meaningText = `👉 目前全班 <strong>${sc}</strong> 位學生共累積了 <strong>${t}</strong> 篇發言，平均每人產出 <strong>${avg}</strong> 篇。<br><br>`;
-                meaningText += t > (sc * 3) ? '<strong>【真實現況】</strong> 班級的發言動能非常充足！大家都很願意表達，文字量已經累積到一定的規模，這為後續更深入的收斂與討論打下了很好的基礎。' 
-                            : '<strong>【真實現況】</strong> 目前的總發言量明顯偏低，班級的討論引擎還沒真正發動。大家可能還在觀望或不知道怎麼開口。建議老師先降低發言門檻，鼓勵學生勇於寫下初步的猜想，哪怕只是一句簡單的疑問也好。';
-            } 
-            else if (key === 'risk') {
-                const r = globalClassStats.riskCount || 0;
-                const sc = globalClassStats.studentCount || 1;
-                dynamicVal = r + ' 人';
-                dynamicStatus = r > 0 ? '需教師介入引導' : '全員參與狀況良好';
-                meaningText = `👉 經過系統掃描全班 <strong>${sc}</strong> 位同學的發言紀錄...<br><br>`;
-                meaningText += r > 0 ? `<strong>【真實現況】</strong> 發現有 <strong><span class="text-red-600">${r}</span></strong> 位同學目前幾乎處於「潛水」狀態（發言極少或毫無互動）。他們在社群中正被邊緣化，可能遇到學習困難或缺乏參與動機。強烈建議老師立即透過點名或分配小組任務將他們拉回討論中。` 
-                            : '<strong>【真實現況】</strong> 太棒了！目前班上每一位同學都有參與到討論中，沒有發現明顯的社群邊緣人，整體的參與度非常健康。';
-            } 
-            else if (key === 'gini') {
+                dynamicVal = r + '%'; dynamicStatus = r >= 5 ? '表現優異' : '有待提升';
+                meaningText = `👉 系統偵測到目前班級的知識昇華率為 <strong>${r}%</strong>。<br><br>` + (r >= 5 ? '<strong>【真實現況】</strong> 學生目前不僅僅是在丟點子，他們已經開始能夠回頭檢視大家的討論，並嘗試把不同的觀點收斂、歸納成更高層次的結論。這是非常棒的高階思維展現！' : '<strong>【真實現況】</strong> 學生目前的對話大多停留在「提出新想法」或是「表層的贊同/反對」，大家一直在開新話題，卻很少人願意幫忙總結這串到底討論出了什麼結果。建議老師可以親自示範一次如何把幾個不同的想法串聯起來。');
+            } else if (key === 'total_notes') {
+                const t = globalClassStats.totalNotes || 0; const sc = globalClassStats.studentCount || 1; const avg = (t / sc).toFixed(1);
+                dynamicVal = t + ' 篇'; dynamicStatus = '發言動能累積中';
+                meaningText = `👉 目前全班 <strong>${sc}</strong> 位學生共累積了 <strong>${t}</strong> 篇發言，平均每人產出 <strong>${avg}</strong> 篇。<br><br>` + (t > (sc * 3) ? '<strong>【真實現況】</strong> 班級的發言動能非常充足！大家都很願意表達，文字量已經累積到一定的規模，這為後續更深入的收斂與討論打下了很好的基礎。' : '<strong>【真實現況】</strong> 目前的總發言量明顯偏低，班級的討論引擎還沒真正發動。大家可能還在觀望或不知道怎麼開口。建議老師先降低發言門檻，鼓勵學生勇於寫下初步的猜想，哪怕只是一句簡單的疑問也好。');
+            } else if (key === 'risk') {
+                const r = globalClassStats.riskCount || 0; const sc = globalClassStats.studentCount || 1;
+                dynamicVal = r + ' 人'; dynamicStatus = r > 0 ? '需教師介入引導' : '全員參與狀況良好';
+                meaningText = `👉 經過系統掃描全班 <strong>${sc}</strong> 位同學的發言紀錄...<br><br>` + (r > 0 ? `<strong>【真實現況】</strong> 發現有 <strong><span class="text-red-600">${r}</span></strong> 位同學目前幾乎處於「潛水」狀態（發言極少或毫無互動）。他們在社群中正被邊緣化，可能遇到學習困難或缺乏參與動機。強烈建議老師立即透過點名或分配小組任務將他們拉回討論中。` : '<strong>【真實現況】</strong> 太棒了！目前班上每一位同學都有參與到討論中，沒有發現明顯的社群邊緣人，整體的參與度非常健康。');
+            } else if (key === 'gini') {
                 const g = parseFloat(globalClassStats.gini || 0);
-                dynamicVal = g.toFixed(2);
-                dynamicStatus = g < 0.4 ? '分配平均' : (g > 0.6 ? '高度集中 (麥克風被壟斷)' : '中度集中');
-                meaningText = `👉 系統計算出當前班級的參與平等性 (Gini) 指數為 <strong>${g.toFixed(2)}</strong>。<br><br>`;
-                meaningText += g < 0.4 ? '<strong>【真實現況】</strong> 目前班上的發言權分佈得很均勻。這意味著不是只有幾個學霸在唱獨角戲，大家都有開口說話的機會，是一個高度民主化且健康的討論環境。'
-                            : (g > 0.6 ? '<strong>【真實現況】</strong> 🚨 警訊！目前的對話已經被班上少數幾位特別活躍的學生「壟斷」了，多數人只是在看他們表演。建議賦予這些活躍學生「引導者」的任務，讓他們去邀請別人說話，把麥克風交出去。'
-                            : '<strong>【真實現況】</strong> 班上有一群核心的活躍學生主導了大部分的討論走向，其他同學雖然有參與，但影響力較弱。需留意活躍學生是否無意間壓抑了其他害羞同學的發言空間。');
-            } 
-            else if (key === 'thread_depth') {
+                dynamicVal = g.toFixed(2); dynamicStatus = g < 0.4 ? '分配平均' : (g > 0.6 ? '高度集中 (麥克風被壟斷)' : '中度集中');
+                meaningText = `👉 系統計算出當前班級的參與平等性 (Gini) 指數為 <strong>${g.toFixed(2)}</strong>。<br><br>` + (g < 0.4 ? '<strong>【真實現況】</strong> 目前班上的發言權分佈得很均勻。這意味著不是只有幾個學霸在唱獨角戲，大家都有開口說話的機會，是一個高度民主化且健康的討論環境。' : (g > 0.6 ? '<strong>【真實現況】</strong> 🚨 警訊！目前的對話已經被班上少數幾位特別活躍的學生「壟斷」了，多數人只是在看他們表演。建議賦予這些活躍學生「引導者」的任務，讓他們去邀請別人說話，把麥克風交出去。' : '<strong>【真實現況】</strong> 班上有一群核心的活躍學生主導了大部分的討論走向，其他同學雖然有參與，但影響力較弱。需留意活躍學生是否無意間壓抑了其他害羞同學的發言空間。'));
+            } else if (key === 'thread_depth') {
                 const td = parseFloat(globalClassStats.threadDepth || 0);
-                dynamicVal = td.toFixed(1) + ' 層';
-                dynamicStatus = td >= 3.0 ? '具備持續深究能力' : '表層沾水式交流';
-                meaningText = `👉 系統追蹤對話樹，計算出目前平均對話深度為 <strong>${td.toFixed(1)}</strong> 層。<br><br>`;
-                meaningText += td >= 3.0 ? '<strong>【真實現況】</strong> 學生現在遇到議題不會只是隨便聊聊就換話題，而是會針對同一個問題，你一句我一句地往下深挖、反覆辯證。這顯示班級已經具備了「持續性探究」的高階能力。'
-                            : '<strong>【真實現況】</strong> 目前多數的討論都很「淺」，通常是一個人發文，另一個人回覆一句「同意」，這個話題就死掉了，缺乏對話的延續性。老師可以挑選一個有潛力的討論串，拋出具爭議性的問題，要求大家就這個話題繼續往下接力。';
-            }
-            else if (key === 'kb_trajectory') {
-                dynamicVal = "問題與理論的比例走勢";
-                dynamicStatus = "知識推進狀態";
+                dynamicVal = td.toFixed(1) + ' 層'; dynamicStatus = td >= 3.0 ? '具備持續深究能力' : '表層沾水式交流';
+                meaningText = `👉 系統追蹤對話樹，計算出目前平均對話深度為 <strong>${td.toFixed(1)}</strong> 層。<br><br>` + (td >= 3.0 ? '<strong>【真實現況】</strong> 學生現在遇到議題不會只是隨便聊聊就換話題，而是會針對同一個問題，你一句我一句地往下深挖、反覆辯證。這顯示班級已經具備了「持續性探究」的高階能力。' : '<strong>【真實現況】</strong> 目前多數的討論都很「淺」，通常是一個人發文，另一個人回覆一句「同意」，這個話題就死掉了，缺乏對話的延續性。老師可以挑選一個有潛力的討論串，拋出具爭議性的問題，要求大家就這個話題繼續往下接力。');
+            } else if (key === 'kb_trajectory') {
+                dynamicVal = "問題與理論的比例走勢"; dynamicStatus = "知識推進狀態";
                 meaningText = "這張圖告訴我們班上的討論是『問題多』還是『答案多』。如果只有問題線很高，理論線很低，代表大家只停留在發問。最理想的狀態是『紫線(理論)』跟著『藍線(問題)』一起往上爬，代表學生不只會提問，還努力給出了解答與解釋。";
-            }
-            else if (key === 'lag_sequence' || key === 'scaffold_transition') {
-                dynamicVal = "熱門的接話模式";
-                dynamicStatus = "對話流動結構檢驗";
+            } else if (key === 'lag_sequence' || key === 'scaffold_transition') {
+                dynamicVal = "熱門的接話模式"; dynamicStatus = "對話流動結構檢驗";
                 meaningText = "這顯示了班上最常見的『接話習慣』。如果大家都是『提問接提問』，討論就沒有結論；如果都是『延伸接延伸』，大家就只是在互相附和。最棒的狀態是能看到大量『提問接改進』或是『改進接整合』，這代表討論產生了批判性的火花。老師可以看圖中哪一格顏色最深來了解班級現狀。";
-            }
-            else if (key === 'brokers') {
-                dynamicVal = "班級交流的橋樑人物";
-                dynamicStatus = "跨圈圈的交流核心";
+            } else if (key === 'brokers') {
+                dynamicVal = "班級交流的橋樑人物"; dynamicStatus = "跨圈圈的交流核心";
                 meaningText = "名單上的這些學生不見得是『話最多』的，但他們常常把不同小圈圈的想法串連起來，是班上不可或缺的『人際橋樑』。老師可以私下肯定他們，或指派他們擔任小組長，幫助全班交流更熱絡。";
-            }
-            else if (key === 'sna') {
-                dynamicVal = "班級發言交流網";
-                dynamicStatus = "整體互動健康度";
+            } else if (key === 'sna') {
+                dynamicVal = "班級發言交流網"; dynamicStatus = "整體互動健康度";
                 meaningText = "這張網畫出了班上所有人的對話關係。如果網子中間擠成一團，邊緣卻有很多散落的點，代表只有少數幾個人在熱烈討論，其他人被冷落了。老師的目標是引導潛水的學生發言，讓這張網看起來越密、每個人都有連線越好。";
-            }
-            else if (key === 'principles') {
-                dynamicVal = "各種發言類型佔比";
-                dynamicStatus = "對話豐富度";
+            } else if (key === 'principles') {
+                dynamicVal = "各種發言類型佔比"; dynamicStatus = "對話豐富度";
                 meaningText = "這是一個班級發言類型的圓餅圖。一個成熟的討論，不應該只有『提問』或『補充』。如果圖中代表『改進』和『整合』的區塊太小，老師可以在下次上課時，明確要求大家練習『總結別人的觀點』或是『提出不同看法』。";
-            }
-            else if (key === 'kb12') {
-                dynamicVal = "六大指標達成率";
-                dynamicStatus = "班級體檢表";
+            } else if (key === 'kb12') {
+                dynamicVal = "六大指標達成率"; dynamicStatus = "班級體檢表";
                 meaningText = "這就像是班級討論品質的雷達體檢圖，形狀越飽滿，代表班上的討論越符合國際認可的高品質標準。如果哪一項特別凹進去（例如：權威資料特別低），就提醒老師要多引導學生去查資料來佐證自己的想法。";
-            }
-            else if (key === 'impact_scatter') {
-                dynamicVal = "發文數與被回覆數的關係";
-                dynamicStatus = "學生貢獻度分類";
+            } else if (key === 'impact_scatter') {
+                dynamicVal = "發文數與被回覆數的關係"; dynamicStatus = "學生貢獻度分類";
                 meaningText = "這張圖把學生分成了四種類型：右上角是『發言多又常被回應』的核心人物；左上角是『話不多但一針見血』的智囊；右下角是『講很多但沒人理』的孤單型；左下角則是需要老師多關心、拉一把的潛水員。";
-            }
-            else if (key === 'scaffold_profile') {
-                dynamicVal = "個人發言偏好比較";
-                dynamicStatus = "學生的對話習慣";
+            } else if (key === 'scaffold_profile') {
+                dynamicVal = "個人發言偏好比較"; dynamicStatus = "學生的對話習慣";
                 meaningText = "從這張長條圖可以看出班上幾位高產出學生的『發言習慣』。有人喜歡當『提問機器』，有人喜歡『一直幫忙補充』。老師可以藉此了解誰適合扮演什麼角色，並鼓勵他們跳出舒適圈，嘗試自己不擅長的發言方式。";
-            }
-            else if (key === 'promisingness') {
-                dynamicVal = "觀點的潛力與熱度";
-                dynamicStatus = "找出黃金發言";
+            } else if (key === 'promisingness') {
+                dynamicVal = "觀點的潛力與熱度"; dynamicStatus = "找出黃金發言";
                 meaningText = "這張圖能幫老師快速淘金！圖中越靠右上角的點，代表這篇發言『大家很感興趣，而且具備很高的討論價值』。老師可以直接點擊那些大紅點，把這些好想法挑出來，在課堂上公開表揚並讓全班繼續深入討論。";
-            }
-            else if (key === 'concept_network') {
-                dynamicVal = "班級關鍵字網";
-                dynamicStatus = "話題聚焦程度";
+            } else if (key === 'concept_network') {
+                dynamicVal = "班級關鍵字網"; dynamicStatus = "話題聚焦程度";
                 meaningText = "這張圖抓出了大家最常提到的『關鍵字』。字越大代表越多人討論。如果出現了課程的重要專有名詞，且跟很多字連在一起，代表學生真的有把老師教的學科知識，靈活運用在他們的討論中。";
-            }
-            else if (key === 'lexical_growth' || key === 'lexical_growth_index') {
-                dynamicVal = "詞彙累積趨勢";
-                dynamicStatus = "學術語言進步程度";
+            } else if (key === 'lexical_growth' || key === 'lexical_growth_index') {
+                dynamicVal = "詞彙累積趨勢"; dynamicStatus = "學術語言進步程度";
                 meaningText = "隨著課程推進，學生討論時用到的『專業學術詞彙』應該要越來越多。如果這條線穩定往上走，代表他們學到了新觀念並開始使用；如果線條平平的，代表他們一直只用舊有的生活常識在聊天，缺乏專業知識的提升。";
-            }
-            else if (key === 'lens') {
-                dynamicVal = "認知層次分佈";
-                dynamicStatus = "深度對話透視";
+            } else if (key === 'lens') {
+                dynamicVal = "認知層次分佈"; dynamicStatus = "深度對話透視";
                 meaningText = "這個透視鏡分析了大家的話語停留在什麼層次。如果討論大多集中在『事實』，代表大家只是在找現成的答案；我們應該適時提問，引導學生走向『理論』(給出自己的解釋)，並進一步互相『挑戰』與『整合』。";
-            }
-            else if (key === 'stream') {
-                dynamicVal = "對話時序熱度";
-                dynamicStatus = "爆發期與冷場期";
+            } else if (key === 'stream') {
+                dynamicVal = "對話時序熱度"; dynamicStatus = "爆發期與冷場期";
                 meaningText = "這是整個討論活動的時間軸。高高低低的山峰代表討論的熱絡程度。您可以看出班上是在哪一天、哪個話題突然熱烈起來的（爆發期）。老師可以回顧波峰時段發生了什麼事，並把成功的經驗複製到未來的教學設計中。";
-            }
-            else if (key === 'emotion') {
-                dynamicVal = "情緒動力分佈";
-                dynamicStatus = "探究的內在動力";
+            } else if (key === 'emotion') {
+                dynamicVal = "情緒動力分佈"; dynamicStatus = "探究的內在動力";
                 meaningText = "適度的『困惑』與『驚訝』是打破學生既有迷思、促進真正學習的關鍵。如果這兩個情緒很低，大家都在『中性』狀態，代表討論可能流於交差了事，沒有產生真正的『動腦思考』與認知衝突。";
-            }
-            
-            // 2. 個人指標 (即時抓取選定學生的數據)
-            else if (['radar', 'ego', 'balance', 'lexical_fingerprint', 'depth_trajectory'].includes(key)) {
+            } else if (['radar', 'ego', 'balance', 'lexical_fingerprint', 'depth_trajectory'].includes(key)) {
                 const activeStudentEl = document.querySelector('.active-student');
                 if (!activeStudentEl) {
-                    dynamicVal = '--';
-                    dynamicStatus = '未選擇學生';
-                    meaningText = '請先在左側選單中點選一位學生，系統才能為您解讀該學生的專屬能力數據。';
+                    dynamicVal = '--'; dynamicStatus = '未選擇學生'; meaningText = '請先在左側選單中點選一位學生，系統才能為您解讀該學生的專屬能力數據。';
                 } else {
-                    const uid = activeStudentEl.id.replace('student-btn-', '');
-                    const db = getRealData();
-                    const studentData = calculateStudentMetrics(db, uid); 
-                    
+                    const uid = activeStudentEl.id.replace('student-btn-', ''); const db = getRealData(); const studentData = calculateStudentMetrics(db, uid); 
                     if (!studentData) {
-                        dynamicVal = '--';
-                        dynamicStatus = '資料讀取錯誤';
-                        meaningText = '無法載入該名學生的數據，可能該用戶已不存在於當前資料庫，請重整頁面。';
+                        dynamicVal = '--'; dynamicStatus = '資料讀取錯誤'; meaningText = '無法載入該名學生的數據，可能該用戶已不存在於當前資料庫，請重整頁面。';
                     } else if (key === 'radar') {
-                        const scores = studentData.radarData; 
-                        const maxIdx = scores.indexOf(Math.max(...scores));
-                        const labels = ['主體性', '社群互動', '觀點改進', '昇華整合', '持續探究'];
-                        dynamicVal = `優勢能力: ${labels[maxIdx]} (${scores[maxIdx]}分)`;
-                        dynamicStatus = '個人核心能力剖析';
-                        meaningText = `從雷達圖可以看出，該生在「${labels[maxIdx]}」表現最為突出。` + 
-                                      (maxIdx === 3 ? '這代表他具備卓越的收斂與統整能力，能看見大家觀點間的關聯，非常難得。' : 
-                                       maxIdx === 1 ? '這代表他是社群中的活躍分子，善於去別人文章底下留言、促進交流。' : 
-                                       maxIdx === 0 ? '這代表他具備高度認知主動性，常常引領新話題或提出新疑問。' : 
-                                       '這代表他在知識的推進、批判與改良上扮演了關鍵角色。');
+                        const scores = studentData.radarData; const maxIdx = scores.indexOf(Math.max(...scores)); const labels = ['主體性', '社群互動', '觀點改進', '昇華整合', '持續探究'];
+                        dynamicVal = `優勢能力: ${labels[maxIdx]} (${scores[maxIdx]}分)`; dynamicStatus = '個人核心能力剖析';
+                        meaningText = `從雷達圖可以看出，該生在「${labels[maxIdx]}」表現最為突出。` + (maxIdx === 3 ? '這代表他具備卓越的收斂與統整能力，能看見大家觀點間的關聯，非常難得。' : maxIdx === 1 ? '這代表他是社群中的活躍分子，善於去別人文章底下留言、促進交流。' : maxIdx === 0 ? '這代表他具備高度認知主動性，常常引領新話題或提出新疑問。' : '這代表他在知識的推進、批判與改良上扮演了關鍵角色。');
                     } else if (key === 'balance') {
-                        const init = studentData.balanceData[0];
-                        const coll = studentData.balanceData[1];
-                        const total = init + coll;
-                        const initPct = total > 0 ? Math.round(init/total*100) : 0;
-                        dynamicVal = `主動發起 ${initPct}% : 協作回應 ${100-initPct}%`;
-                        dynamicStatus = initPct > 60 ? '偏向獨立發起者' : (initPct < 40 ? '偏向協作回應者' : '攻守均衡');
-                        meaningText = initPct > 60 ? '該生傾向於自己開新話題，但比較少在既有討論串中去協助別人。建議引導他多去別人的文章底下使用「延伸」或「改進」。' 
-                                    : (initPct < 40 ? '該生極少主動開創新主題，但他非常習慣依附在他人的觀點上進行補充。老師可以鼓勵他勇敢提出自己的原創猜想。' 
-                                    : '該生在「提出新想法」與「改良他人想法」之間取得很好的平衡，這是最理想的參與模式。');
+                        const init = studentData.balanceData[0]; const coll = studentData.balanceData[1]; const total = init + coll; const initPct = total > 0 ? Math.round(init/total*100) : 0;
+                        dynamicVal = `主動發起 ${initPct}% : 協作回應 ${100-initPct}%`; dynamicStatus = initPct > 60 ? '偏向獨立發起者' : (initPct < 40 ? '偏向協作回應者' : '攻守均衡');
+                        meaningText = initPct > 60 ? '該生傾向於自己開新話題，但比較少在既有討論串中去協助別人。建議引導他多去別人的文章底下使用「延伸」或「改進」。' : (initPct < 40 ? '該生極少主動開創新主題，但他非常習慣依附在他人的觀點上進行補充。老師可以鼓勵他勇敢提出自己的原創猜想。' : '該生在「提出新想法」與「改良他人想法」之間取得很好的平衡，這是最理想的參與模式。');
                     } else if (key === 'ego') {
-                        const outD = studentData.outDegree;
-                        const inD = studentData.inDegree;
-                        dynamicVal = `被回覆 ${inD} 次 / 回覆他人 ${outD} 次`;
-                        dynamicStatus = outD > inD ? '主動連結型' : (inD > outD ? '意見領袖型' : '邊緣或平衡型');
-                        meaningText = inD > (outD * 2) && inD > 0 ? '該生周圍的線都指向他，代表他的發言經常吸引大量同儕回應，屬於班級中的「意見領袖」或話題中心。'
-                                    : (outD > (inD * 2) && outD > 0 ? '這代表該生很努力主動去回應他人，但大家比較少回覆他。老師可以教他如何把問題問得更具「爭議性」來吸引目光。'
-                                    : '這代表該生與同學們的互動有來有往，形成了很健康、互惠的小圈圈。');
+                        const outD = studentData.outDegree; const inD = studentData.inDegree;
+                        dynamicVal = `被回覆 ${inD} 次 / 回覆他人 ${outD} 次`; dynamicStatus = outD > inD ? '主動連結型' : (inD > outD ? '意見領袖型' : '邊緣或平衡型');
+                        meaningText = inD > (outD * 2) && inD > 0 ? '該生周圍的線都指向他，代表他的發言經常吸引大量同儕回應，屬於班級中的「意見領袖」或話題中心。' : (outD > (inD * 2) && outD > 0 ? '這代表該生很努力主動去回應他人，但大家比較少回覆他。老師可以教他如何把問題問得更具「爭議性」來吸引目光。' : '這代表該生與同學們的互動有來有往，形成了很健康、互惠的小圈圈。');
                     } else if (key === 'lexical_fingerprint') {
-                        dynamicVal = "個人常用詞彙庫";
-                        dynamicStatus = "思維偏好分析";
+                        dynamicVal = "個人常用詞彙庫"; dynamicStatus = "思維偏好分析";
                         meaningText = "這裡列出的是該名學生最常使用的詞彙。老師可以觀察，如果都是日常用語，代表他還在用直覺思考；如果開始出現學科專有名詞，代表他正在將課堂所學內化成自己的專業知識。";
                     } else if (key === 'depth_trajectory') {
-                        dynamicVal = "深度演化折線";
-                        dynamicStatus = "思考層次趨勢";
+                        dynamicVal = "深度演化折線"; dynamicStatus = "思考層次趨勢";
                         meaningText = "這條折線紀錄了學生思考深度的變化。如果線條往上走，表示他從一開始的『簡單提問』，慢慢進步到能『提出解釋』。如果線條往下掉或平平的，建議老師鼓勵他多寫一些『為什麼會這樣』的推論。";
                     }
                 }
             }
 
-            // 更新重構後的動態 HTML 排版
             body.innerHTML = `
                 <div class="ref-section">
                     <div class="ref-section-title ref-theory-title"><i class="fas fa-book-reader mr-2"></i> 知識建構理論背景</div>
@@ -2198,7 +2042,6 @@
                     <div class="ref-diag-box text-sm leading-relaxed">${content.diagnosis}</div>
                 </div>
                 
-                <!-- 新增：動態運算與具體白話文解讀區塊 -->
                 <div class="ref-section">
                     <div class="ref-section-title ref-status-title"><i class="fas fa-chart-line mr-2"></i> 系統即時診斷與解讀</div>
                     <div class="ref-status-box text-sm font-normal">
@@ -2226,13 +2069,14 @@
                     <div class="ref-section-title ref-source-title"><i class="fas fa-graduation-cap mr-2"></i> 學術參考來源</div>
                     <div class="ref-source-box text-xs">${content.source || 'Scardamalia, M., & Bereiter, C. (2006). Knowledge Building.'}</div>
                 </div>
+                
                 <div class="ref-section">
                     <div class="ref-section-title ref-ai-title"><i class="fas fa-robot mr-2"></i> 進階 AI 諮詢</div>
-                    <div class="ref-ai-box text-sm flex items-center justify-between" onclick="fetchRefAI('${content.ai_prompt || '如何改善此指標？'}', '${key}')">
+                    <div class="ref-ai-box text-sm flex items-center justify-between shadow-sm" onclick="triggerRefAI('${key}', '${content.ai_prompt}')" id="ref-ai-btn-${key}">
                         <span><i class="fas fa-comment-dots mr-2"></i> ${content.ai_prompt || '如何改善此指標？'}</span>
                         <i class="fas fa-chevron-right text-xs opacity-50"></i>
                     </div>
-                    <div id="ref-ai-result-box" class="hidden"></div>
+                    <div id="ref-ai-result-${key}" class="hidden mt-3 p-4 bg-purple-50 rounded-lg text-sm border border-purple-100 text-purple-800 relative"></div>
                 </div>
             `;
             document.getElementById('modal-title').innerHTML = `<i class="fas fa-chart-line text-blue-500 mr-2"></i> ${content.title}`;
@@ -2243,19 +2087,13 @@
             document.querySelectorAll('.modal-overlay').forEach(el => el.classList.remove('open'));
         }
 
-        // --- 舊版靜態假資料已由頂部的新版 triggerTopicSummaryAI 取代 ---
-        
-        // --- NEW: Init Functions for Quality Metrics ---
+        // Quality Metrics Code (Untouched Logic)
         let emotionChartInstance, lexicalGrowthChartInstance;
 
         function initQualityNewMetrics() {
-            // 1. Epistemic Emotion Spectrum (Mock Data)
-            // Logic: Count keywords related to emotions in notes content
             const ctxE = document.getElementById('emotionChart');
-            if(!ctxE) return; // Guard
+            if(!ctxE) return; 
             if(emotionChartInstance) emotionChartInstance.destroy();
-            
-            // Simple keyword matching for demo
             let emotions = { '好奇 (Curiosity)': 5, '困惑 (Confusion)': 3, '驚訝 (Surprise)': 2, '中性 (Neutral)': 10 };
             globalAllNotes.forEach(n => {
                 const text = (n.content || "") + (n.title || "");
@@ -2264,112 +2102,55 @@
                 if(text.includes('哇') || text.includes('原來') || text.includes('竟然')) emotions['驚訝 (Surprise)']++;
                 else emotions['中性 (Neutral)']++;
             });
-
             emotionChartInstance = new Chart(ctxE.getContext('2d'), {
                 type: 'polarArea',
-                data: {
-                    labels: Object.keys(emotions),
-                    datasets: [{
-                        data: Object.values(emotions),
-                        backgroundColor: ['rgba(255, 99, 132, 0.5)', 'rgba(54, 162, 235, 0.5)', 'rgba(255, 206, 86, 0.5)', 'rgba(201, 203, 207, 0.5)']
-                    }]
-                },
+                data: { labels: Object.keys(emotions), datasets: [{ data: Object.values(emotions), backgroundColor: ['rgba(255, 99, 132, 0.5)', 'rgba(54, 162, 235, 0.5)', 'rgba(255, 206, 86, 0.5)', 'rgba(201, 203, 207, 0.5)'] }] },
                 options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { font: { size: 10 } } } }, scales: { r: { ticks: { display: false } } } }
             });
 
-            // 2. Lexical Growth Index (Dynamic Data)
             const ctxL = document.getElementById('lexicalGrowthChart');
             if(lexicalGrowthChartInstance) lexicalGrowthChartInstance.destroy();
-            
             const sortedNotesL = [...globalAllNotes].sort((a, b) => a.dateTime - b.dateTime);
-            const bucketsL = 5;
-            const labelsL = [];
-            const academicData = [];
-            const commonData = [];
-            
+            const bucketsL = 5; const labelsL = []; const academicData = []; const commonData = [];
             if (sortedNotesL.length > 0) {
-                const startT = sortedNotesL[0].dateTime;
-                const endT = sortedNotesL[sortedNotesL.length - 1].dateTime;
-                const interval = Math.max((endT - startT) / bucketsL, 1000); 
-                
+                const startT = sortedNotesL[0].dateTime; const endT = sortedNotesL[sortedNotesL.length - 1].dateTime; const interval = Math.max((endT - startT) / bucketsL, 1000); 
                 const stopWords = ['的','是','在','有','和','了','與','就','也','但','我','你','他','我們','嗎','吧','個','這','那','不','人','都','很'];
                 let cumulativeAcademic = new Set();
-                
                 for(let i=0; i<bucketsL; i++) {
                     labelsL.push(`階段 ${i+1}`);
-                    const bStart = startT + i*interval;
-                    const bEnd = i === bucketsL - 1 ? endT + 1000 : bStart + interval;
-                    const bNotes = sortedNotesL.filter(n => n.dateTime >= bStart && n.dateTime < bEnd);
-                    
+                    const bStart = startT + i*interval; const bEnd = i === bucketsL - 1 ? endT + 1000 : bStart + interval; const bNotes = sortedNotesL.filter(n => n.dateTime >= bStart && n.dateTime < bEnd);
                     let commonCount = 0;
                     bNotes.forEach(n => {
-                        const text = (n.content || "") + (n.title || "");
-                        const words = text.toLowerCase().split(/[\s,，.。:：!?！？"”'’()（）]+/);
-                        commonCount += words.length;
-                        words.forEach(w => {
-                            if(w.length > 1 && !stopWords.includes(w) && isNaN(w)) {
-                                cumulativeAcademic.add(w);
-                            }
-                        });
+                        const text = (n.content || "") + (n.title || ""); const words = text.toLowerCase().split(/[\s,，.。:：!?！？"”'’()（）]+/);
+                        commonCount += words.length; words.forEach(w => { if(w.length > 1 && !stopWords.includes(w) && isNaN(w)) { cumulativeAcademic.add(w); } });
                     });
-                    
-                    academicData.push(cumulativeAcademic.size);
-                    commonData.push(commonCount === 0 && i>0 ? commonData[i-1] : commonCount);
+                    academicData.push(cumulativeAcademic.size); commonData.push(commonCount === 0 && i>0 ? commonData[i-1] : commonCount);
                 }
-            } else {
-                labelsL.push('無資料');
-                academicData.push(0);
-                commonData.push(0);
-            }
+            } else { labelsL.push('無資料'); academicData.push(0); commonData.push(0); }
 
             lexicalGrowthChartInstance = new Chart(ctxL.getContext('2d'), {
-                type: 'line',
-                data: {
-                    labels: labelsL,
-                    datasets: [
-                        { label: '學術語言 (累積專業詞彙)', data: academicData, borderColor: '#06b6d4', tension: 0.3 },
-                        { label: '生活語言 (當期字數)', data: commonData, borderColor: '#94a3b8', borderDash: [5, 5], tension: 0.3 }
-                    ]
-                },
+                type: 'line', data: { labels: labelsL, datasets: [{ label: '學術語言 (累積專業詞彙)', data: academicData, borderColor: '#06b6d4', tension: 0.3 }, { label: '生活語言 (當期字數)', data: commonData, borderColor: '#94a3b8', borderDash: [5, 5], tension: 0.3 }] },
                 options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
             });
 
-            // 3. Scaffold Transition Matrix (Heatmap Table)
             const container = document.getElementById('scaffold-transition-container');
-            const types = ['question', 'extend', 'improve', 'riseabove'];
-            const labelsMap = {'question':'提問', 'extend':'延伸', 'improve':'改進', 'riseabove':'整合'};
-            const matrix = {};
-            types.forEach(t1 => { matrix[t1] = {}; types.forEach(t2 => matrix[t1][t2] = 0); });
-
+            const types = ['question', 'extend', 'improve', 'riseabove']; const labelsMap = {'question':'提問', 'extend':'延伸', 'improve':'改進', 'riseabove':'整合'};
+            const matrix = {}; types.forEach(t1 => { matrix[t1] = {}; types.forEach(t2 => matrix[t1][t2] = 0); });
             globalAllNotes.forEach(n => {
                 if(n.parentId) {
                     const p = globalAllNotes.find(x => x.id === n.parentId);
-                    if(p) {
-                        let t1 = p.type === 'counter' ? 'improve' : p.type;
-                        let t2 = n.type === 'counter' ? 'improve' : n.type;
-                        if(matrix[t1] && matrix[t1][t2] !== undefined) matrix[t1][t2]++;
-                    }
+                    if(p) { let t1 = p.type === 'counter' ? 'improve' : p.type; let t2 = n.type === 'counter' ? 'improve' : n.type; if(matrix[t1] && matrix[t1][t2] !== undefined) matrix[t1][t2]++; }
                 }
             });
-
-            // Find max value for coloring
-            let maxVal = 0;
-            Object.values(matrix).forEach(row => Object.values(row).forEach(v => { if(v > maxVal) maxVal = v; }));
-            if(maxVal === 0) maxVal = 1;
-
+            let maxVal = 0; Object.values(matrix).forEach(row => Object.values(row).forEach(v => { if(v > maxVal) maxVal = v; })); if(maxVal === 0) maxVal = 1;
             let html = `<table class="w-full text-xs text-center border-collapse"><thead><tr><th class="p-1 text-slate-400 italic">From \\ To</th>${types.map(t => `<th class="p-1">${labelsMap[t]}</th>`).join('')}</tr></thead><tbody>`;
             types.forEach(t1 => {
                 html += `<tr><th class="p-1 text-slate-600 font-bold">${labelsMap[t1]}</th>`;
                 types.forEach(t2 => {
-                    const val = matrix[t1][t2];
-                    const alpha = (val / maxVal).toFixed(2);
-                    const bg = `rgba(245, 158, 11, ${Math.max(0.1, alpha)})`; // Amber color base
+                    const val = matrix[t1][t2]; const alpha = (val / maxVal).toFixed(2); const bg = `rgba(245, 158, 11, ${Math.max(0.1, alpha)})`; 
                     html += `<td class="p-1"><div style="background-color:${bg};" class="rounded py-2 font-bold ${alpha > 0.5 ? 'text-white' : 'text-slate-700'}">${val}</div></td>`;
-                });
-                html += `</tr>`;
-            });
-            html += `</tbody></table>`;
-            container.innerHTML = html;
+                }); html += `</tr>`;
+            }); html += `</tbody></table>`; container.innerHTML = html;
         }
     </script>
 </body>
