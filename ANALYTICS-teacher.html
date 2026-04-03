@@ -633,12 +633,12 @@
        
       // --- 0. 全域狀態與設置 ---
 
-let apiKey = localStorage.getItem('kb_ai_key') || ""; 
-const aiCache = { topics: {}, students: {}, refs: {} }; 
+// --- 0. 全域狀態與設置 ---
+        // 正確讀取 index.html 存入本地端的 kb_ai_key，並且使用 let 宣告
+        let apiKey = localStorage.getItem('kb_ai_key') || ""; 
+        const aiCache = { topics: {}, students: {}, refs: {} }; 
 
-const STORAGE_KEY = 'kb_platform_v15_data';
-// ... 下面維持原樣
-        
+        // （原本的 const STORAGE_KEY = 'kb_platform_v15_data'; 已經用不到了，可以直接刪除）
         let globalClassStats = {}; 
         let globalAllNotes = []; 
         let globalRawDB = {};
