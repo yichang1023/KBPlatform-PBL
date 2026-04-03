@@ -649,15 +649,49 @@
         // AI Cache 初始化
         window.aiCache = { topics: {}, students: {}, class: null, refs: {} };
 
-        // 核心 AI 呼叫函數 (具備重試機制)
+        // ✅ 動態載入 Gemini AI Configuration
+        let apiKey = ""; 
+        let aiModelUrl = "";
+
+        async function initApiKey(cloudDb) {
+            // 1. 優先嘗試從本機端 Local Storage 讀取
+            const localKey = localStorage.getItem('kb_ai_key');
+            if (localKey) {
+                apiKey = localKey;
+                console.log("[AI System] 已從 LocalStorage 載入 API Key");
+            } else if (cloudDb) {
+                // 2. 若本機端沒有，嘗試從 Firebase 讀取
+                try {
+                    const doc = await cloudDb.collection('kb_platform').doc('settings').get();
+                    if (doc.exists && doc.data().gemini_api_key) {
+                        apiKey = doc.data().gemini_api_key;
+                        console.log("[AI System] 已從 Firebase 載入共享 API Key");
+                    }
+                } catch (e) {
+                    console.error("[AI System] 讀取雲端 API Key 失敗:", e);
+                }
+            }
+
+            if (apiKey) {
+                // 統一與首頁使用相同的 gemini-2.5-flash 模型，提升穩定性
+                aiModelUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+                return true;
+            }
+            return false;
+        }
+
+        // 核心 AI 呼叫函數 (具備重試機制與防呆)
         async function callGeminiAPI(promptText) {
-            const apiKey = ""; // 系統環境變數自動注入
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+            // 👇 防呆機制：若無金鑰則中斷執行並提示
+            if (!apiKey) {
+                alert("請先至系統首頁輸入並儲存 Gemini API Key，才能啟動 AI 分析功能！");
+                throw new Error("Missing API Key");
+            }
+
             let delays = [1000, 2000, 4000, 8000, 16000];
-            
             for (let i = 0; i < 5; i++) {
                 try {
-                    const response = await fetch(url, {
+                    const response = await fetch(aiModelUrl, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
@@ -1276,9 +1310,23 @@
                 useFetchStreams: false
             });
 
+           // --- 新增：初始化 API Key 與 AI 燈號狀態 ---
+            const aiStatus = document.getElementById('ai-status-indicator');
+            aiStatus.innerHTML = '<i class="fas fa-circle-notch fa-spin mr-1"></i>Checking...'; 
+            aiStatus.className = "text-amber-400 font-bold";
+
+            initApiKey(cloudDb).then(keyLoaded => {
+                if (keyLoaded) {
+                    aiStatus.innerHTML = '<i class="fas fa-check-circle mr-1"></i>Ready (AI Embedded)'; 
+                    aiStatus.className = "text-emerald-400 font-bold";
+                } else {
+                    aiStatus.innerHTML = '<i class="fas fa-times-circle mr-1"></i>Offline (No Key)'; 
+                    aiStatus.className = "text-red-400 font-bold";
+                }
+            });
+
             dbStatus.innerText = "Syncing...";
             dbStatus.className = "text-yellow-400 font-bold";
-
             const DB_DOC = 'class_data_v26_g2_fix'; 
             cloudDb.collection('kb_platform').doc(DB_DOC).onSnapshot((doc) => {
                 if (doc.exists) {
