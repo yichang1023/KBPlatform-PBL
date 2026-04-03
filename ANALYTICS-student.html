@@ -529,9 +529,40 @@
     let insightCache = {}; // 🔥 新增：儲存 AI 分析結果的快取
 
     // ✅ Gemini AI Configuration
-    const apiKey = ""; 
-    const aiModelUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+    // ✅ Gemini AI Configuration
+let apiKey = ""; 
+let aiModelUrl = "";
 
+// 自動讀取 API Key 的機制
+async function initApiKey() {
+    // 1. 優先嘗試從本機端 Local Storage 讀取 (老師端或先前設定過的裝置)
+    const localKey = localStorage.getItem('kb_ai_key');
+    
+    if (localKey) {
+        apiKey = localKey;
+        console.log("[AI System] 已從 LocalStorage 載入 API Key");
+    } else {
+        // 2. 若本機端沒有，則嘗試從 Firebase 讀取 (讓學生端直接繼承，免重複輸入)
+        try {
+            const doc = await SETTINGS_DOC.get();
+            if (doc.exists && doc.data().gemini_api_key) {
+                apiKey = doc.data().gemini_api_key;
+                console.log("[AI System] 已從 Firebase 載入共享 API Key");
+            } else {
+                console.warn("[AI System] 尚未設定 API Key，AI 導師將無法運作");
+            }
+        } catch (e) {
+            console.error("[AI System] 讀取雲端 API Key 失敗:", e);
+        }
+    }
+
+    // 動態組合模型 API URL (為了穩定性，這裡統一對齊 index.html 使用 gemini-2.5-flash)
+    if (apiKey) {
+        aiModelUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+        return true;
+    }
+    return false;
+}
     // --- Ref Data Database ---
     const refData = {
         'interaction_circle': { title: '自我與社群互動圈 (Ego Network)', theory: '此圖呈現以你為中心的知識互動網絡。箭頭代表對話流向，顏色代表對話性質。豐富的連結類型與對象多樣性，反映了活躍的社會認知動態。', cite: 'Zhang, J., et al. (2009). Designs for collective cognitive responsibility.' },
@@ -592,8 +623,18 @@
         generateModalAIInsight(key, s);
     }
 
-    // 呼叫 Gemini AI 生成獨一無二的診斷
+
+// 呼叫 Gemini AI 生成獨一無二的診斷
     async function generateModalAIInsight(key, stats) {
+        
+        // 👇 請在這裡貼上這段防呆機制 👇
+        if (!apiKey) {
+            alert("請先至系統首頁輸入並儲存 Gemini API Key，才能啟動 AI 導師功能！");
+            document.getElementById('modalInsight').innerHTML = `<div class="text-sm text-red-500 italic p-4 text-center">缺少 API Key，無法進行分析。</div>`;
+            return;
+        }
+        // 👆 貼到這裡結束 👆
+        
         const insightContainer = document.getElementById('modalInsight');
         const metricName = refData[key].title;
         const studentName = document.getElementById('user-name').innerText;
@@ -726,12 +767,25 @@ ${specificData}
         if (event.target == document.getElementById(modalId)) document.getElementById(modalId).style.display = "none";
     }
 
-    // --- Core Cloud Logic ---
-    function initApp() {
+   // --- Core Cloud Logic ---
+    async function initApp() {
         const aiStatus = document.getElementById('ai-status-indicator');
-        aiStatus.innerText = "Ready (AI Embedded)"; 
-        aiStatus.className = "text-emerald-400 font-bold";
+        aiStatus.innerText = "Checking Key..."; 
+        aiStatus.className = "text-amber-400 font-bold";
 
+        // 呼叫 API Key 初始化 (等待抓取金鑰)
+        const keyLoaded = await initApiKey();
+        
+        // 根據是否抓到金鑰，更新右上角的 AI 狀態燈號
+        if (keyLoaded) {
+            aiStatus.innerText = "Ready (AI Embedded)"; 
+            aiStatus.className = "text-emerald-400 font-bold";
+        } else {
+            aiStatus.innerText = "Offline (No API Key)"; 
+            aiStatus.className = "text-red-400 font-bold";
+        }
+
+        // 監聽 Firebase 資料庫變化 (維持原本的讀取邏輯)
         db.collection(DB_COLLECTION).doc(DB_DOC).onSnapshot((doc) => {
             const dbStatus = document.getElementById('db-status-text');
             if (doc.exists) {
@@ -1413,6 +1467,12 @@ ${specificData}
     }
 
     async function triggerAIAnalysis(mode = 'advice') {
+        // 👇 請在這裡貼上這段防呆機制 👇
+        if (!apiKey) {
+            alert("請先至系統首頁輸入並儲存 Gemini API Key，才能啟動 AI 導師功能！");
+            return;
+        }
+        // 👆 貼到這裡結束 👆
         const btn = mode === 'advice' ? document.querySelector('button[onclick="triggerAIAnalysis(\'advice\')"]') : document.querySelector('button[onclick="triggerAIAnalysis(\'portfolio\')"]');
         const feedbackContainer = document.getElementById('ai-feedback');
         
