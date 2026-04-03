@@ -634,11 +634,10 @@
       // --- 0. 全域狀態與設置 ---
 
 // --- 0. 全域狀態與設置 ---
-        // 正確讀取 index.html 存入本地端的 kb_ai_key，並且使用 let 宣告
-        let apiKey = localStorage.getItem('kb_ai_key') || ""; 
+
         const aiCache = { topics: {}, students: {}, refs: {} }; 
 
-        // （原本的 const STORAGE_KEY = 'kb_platform_v15_data'; 已經用不到了，可以直接刪除）
+        const STORAGE_KEY = 'kb_platform_v15_data';
         let globalClassStats = {}; 
         let globalAllNotes = []; 
         let globalRawDB = {};
@@ -671,9 +670,13 @@
 
         // --- 1. 真實 Gemini API 呼叫模組 ---
         async function callGeminiAPI(promptText) {
-            if (!apiKey) return "⚠️ API Key 尚未載入，請確認執行環境。(模擬結果：這是一段 AI 分析的佔位文字。實際串接後將呈現真實的分析結果。)";
+            // ⭐ 像學生端一樣，直接從 Local Storage 即時抓取 index 設定的 Key
+            const currentApiKey = localStorage.getItem('kb_ai_key');
             
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+            if (!currentApiKey) return "⚠️ API Key 尚未載入，請先至首頁輸入並儲存金鑰。";
+            
+            // ⭐ 修正模型名稱：改為與 index 相同的 gemini-2.5-flash
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${currentApiKey}`;
             const payload = {
                 contents: [{ parts: [{ text: promptText }] }],
                 systemInstruction: { parts: [{ text: "你是一位專精於知識建構(Knowledge Building)理論的教育數據分析專家。請用繁體中文回答，語氣專業但白話，給予第一線教師具體、可操作的教學建議。請不要使用過多抽象的學術名詞。" }] }
@@ -1244,8 +1247,7 @@
             if(window.innerWidth < 768) toggleSidebar();
         }
 
-       // --- Init Function ---
-        // --- Init Function ---
+         // --- Init Function ---
         window.onload = function() {
             window.addEventListener('keydown', (e) => {
                 if(e.key === 'Escape') closeModal();
@@ -1268,23 +1270,11 @@
             }
             const cloudDb = firebase.firestore();
 
-            // ⭐ 從 Firebase 雲端讀取 API Key
-            cloudDb.collection('kb_platform').doc('settings').get().then((doc) => {
-                if (doc.exists && doc.data().gemini_api_key) {
-                    apiKey = doc.data().gemini_api_key;
-                    localStorage.setItem('kb_ai_key', apiKey); 
-                    console.log("[AI Core] 成功從雲端載入 API Key");
-                }
-            }).catch(err => {
-                console.warn("[AI Core] 雲端金鑰讀取失敗，將使用本地金鑰", err);
-            });
-
             dbStatus.innerText = "Syncing...";
             dbStatus.className = "text-yellow-400 font-bold";
 
             const DB_DOC = 'class_data_v26_g2_fix'; 
             cloudDb.collection('kb_platform').doc(DB_DOC).onSnapshot((doc) => {
-                // ... 這裡後面的程式碼保持不動
                 if (doc.exists) {
                     const data = doc.data();
                     window.state = {
