@@ -632,10 +632,13 @@
     <script>
        
       // --- 0. 全域狀態與設置 ---
-        let apiKey = localStorage.getItem('kb_ai_key') || ""; 
-        const aiCache = { topics: {}, students: {}, refs: {} }; 
 
-        const STORAGE_KEY = 'kb_platform_v15_data';
+let apiKey = localStorage.getItem('kb_ai_key') || ""; 
+const aiCache = { topics: {}, students: {}, refs: {} }; 
+
+const STORAGE_KEY = 'kb_platform_v15_data';
+// ... 下面維持原樣
+        
         let globalClassStats = {}; 
         let globalAllNotes = []; 
         let globalRawDB = {};
