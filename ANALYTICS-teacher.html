@@ -630,9 +630,11 @@
     </main>
 
     <script>
-        // --- 0. 全域狀態與設置 ---
-        const apiKey = ""; 
-        const aiCache = { topics: {}, students: {}, refs: {} }; 
+       
+       // --- 0. 全域狀態與設置 ---
+// 1. 改用 let，並嘗試從 Local Storage 讀取 index.html 存入的 Key
+let apiKey = localStorage.getItem('kb_ai_key') || ""; 
+const aiCache = { topics: {}, students: {}, refs: {} };
 
         const STORAGE_KEY = 'kb_platform_v15_data';
         let globalClassStats = {}; 
@@ -1265,7 +1267,20 @@
 
             dbStatus.innerText = "Syncing...";
             dbStatus.className = "text-yellow-400 font-bold";
+const cloudDb = firebase.firestore();
 
+            // ⭐ 新增：從 Firebase 雲端讀取 API Key (實現跨平台/跨裝置共用)
+            cloudDb.collection('kb_platform').doc('settings').get().then((doc) => {
+                if (doc.exists && doc.data().gemini_api_key) {
+                    apiKey = doc.data().gemini_api_key;
+                    localStorage.setItem('kb_ai_key', apiKey); // 同步更新到本地備用
+                    console.log("[AI Core] 成功從雲端載入 API Key");
+                }
+            }).catch(err => {
+                console.warn("[AI Core] 雲端金鑰讀取失敗，將使用本地金鑰", err);
+            });
+
+            dbStatus.innerText = "Syncing...";
             const DB_DOC = 'class_data_v26_g2_fix'; 
             cloudDb.collection('kb_platform').doc(DB_DOC).onSnapshot((doc) => {
                 if (doc.exists) {
