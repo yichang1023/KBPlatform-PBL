@@ -166,8 +166,8 @@
     <div id="ref-modal" class="modal-overlay" onclick="closeModal(event)">
         <div class="modal-content" onclick="event.stopPropagation()">
             <div class="modal-header">
-                <h3 id="modal-title" class="text-lg font-bold text-slate-800 flex items-center"><i class="fas fa-chart-line text-blue-500 mr-2"></i> 指標分析報告</h3>
-                <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 transition"><i class="fas fa-times text-xl"></i></button>
+                <h3 id="modal-title" class="text-lg font-bold text-slate-800 flex flex-1 items-center min-w-0 pr-4"><i class="fas fa-chart-line text-blue-500 mr-2"></i> 指標分析報告</h3>
+                <button onclick="closeModal()" class="text-slate-500 hover:text-slate-700 transition p-2 shrink-0"><i class="fas fa-times text-2xl"></i></button>
             </div>
             <div class="modal-body" id="ref-modal-body">
                 <div class="text-center py-10"><i class="fas fa-spinner fa-spin text-3xl text-slate-300"></i></div>
@@ -2383,6 +2383,10 @@ async function fetchRefAIInsight(key, aiPrompt, currentVal, currentStatus, force
                 <div class="ref-section">
                     <div class="ref-section-title ref-source-title"><i class="fas fa-graduation-cap mr-2"></i> 參考文獻</div>
                     <div class="ref-source-box text-xs">${content.source || 'Scardamalia, M., & Bereiter, C. (2006). Knowledge Building.'}</div>
+                </div>
+                
+                <div class="mt-6 pt-4 border-t border-slate-100">
+                    <button onclick="closeModal()" class="w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-lg transition text-base shadow-sm"><i class="fas fa-times mr-2"></i>關閉說明</button>
                 </div>
             `;
             document.getElementById('modal-title').innerHTML = `<i class="fas fa-chart-line text-blue-500 mr-2"></i> ${content.title}`;
