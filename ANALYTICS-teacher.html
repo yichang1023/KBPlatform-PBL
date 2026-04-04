@@ -1195,8 +1195,8 @@
             if(overviewNetwork) { overviewNetwork.destroy(); overviewNetwork = null; }
             const colorPalette = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'];
             const nodesData = stats.students.map((u, index) => ({ id: String(u.id), label: u.name || '?', color: colorPalette[index % colorPalette.length], shape: 'dot', size: 15, font: { color: '#1e293b' } }));
-            const edgesData = [];
-            stats.nodes.forEach(n => { if(n.parentId) { const p = stats.nodes.find(x => x.id === n.parentId); if(p && String(p.author) !== String(n.author)) { edgesData.push({from: String(n.author), to: String(p.author)}); } } });
+            const studentIds = stats.students.map(u => String(u.id)); const edgesData = [];
+            stats.nodes.forEach(n => { if(n.parentId) { const p = stats.nodes.find(x => x.id === n.parentId); if(p && String(p.author) !== String(n.author) && studentIds.includes(String(n.author)) && studentIds.includes(String(p.author))) { edgesData.push({from: String(n.author), to: String(p.author)}); } } });
             overviewNetwork = new vis.Network(container, { nodes: new vis.DataSet(nodesData), edges: new vis.DataSet(edgesData) }, { nodes: { font: { face: 'Noto Sans TC' } }, physics: { stabilization: true } });
             
             const ctx1 = document.getElementById('principlesChart').getContext('2d');
