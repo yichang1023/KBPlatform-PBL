@@ -792,9 +792,13 @@
             renderSequentialMatrix(filteredNodes);
             renderKnowledgeBrokers(filteredNodes, students);
 
-            // ⭐ 修正：將所有計算好的 globalClassStats 展開並一起 return，就不會引發 undefined 當機了！
+            // ⭐ 終極修正：把所有獨立變數和 globalClassStats 完美合併回傳
             return { 
                 ...globalClassStats, 
+                totalNotes, 
+                density, 
+                raRate, 
+                riskCount, 
                 nodes: filteredNodes, 
                 students: students 
             };
