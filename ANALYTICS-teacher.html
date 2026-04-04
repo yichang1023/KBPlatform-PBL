@@ -1204,12 +1204,36 @@ overviewNetwork = new vis.Network(container, { nodes: new vis.DataSet(nodesData)
             if(principlesChartInstance) principlesChartInstance.destroy();
             principlesChartInstance = new Chart(ctx1, { type: 'doughnut', data: { labels: ['提問', '延伸', '改進', '反駁', '整合'], datasets: [{ data: Object.values(typeCounts), backgroundColor: ['#3b82f6', '#eab308', '#22c55e', '#ef4444', '#a855f7'] }] }, options: { responsive: true, maintainAspectRatio: false } });
 
-            const diversityScore = Math.min(100, Math.round((stats.studentCount > 0 ? (stats.totalNotes / stats.studentCount) * 15 : 0)));
-            const responsibilityScore = Math.min(100, Math.round(stats.density * 150));
-            const problemScore = Math.min(100, Math.round((typeCounts.question || 0) * 10 + 20)); 
-            const dataScore = Math.min(100, Math.round((typeCounts.extend || 0) * 8 + 30));
-            const improvableScore = Math.min(100, Math.round((typeCounts.improve || 0) * 12 + 20));
-            const democratizeScore = Math.max(0, Math.round(100 - (stats.gini * 100)));
+            // --- ⭐ KB 12原則雷達圖：動態與比例化專家公式升級 ---
+            const tCount = stats.totalNotes > 0 ? stats.totalNotes : 1; // 總文章數 (避免除以零)
+            
+            // 1. 觀點多樣性 (Idea Diversity)
+            // 專家解讀：看人均產出。期望該主題每人至少貢獻 1.5 篇不同的觀點。
+            const diversityScore = stats.totalNotes > 0 ? Math.min(100, Math.round(((stats.totalNotes / stats.studentCount) / 1.5) * 100)) : 0;
+
+            // 2. 集體責任 (Collective Responsibility)
+            // 專家解讀：看網絡密度 (SNA)。對話網絡密度達到 0.5 即視為班級互動極佳的滿分。
+            const responsibilityScore = stats.totalNotes > 0 ? Math.min(100, Math.round(stats.density * 200)) : 0;
+
+            // 3. 真實問題 (Real Ideas, Authentic Problems)
+            // 專家解讀：看「提問」在所有發言中的佔比。KB 社群理想提問率約為 20%，達到即滿分。
+            const problemScore = stats.totalNotes > 0 ? Math.min(100, Math.round(((typeCounts.question || 0) / tCount) * 500)) : 0;
+
+            // 4. 權威資料 (Constructive Uses of Information)
+            // 專家解讀：看「延伸」補充在所有發言的佔比。代表引入新資訊，理想比例約為 40%。
+            const dataScore = stats.totalNotes > 0 ? Math.min(100, Math.round(((typeCounts.extend || 0) / tCount) * 250)) : 0;
+
+            // 5. 觀點改進 (Improvable Ideas)
+            // 專家解讀：看「改進+反駁+整合」的高階認知佔比。此為困難行為，總和達到 30% 即為滿分。
+            const iCount = (typeCounts.improve || 0) + (typeCounts.counter || 0) + (typeCounts.riseabove || 0);
+            const improvableScore = stats.totalNotes > 0 ? Math.min(100, Math.round((iCount / tCount) * 333)) : 0;
+
+            // 6. 民主化 (Democratizing Knowledge)
+            // 專家解讀：70%看實際開口說話的參與率 + 30%看發言分佈的 Gini 平等性。
+            const activeStudentCount = new Set(stats.nodes.map(n => String(n.author)).filter(id => studentIds.includes(id))).size;
+            const participationRate = stats.studentCount > 0 ? (activeStudentCount / stats.studentCount) * 100 : 0;
+            const democratizeScore = stats.totalNotes > 0 ? Math.round((participationRate * 0.7) + (Math.max(0, 100 - parseFloat(stats.gini) * 100) * 0.3)) : 0;
+            // --------------------------------------------------------
 
             const ctx2 = document.getElementById('kbPrinciplesChart').getContext('2d');
             if(kbPrinciplesChartInstance) kbPrinciplesChartInstance.destroy();
