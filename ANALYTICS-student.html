@@ -122,7 +122,40 @@
     <nav class="bg-gradient-to-r from-indigo-700 to-indigo-600 text-white shadow-md sticky top-7 z-50">
         <div class="container mx-auto px-4 sm:px-6 py-3 flex flex-col sm:flex-row justify-between items-center gap-3">
             <div class="flex items-center space-x-3 w-full sm:w-auto justify-center sm:justify-start">
-                <div class="bg-white/20 p-2 rounded-lg backdrop-blur-sm"><i class="fas fa-compass text-xl"></i></div>
+                <div class="mobius-compass-container" style="display: inline-block; vertical-align: middle; margin-right: 8px; width: 24px; height: 24px;">
+    <svg viewBox="0 0 100 100" class="mobius-compass-svg" style="width: 100%; height: 100%; overflow: visible;">
+        <style>
+            @keyframes mobiusSpin {
+                0% { transform: rotateY(0deg); }
+                100% { transform: rotateY(360deg); }
+            }
+            @keyframes compassPulse {
+                0%, 100% { opacity: 1; }
+                50% { opacity: 0.7; }
+            }
+            .mobius-ring {
+                fill: none;
+                stroke: #e0e7ff; /* 淺靛藍 (indigo-100) - 環的底色 */
+                stroke-width: 8;
+                stroke-linecap: round;
+                animation: mobiusSpin 4s linear infinite; /* 4秒旋轉一圈，不停歇 */
+                transform-origin: center;
+                perspective: 1000px; /* 增加 3D 透視感 */
+            }
+            .compass-needle {
+                fill: #6366f1; /* 靛藍 (indigo-500) - 指南針 */
+                stroke: #fff;
+                stroke-width: 1.5;
+                animation: compassPulse 2s ease-in-out infinite; /* 指南針輕微呼吸閃爍 */
+            }
+        </style>
+
+        <path class="mobius-ring" d="M30,50 a20,20 0 1,1 40,0 a20,20 0 1,1 -40,0 Z M30,50 q20,-20 40,0 m-40,0 q20,20 40,0" />
+        
+        <g class="compass-needle" transform="translate(50,50)">
+            <path d="M0,-18 L5,0 L0,5 L-5,0 Z" transform="rotate(-45)"></path> <circle cx="0" cy="0" r="2" fill="#fff" stroke="none"></circle> </g>
+    </svg>
+</div>
                 <div>
                     <h1 class="text-lg font-bold tracking-wide">知識羅盤 <span class="font-normal opacity-80 text-sm">| 學習者洞察</span></h1>
                 </div>
