@@ -787,12 +787,17 @@
                 document.getElementById('avg-thread-depth').innerText = globalClassStats.threadDepth;
             }
 
-            renderStaticDiagnosis(globalClassStats); 
+           renderStaticDiagnosis(globalClassStats); 
             renderOverviewTrajectory(filteredNodes);
             renderSequentialMatrix(filteredNodes);
             renderKnowledgeBrokers(filteredNodes, students);
 
-            return { totalNotes, density, raRate, riskCount, nodes: filteredNodes, students };
+            // ⭐ 修正：將所有計算好的 globalClassStats 展開並一起 return，就不會引發 undefined 當機了！
+            return { 
+                ...globalClassStats, 
+                nodes: filteredNodes, 
+                students: students 
+            };
         }
 
         function calculateGini(arr) {
