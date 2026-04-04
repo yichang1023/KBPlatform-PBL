@@ -1811,6 +1811,10 @@ overviewNetwork = new vis.Network(container, { nodes: new vis.DataSet(nodesData)
             });
         }
 
+       // ⭐ 補上缺失的圖表變數宣告，防止刪除舊圖表時引發當機
+        let emotionChartInstance = null;
+        let lexicalGrowthChartInstance = null;
+
         function initQualityNewMetrics() {
             const ctxE = document.getElementById('emotionChart');
             if(ctxE) {
