@@ -1197,8 +1197,7 @@
             const nodesData = stats.students.map((u, index) => ({ id: String(u.id), label: u.name || '?', color: colorPalette[index % colorPalette.length], shape: 'dot', size: 15, font: { color: '#1e293b' } }));
             const studentIds = stats.students.map(u => String(u.id)); const edgesData = [];
             stats.nodes.forEach(n => { if(n.parentId) { const p = stats.nodes.find(x => x.id === n.parentId); if(p && String(p.author) !== String(n.author) && studentIds.includes(String(n.author)) && studentIds.includes(String(p.author))) { edgesData.push({from: String(n.author), to: String(p.author)}); } } });
-            overviewNetwork = new vis.Network(container, { nodes: new vis.DataSet(nodesData), edges: new vis.DataSet(edgesData) }, { nodes: { font: { face: 'Noto Sans TC' } }, physics: { stabilization: true } });
-            
+overviewNetwork = new vis.Network(container, { nodes: new vis.DataSet(nodesData), edges: new vis.DataSet(edgesData) }, { nodes: { font: { face: 'Noto Sans TC' } }, physics: { stabilization: false } });            
             const ctx1 = document.getElementById('principlesChart').getContext('2d');
             const typeCounts = { question:0, extend:0, improve:0, counter:0, riseabove:0 };
             stats.nodes.forEach(n => { if (typeCounts[n.type] !== undefined) typeCounts[n.type]++; });
@@ -1298,10 +1297,10 @@
                     const currentDb = getRealData();
                     if (currentDb) {
                         renderStudentSidebar(currentDb);
-                        initOverview(currentDb);
-                        if (!document.querySelector('.section-view.active')) {
-                            switchView('overview');
-                        }
+                        // ⭐ 效能優化：移除重複執行的 initOverview，並記憶使用者當前停留的頁面
+                        const activeView = document.querySelector('.section-view.active');
+                        const viewId = activeView ? activeView.id.replace('view-', '') : 'overview';
+                        switchView(viewId);
                     }
                 } else {
                     dbStatus.innerText = "NO DATA";
