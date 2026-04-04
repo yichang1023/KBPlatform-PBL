@@ -122,38 +122,31 @@
     <nav class="bg-gradient-to-r from-indigo-700 to-indigo-600 text-white shadow-md sticky top-7 z-50">
         <div class="container mx-auto px-4 sm:px-6 py-3 flex flex-col sm:flex-row justify-between items-center gap-3">
             <div class="flex items-center space-x-3 w-full sm:w-auto justify-center sm:justify-start">
-                <div class="mobius-compass-container" style="display: inline-block; vertical-align: middle; margin-right: 16px; width: 56px; height: 56px; perspective: 2000px;">
-    <svg viewBox="0 0 100 100" style="width: 100%; height: 100%; overflow: visible; transform-style: preserve-3d;">
+
+                
+              <div style="display: inline-block; vertical-align: middle; margin-right: 8px; width: 32px; height: 32px; perspective: 1000px;">
+    <svg viewBox="0 0 100 100" style="width: 100%; height: 100%; overflow: visible; transform-style: preserve-3d; animation: spinNet 6s linear infinite;">
+        <defs>
+            <linearGradient id="netGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#f093fb" />
+                <stop offset="100%" stop-color="#f5576c" />
+            </linearGradient>
+            <linearGradient id="netGrad2" x1="100%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="#4facfe" />
+                <stop offset="100%" stop-color="#00f2fe" />
+            </linearGradient>
+        </defs>
         <style>
-            @keyframes mobiusSpin3D {
-                0% { transform: rotateY(0deg) rotateX(0deg); }
-                100% { transform: rotateY(360deg) rotateX(0deg); } /* 360度立體旋轉 */
-            }
-            @keyframes compassPulse {
-                0%, 100% { opacity: 1; filter: drop-shadow(0 0 2px #fff); }
-                50% { opacity: 0.8; filter: drop-shadow(0 0 4px #c7d2fe); } /* 呼吸閃爍 */
-            }
-            .mobius-ring-active {
-                stroke-dasharray: 60 140; /* 產生片段效果 */
-                animation: mobiusSpin3D 4s linear infinite; /* 4秒旋轉一圈 */
-                transform-origin: center;
-            }
-            .compass-needle {
-                animation: compassPulse 2s ease-in-out infinite; /* 指南針呼吸閃爍 */
-                transform-origin: center;
-            }
+            @keyframes spinNet { 100% { transform: rotateY(360deg); } }
         </style>
 
-        <circle cx="50" cy="50" r="46" fill="none" stroke="#e0e7ff" stroke-width="4"></circle>
-        <path d="M50,4 v6 M50,90 v6 M4,50 h6 M90,50 h6 M75,75 l-4,-4 M25,25 l-4,-4 M75,25 l-4,4 M25,75 l-4,-4" fill="none" stroke="#e0e7ff" stroke-width="2"></path>
+        <path d="M 10 50 C 10 15, 45 15, 50 50 C 55 85, 90 85, 90 50 C 90 15, 55 15, 50 50 C 45 85, 10 85, 10 50 Z" fill="none" stroke="url(#netGrad1)" stroke-width="1" opacity="0.5" />
+        <path d="M 10 50 C 10 15, 45 15, 50 50 C 55 85, 90 85, 90 50 C 90 15, 55 15, 50 50 C 45 85, 10 85, 10 50 Z" fill="none" stroke="url(#netGrad1)" stroke-width="5" stroke-dasharray="1 18" stroke-linecap="round" />
+
+        <path d="M 15 50 C 15 25, 40 25, 50 50 C 60 75, 85 75, 85 50 C 85 25, 60 25, 50 50 C 40 75, 15 75, 15 50 Z" fill="none" stroke="url(#netGrad2)" stroke-width="1.5" opacity="0.7" />
+        <path d="M 15 50 C 15 25, 40 25, 50 50 C 60 75, 85 75, 85 50 C 85 25, 60 25, 50 50 C 40 75, 15 75, 15 50 Z" fill="none" stroke="url(#netGrad2)" stroke-width="3" stroke-dasharray="1 22" stroke-linecap="round" />
         
-        <path d="M30,50 a20,20 0 1,1 40,0 a20,20 0 1,1 -40,0 Z M30,50 q20,-20 40,0 m-40,0 q20,20 40,0" fill="none" stroke="#c7d2fe" stroke-width="6" stroke-linecap="round" />
-        <path class="mobius-ring-active" d="M30,50 a20,20 0 1,1 40,0 a20,20 0 1,1 -40,0 Z M30,50 q20,-20 40,0 m-40,0 q20,20 40,0" fill="none" stroke="#6366f1" stroke-width="6" stroke-linecap="round" />
-        
-        <g class="compass-needle" transform="translate(50,50)">
-            <path d="M0,-20 L6,0 L0,6 L-6,0 Z" fill="#4f46e5" stroke="#ffffff" stroke-width="1.5" transform="rotate(-45)"></path>
-            <circle cx="0" cy="0" r="2.5" fill="#ffffff" stroke="none"></circle>
-        </g>
+        <circle cx="50" cy="50" r="2.5" fill="#ffffff" />
     </svg>
 </div>
                 <div>
