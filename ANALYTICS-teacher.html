@@ -1204,37 +1204,68 @@ overviewNetwork = new vis.Network(container, { nodes: new vis.DataSet(nodesData)
             if(principlesChartInstance) principlesChartInstance.destroy();
             principlesChartInstance = new Chart(ctx1, { type: 'doughnut', data: { labels: ['提問', '延伸', '改進', '反駁', '整合'], datasets: [{ data: Object.values(typeCounts), backgroundColor: ['#3b82f6', '#eab308', '#22c55e', '#ef4444', '#a855f7'] }] }, options: { responsive: true, maintainAspectRatio: false } });
 
-            // --- ⭐ KB 12原則雷達圖：動態與比例化專家公式升級 ---
-            const tCount = stats.totalNotes > 0 ? stats.totalNotes : 1; // 總文章數 (避免除以零)
+          // --- ⭐ KB 12原則雷達圖：全班/小組動態精準切換版 ---
+            const tCount = stats.totalNotes > 0 ? stats.totalNotes : 1; 
+
+            // 1. 智慧獲取中英文鷹架數量
+            const getCount = (keywords) => {
+                return Object.keys(typeCounts || {}).reduce((sum, key) => {
+                    if (keywords.some(kw => key.toLowerCase().includes(kw))) return sum + typeCounts[key];
+                    return sum;
+                }, 0);
+            };
+            const qCount = getCount(['question', '問題', '提問', '疑問']); 
+            const eCount = getCount(['extend', '補充', '資料', '權威', 'reference', '知識']); 
+            const iCount = getCount(['improve', 'counter', 'riseabove', '反駁', '反對', '改進', '總結', '整合', '提升', '不同意']); 
+
+            // ==========================================
+            // ⭐ 核心修正區：動態切割全班與小組的基準數據
+            // ==========================================
+            // 判斷目前是否在看全班 (若當前文章數 >= 全班總數的95%，視為全班模式)
+            const isWholeClass = (typeof globalClassStats !== 'undefined') && (stats.totalNotes >= (globalClassStats.totalNotes || 0) * 0.95);
             
-            // 1. 觀點多樣性 (Idea Diversity)
-            // 專家解讀：看人均產出。期望該主題每人至少貢獻 1.5 篇不同的觀點。
-            const diversityScore = stats.totalNotes > 0 ? Math.min(100, Math.round(((stats.totalNotes / stats.studentCount) / 1.5) * 100)) : 0;
+            // 抓出「該範圍內」實際有發言的作者名單
+            const activeAuthors = new Set(stats.nodes.filter(n => n.author).map(n => String(n.author)));
+            
+            // ⭐ 分母修正：如果是全班，用全班人數；如果是小組，用「實際參與該小組的人數」當分母
+            const targetStudentCount = isWholeClass ? stats.studentCount : Math.max(1, activeAuthors.size);
 
-            // 2. 集體責任 (Collective Responsibility)
-            // 專家解讀：看網絡密度 (SNA)。對話網絡密度達到 0.5 即視為班級互動極佳的滿分。
-            const responsibilityScore = stats.totalNotes > 0 ? Math.min(100, Math.round(stats.density * 200)) : 0;
+            // ⭐ 民主化修正：重新計算「專屬小組」的 Gini 貧富差距
+            let localGini = parseFloat(stats.gini) || 0;
+            let participationRate = isWholeClass ? (activeAuthors.size / stats.studentCount) * 100 : 100; 
 
-            // 3. 真實問題 (Real Ideas, Authentic Problems)
-            // 專家解讀：看「提問」在所有發言中的佔比。KB 社群理想提問率約為 20%，達到即滿分。
-            const problemScore = stats.totalNotes > 0 ? Math.min(100, Math.round(((typeCounts.question || 0) / tCount) * 500)) : 0;
+            if (!isWholeClass && activeAuthors.size > 0) {
+                // 只拿該小組成員的發言量來互相比較，把全班其他沒參與的人剔除！
+                const authorCounts = Array.from(activeAuthors).map(author => stats.nodes.filter(n => String(n.author) === author).length).sort((a,b)=>a-b);
+                const n = authorCounts.length;
+                const sum = authorCounts.reduce((a,b)=>a+b, 0);
+                if (sum > 0) {
+                    let num = 0;
+                    for(let i=0; i<n; i++) num += (i+1) * authorCounts[i];
+                    localGini = (2 * num) / (n * sum) - ((n + 1) / n); // 真實的小組內部平等性
+                }
+            }
+            // ==========================================
 
-            // 4. 權威資料 (Constructive Uses of Information)
-            // 專家解讀：看「延伸」補充在所有發言的佔比。代表引入新資訊，理想比例約為 40%。
-            const dataScore = stats.totalNotes > 0 ? Math.min(100, Math.round(((typeCounts.extend || 0) / tCount) * 250)) : 0;
+            // 2. 觀點多樣性 (Idea Diversity) - 使用修正後的分母 (小組人數)
+            const diversityScore = stats.totalNotes > 0 ? Math.min(100, Math.round(((stats.totalNotes / targetStudentCount) / 4) * 100)) : 0;
 
-            // 5. 觀點改進 (Improvable Ideas)
-            // 專家解讀：看「改進+反駁+整合」的高階認知佔比。此為困難行為，總和達到 30% 即為滿分。
-            const iCount = (typeCounts.improve || 0) + (typeCounts.counter || 0) + (typeCounts.riseabove || 0);
-            const improvableScore = stats.totalNotes > 0 ? Math.min(100, Math.round((iCount / tCount) * 333)) : 0;
+            // 3. 集體責任 (Collective Responsibility)
+            const responsibilityScore = stats.totalNotes > 0 ? Math.min(100, Math.round(stats.density * 250)) : 0;
 
-            // 6. 民主化 (Democratizing Knowledge)
-            // 專家解讀：70%看實際開口說話的參與率 + 30%看發言分佈的 Gini 平等性。
-            const activeStudentCount = new Set(stats.nodes.map(n => String(n.author)).filter(id => studentIds.includes(id))).size;
-            const participationRate = stats.studentCount > 0 ? (activeStudentCount / stats.studentCount) * 100 : 0;
-            const democratizeScore = stats.totalNotes > 0 ? Math.round((participationRate * 0.7) + (Math.max(0, 100 - parseFloat(stats.gini) * 100) * 0.3)) : 0;
+            // 4. 真實問題 (Real Ideas, Authentic Problems)
+            const problemScore = stats.totalNotes > 0 ? Math.min(100, Math.round((qCount / tCount) * 285)) : 0;
+
+            // 5. 權威資料 (Constructive Uses of Information)
+            const dataScore = stats.totalNotes > 0 ? Math.min(100, Math.round((eCount / tCount) * 250)) : 0;
+
+            // 6. 觀點改進 (Improvable Ideas)
+            const improvableScore = stats.totalNotes > 0 ? Math.min(100, Math.round((iCount / tCount) * 222)) : 0;
+
+            // 7. 民主化 (Democratizing Knowledge) - 使用修正後的小組專屬 Gini
+            // 權重調整：因為小組無法確切知道誰「沒參與」，所以我們把焦點放在「有參與者的發言平等性 (佔70%)」
+            const democratizeScore = stats.totalNotes > 0 ? Math.min(100, Math.round((participationRate * 0.3) + (Math.max(0, 100 - localGini * 100) * 0.7))) : 0;
             // --------------------------------------------------------
-
             const ctx2 = document.getElementById('kbPrinciplesChart').getContext('2d');
             if(kbPrinciplesChartInstance) kbPrinciplesChartInstance.destroy();
             kbPrinciplesChartInstance = new Chart(ctx2, { 
