@@ -1,4 +1,4 @@
-F
+
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -293,7 +293,7 @@ F
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
         const DB_COLLECTION = 'kb_platform';
-        const DB_DOC = 'class_data_v29_notitleweek_814'; // 新文件名: 載入 814 則修正版資料(舊雲端資料不被覆蓋)
+        const DB_DOC = 'class_data_v30_no7wk_814'; // 新文件名: 載入 814 則修正版資料(舊雲端資料不被覆蓋)
 
         window.ROLES = { LEAD: 'teacher', CO: 'student' };
         window.SCAFFOLDS = {
@@ -346,11 +346,11 @@ F
                 stu_g5_liu: { id: 'stu_g5_liu', name: '劉鈺瑄', role: window.ROLES.CO, avatar: 'https://api.dicebear.com/9.x/notionists/svg?seed=Liu3' }
             },
             topics: [
-                { id: 't_g1', name: '第一組 KF論壇：聲波與空氣過濾機制探究', categories: ['科學', '物理', '專題課'], desc: '探討聲波、流場與結構如何共同塑造粒子路徑並影響過濾效果。(七週演進)', author: 'stu_g1_tsai', date: '2025-12-10T10:00:00Z' },
-                { id: 't_g2', name: '第二組 KF論壇：可信的居家非接觸判讀模型探究', categories: ['科學', 'AI', '專題課'], desc: '探討異常判讀的合理性，從單一門檻走向基線、情境、時間與風險的居家判讀模型。(七週演進)', author: 'stu_g2_zhu', date: '2025-12-10T10:00:00Z' },
-                { id: 't_g3', name: '第三組 KF論壇：毛小孩健康狀態可信判讀模型探究', categories: ['科學', 'AI', '專題課'], desc: '探討毛小孩狀態的誤讀風險，從「單純偵測變化」推進到建立「基線×情境×資料可信度」的健康判讀與提醒模型。(七週演進)', author: 'stu_g3_liu', date: '2025-12-10T10:00:00Z' },
-                { id: 't_g4', name: '第四組 KF論壇：聲波滅火機制探究', categories: ['科學', '物理', '專題課'], desc: '探討聲波與火焰互動的失穩條件，從「音量迷思」推進到建立有效區、無效區與邊界區的理解地圖。(七週演進)', author: 'stu_g4_zheng', date: '2025-12-10T10:00:00Z' },
-                { id: 't_g5', name: '第五組 KF論壇：生成式AI的高風險幻覺形成與代價探究', categories: ['科學', 'AI', '社會議題', '專題課'], desc: '探討生成式AI幻覺如何穿過流暢與自信的包裝，在特定任務與信任互動中放大成為真實風險的結構模型。(七週演進)', author: 'stu_g5_liao', date: '2025-12-10T10:00:00Z' }
+                { id: 't_g1', name: '第一組 KF論壇：聲波與空氣過濾機制探究', categories: ['科學', '物理', '專題課'], desc: '探討聲波、流場與結構如何共同塑造粒子路徑並影響過濾效果。', author: 'stu_g1_tsai', date: '2025-12-10T10:00:00Z' },
+                { id: 't_g2', name: '第二組 KF論壇：可信的居家非接觸判讀模型探究', categories: ['科學', 'AI', '專題課'], desc: '探討異常判讀的合理性，從單一門檻走向基線、情境、時間與風險的居家判讀模型。', author: 'stu_g2_zhu', date: '2025-12-10T10:00:00Z' },
+                { id: 't_g3', name: '第三組 KF論壇：毛小孩健康狀態可信判讀模型探究', categories: ['科學', 'AI', '專題課'], desc: '探討毛小孩狀態的誤讀風險，從「單純偵測變化」推進到建立「基線×情境×資料可信度」的健康判讀與提醒模型。', author: 'stu_g3_liu', date: '2025-12-10T10:00:00Z' },
+                { id: 't_g4', name: '第四組 KF論壇：聲波滅火機制探究', categories: ['科學', '物理', '專題課'], desc: '探討聲波與火焰互動的失穩條件，從「音量迷思」推進到建立有效區、無效區與邊界區的理解地圖。', author: 'stu_g4_zheng', date: '2025-12-10T10:00:00Z' },
+                { id: 't_g5', name: '第五組 KF論壇：生成式AI的高風險幻覺形成與代價探究', categories: ['科學', 'AI', '社會議題', '專題課'], desc: '探討生成式AI幻覺如何穿過流暢與自信的包裝，在特定任務與信任互動中放大成為真實風險的結構模型。', author: 'stu_g5_liao', date: '2025-12-10T10:00:00Z' }
             ],
             nodes: [
                 // ==================== GROUP 1 NODES ====================
