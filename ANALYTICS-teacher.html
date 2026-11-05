@@ -8,15 +8,19 @@
     <!-- ========================================== -->
     <!-- 1. 引入 Firebase SDK -->
     <!-- ========================================== -->
+        <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
+    <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="preconnect" href="https://unpkg.com" crossorigin>
+    <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 
     <!-- 核心函式庫 -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.6.1"></script>
+    <script src="https://unpkg.com/vis-network@10.1.4/standalone/umd/vis-network.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked@15.0.12/marked.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     
     <!-- 字型與樣式 -->
@@ -1350,27 +1354,43 @@ overviewNetwork = new vis.Network(container, { nodes: new vis.DataSet(nodesData)
             dbStatus.className = "text-yellow-400 font-bold";
 
             const DB_DOC = 'class_data_v31_noweek_814'; 
+            // ⚡ 先用上次的暫存資料立刻畫出畫面,同時等雲端最新資料;雲端資料一到就以雲端為準(同步不受影響)
+            const CACHE_KEY = 'kb_dash_cache_' + DB_DOC;
+            let lastRaw = null;
+            function applyCloudData(data) {
+                window.state = {
+                    nodes: data.nodes || [],
+                    topics: data.topics || [],
+                    userList: data.userList || {}
+                };
+                const currentDb = getRealData();
+                if (currentDb) {
+                    renderStudentSidebar(currentDb);
+                    // ⭐ 效能優化：移除重複執行的 initOverview，並記憶使用者當前停留的頁面
+                    const activeView = document.querySelector('.section-view.active');
+                    const viewId = activeView ? activeView.id.replace('view-', '') : 'overview';
+                    switchView(viewId);
+                }
+            }
+            try {
+                const cached = localStorage.getItem(CACHE_KEY);
+                if (cached) { lastRaw = cached; applyCloudData(JSON.parse(cached)); }
+            } catch (e) { lastRaw = null; }
+
             cloudDb.collection('kb_platform').doc(DB_DOC).onSnapshot((doc) => {
                 if (doc.exists) {
-                    const data = doc.data();
-                    window.state = {
-                        nodes: data.nodes || [],
-                        topics: data.topics || [],
-                        userList: data.userList || {}
-                    };
-                    
+                    const d = doc.data();
+                    const data = { nodes: d.nodes || [], topics: d.topics || [], userList: d.userList || {} };
+                    let raw = null;
+                    try { raw = JSON.stringify(data); localStorage.setItem(CACHE_KEY, raw); } catch (e) {}
                     dbStatus.innerText = "Cloud Online";
                     dbStatus.className = "text-green-400 font-bold";
-                    
-                    const currentDb = getRealData();
-                    if (currentDb) {
-                        renderStudentSidebar(currentDb);
-                        // ⭐ 效能優化：移除重複執行的 initOverview，並記憶使用者當前停留的頁面
-                        const activeView = document.querySelector('.section-view.active');
-                        const viewId = activeView ? activeView.id.replace('view-', '') : 'overview';
-                        switchView(viewId);
-                    }
+                    // 與剛才顯示的暫存資料完全相同就不重畫,避免畫面閃動
+                    if (raw !== null && raw === lastRaw) return;
+                    lastRaw = raw;
+                    applyCloudData(data);
                 } else {
+                    try { localStorage.removeItem(CACHE_KEY); } catch (e) {}
                     dbStatus.innerText = "NO DATA";
                     dbStatus.className = "text-red-400 font-bold";
                 }
