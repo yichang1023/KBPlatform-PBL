@@ -6,10 +6,14 @@
     <title>我的知識羅盤 | My KB Journey v3.12 Pro-UX</title>
     
     <!-- 🔥 1. 引入 Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script>
+/* HTML 跳脫:避免學生輸入的標題/內容被當成程式碼執行 */
+function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); }
+</script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
 
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="tailwind.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
     <!-- Markdown for AI -->
@@ -518,7 +522,7 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
     const DB_COLLECTION = 'kb_platform';
-    const DB_DOC = 'class_data_v26_g2_fix';
+    const DB_DOC = 'class_data_v31_noweek_814';
     const SETTINGS_DOC = db.collection('kb_platform').doc('settings');
 
     // --- Global State ---
@@ -957,7 +961,7 @@ ${specificData}
         const user = Object.values(globalData.userList).find(u => u.id === userId);
         if (!user) return;
 
-        document.getElementById('current-user-avatar').src = user.avatar || `https://ui-avatars.com/api/?name=${user.name}&background=random`;
+        document.getElementById('current-user-avatar').src = user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=random`;
         document.getElementById('user-name').innerText = user.name;
         document.getElementById('user-avatar-large').innerText = user.name[0];
 
@@ -1216,7 +1220,7 @@ ${specificData}
             nodes.forEach(desc => {
                 const authorInfo = Object.values(users).find(u => u.id === desc.author);
                 const authorName = authorInfo ? authorInfo.name : '匿名';
-                const avatar = authorInfo ? (authorInfo.avatar || `https://ui-avatars.com/api/?name=${authorName}&background=random`) : `https://ui-avatars.com/api/?name=User&background=random`;
+                const avatar = authorInfo ? (authorInfo.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(authorName)}&background=random`) : `https://ui-avatars.com/api/?name=User&background=random`;
                 
                 let badgeStyle = 'bg-slate-100 text-slate-600 border-slate-200';
                 let icon = 'fa-comment';
@@ -1238,12 +1242,12 @@ ${specificData}
                         <div class="flex-1 min-w-0">
                             <div class="flex justify-between items-center mb-0.5">
                                 <div class="flex items-center gap-1">
-                                    <span class="text-[10px] font-bold text-slate-700">${authorName}</span>
+                                    <span class="text-[10px] font-bold text-slate-700">${esc(authorName)}</span>
                                     <span class="text-[8px] text-slate-400">${actionText}</span>
                                 </div>
                                 <span class="text-[8px] px-1.5 py-0.5 rounded border ${badgeStyle} font-bold flex items-center gap-1 leading-none"><i class="fas ${icon} text-[8px]"></i>${typeName}</span>
                             </div>
-                            <p class="text-[11px] text-slate-600 line-clamp-2 leading-relaxed mb-1">${desc.content}</p>
+                            <p class="text-[11px] text-slate-600 line-clamp-2 leading-relaxed mb-1">${esc(desc.content)}</p>
                             <div class="text-[8px] text-slate-400 flex justify-between">
                                 <!-- 🔥 修改：僅顯示日期，不顯示具體時間 -->
                                 <span>${new Date(desc.date).toLocaleDateString('zh-TW', {month:'short', day:'numeric'})}</span>
@@ -1266,7 +1270,7 @@ ${specificData}
                     <!-- 🔥 修改：初始觀點也僅顯示日期 -->
                     <div class="text-[9px] text-slate-400 font-mono">${new Date(bestNote.date).toLocaleDateString('zh-TW', {month:'short', day:'numeric'})}</div>
                 </div>
-                <div class="font-bold text-xs text-slate-800 truncate">${bestNote.title || '無標題'}</div>
+                <div class="font-bold text-xs text-slate-800 truncate">${esc(bestNote.title || '無標題')}</div>
             </div>
             
             <div class="flex justify-between items-center bg-gradient-to-r from-pink-50/50 to-rose-50/50 rounded-xl p-3 mb-2 border border-pink-100 relative overflow-hidden shadow-inner shrink-0">
@@ -1409,16 +1413,16 @@ ${specificData}
             let ctxHtml = '';
             if (note.parentId) {
                 const parent = dbNodes.find(n => n.id === note.parentId);
-                if (parent) ctxHtml = `<div class="text-[10px] text-slate-400 mb-1.5 pl-2 border-l-2 border-slate-200"><i class="fas fa-reply mr-1"></i> 回應: ${parent.title}</div>`;
+                if (parent) ctxHtml = `<div class="text-[10px] text-slate-400 mb-1.5 pl-2 border-l-2 border-slate-200"><i class="fas fa-reply mr-1"></i> 回應: ${esc(parent.title)}</div>`;
             }
 
             container.insertAdjacentHTML('beforeend', `
                 <div class="relative flex gap-4 mb-4 evolution-node group evolution-item">
                     <div class="w-9 h-9 rounded-full ${tc} flex items-center justify-center shadow-sm border-2 flex-shrink-0 z-10 transition-transform group-hover:scale-110"><i class="fas ${ti} text-sm"></i></div>
                     <div class="flex-1 bg-white p-3.5 rounded-xl border border-slate-100 shadow-sm hover:shadow-md hover:border-indigo-100 transition cursor-pointer" onclick="viewNoteDetail('${note.id}')">
-                        <div class="flex justify-between items-start mb-1"><h4 class="font-bold text-slate-700 text-sm leading-tight">${note.title || '無標題'}</h4><span class="text-[10px] text-slate-400 flex-shrink-0 ml-2">${new Date(note.date).toLocaleDateString()}</span></div>
+                        <div class="flex justify-between items-start mb-1"><h4 class="font-bold text-slate-700 text-sm leading-tight">${esc(note.title || '無標題')}</h4><span class="text-[10px] text-slate-400 flex-shrink-0 ml-2">${new Date(note.date).toLocaleDateString()}</span></div>
                         ${ctxHtml}
-                        <p class="text-xs text-slate-500 line-clamp-2 leading-relaxed">${note.content}</p>
+                        <p class="text-xs text-slate-500 line-clamp-2 leading-relaxed">${esc(note.content)}</p>
                     </div>
                 </div>`);
         });
