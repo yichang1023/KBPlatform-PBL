@@ -1374,6 +1374,8 @@ overviewNetwork = new vis.Network(container, { nodes: new vis.DataSet(nodesData)
                 };
                 const currentDb = getRealData();
                 if (currentDb) {
+                    // ⭐ 先用最新資料重新計算班級統計(globalRawDB / globalAllNotes / globalClassStats),各分頁才不會用到舊資料
+                    try { calculateClassOverview(currentDb); } catch (e) { console.error('重新計算失敗:', e); }
                     renderStudentSidebar(currentDb);
                     // ⭐ 效能優化：移除重複執行的 initOverview，並記憶使用者當前停留的頁面
                     const activeView = document.querySelector('.section-view.active');
@@ -1670,6 +1672,40 @@ overviewNetwork = new vis.Network(container, { nodes: new vis.DataSet(nodesData)
             }); 
         }
 
+        // ⭐ Epistemic Agency(認知能動性)綜合判定
+        // 不再只看「提問比例」。依三個面向判斷學生是否「自己負責推進知識」:
+        //   1. 主動發起:提問、開新話題,或提出下一步/假設/計畫
+        //   2. 自我修正:修正、改寫、回頭檢討自己或他人的想法,或改進/反駁/回應自己先前的發言
+        //   3. 提出解釋:說明原因、機制、證據,而不只是附和
+        // 三項各自換算成 0~1(達到目標比例即滿分),取平均為個人指數;指數 >= 0.7 視為達標,全班達標者 >= 60% 才算落實。
+        // 註:文字面向以關鍵字判斷,屬輔助性的啟發式指標,建議搭配實際發言內容判讀。
+        const EA_PLAN = /(我們(要|可以|應該|先|接下來|得)|接下來|下一步|我建議|我提議|我想(把|先|改|加|問|知道)|不如|決定|計畫|目標|假設|驗證|測試|實驗|可以先|要不要)/;
+        const EA_MON = /(我發現|原本|之前|重新|修正|改成|改寫|回頭|不夠|還沒|不確定|其實|太快|漏|不能只|不只是|而是|誤|再想|想錯)/;
+        const EA_EXP = /(因為|所以|導致|代表|證據|數據|原因|表示|才會|機制|造成|關鍵)/;
+        function computeEpistemicAgency(notes, users) {
+            const byId = {}; notes.forEach(n => { byId[n.id] = n; });
+            const per = [];
+            users.forEach(u => {
+                const id = String(u.id);
+                const my = notes.filter(n => String(n.author) === id);
+                if (!my.length) return;
+                let I = 0, M = 0, E = 0;
+                my.forEach(n => {
+                    const tx = (n.title || '') + ' ' + (n.content || '');
+                    const p = n.parentId ? byId[n.parentId] : null;
+                    if (n.type === 'question' || !n.parentId || EA_PLAN.test(tx)) I++;
+                    if (EA_MON.test(tx) || n.type === 'improve' || n.type === 'counter' || (p && String(p.author) === id)) M++;
+                    if (EA_EXP.test(tx)) E++;
+                });
+                const k = my.length, ri = I / k, rm = M / k, re = E / k;
+                const score = (Math.min(1, ri / 0.25) + Math.min(1, rm / 0.5) + Math.min(1, re / 0.3)) / 3;
+                per.push({ id, name: u.name, ri, rm, re, score, pass: score >= 0.7 });
+            });
+            const total = per.length, passCount = per.filter(p => p.pass).length;
+            const avg = key => total ? per.reduce((a, p) => a + p[key], 0) / total : 0;
+            return { total, passCount, rate: total ? passCount / total : 0, avgScore: avg('score'), avgI: avg('ri'), avgM: avg('rm'), avgE: avg('re'), per };
+        }
+
         let impactScatterChart, scaffoldProfileChart;
         function initAcademicAnalysis() {
             const users = Object.values(globalRawDB.userList || {}).filter(u => u.role !== 'teacher');
@@ -1721,7 +1757,7 @@ overviewNetwork = new vis.Network(container, { nodes: new vis.DataSet(nodesData)
 
             const sortedUsers = Object.values(userStats).sort((a,b) => b.notesCreated - a.notesCreated).slice(0, 5);
             const totalScaffolds = { question: 0, extend: 0, improve: 0, riseabove: 0 }; let globalNoteCount = 0;
-            Object.values(userStats).forEach(u => { totalScaffolds.question += u.scaffolds.question; totalScaffolds.extend += u.scaffolds.improve; totalScaffolds.improve += u.scaffolds.improve; totalScaffolds.riseabove += u.scaffolds.riseabove; globalNoteCount += u.notesCreated; });
+            Object.values(userStats).forEach(u => { totalScaffolds.question += u.scaffolds.question; totalScaffolds.extend += u.scaffolds.extend; totalScaffolds.improve += u.scaffolds.improve; totalScaffolds.riseabove += u.scaffolds.riseabove; globalNoteCount += u.notesCreated; });
             const normalize = (val, total) => total > 0 ? ((val/total)*100).toFixed(1) : 0;
             const labels = ['全班平均', ...sortedUsers.map(u => u.name || '?')];
             const dataQ = [normalize(totalScaffolds.question, globalNoteCount), ...sortedUsers.map(u => normalize(u.scaffolds.question, u.notesCreated))];
@@ -1732,12 +1768,17 @@ overviewNetwork = new vis.Network(container, { nodes: new vis.DataSet(nodesData)
             scaffoldProfileChart = new Chart(ctx2, { type: 'bar', data: { labels: labels, datasets: [{ label: '提問', data: dataQ, backgroundColor: '#3b82f6' }, { label: '延伸', data: dataE, backgroundColor: '#eab308' }, { label: '改進', data: dataI, backgroundColor: '#22c55e' }, { label: '整合', data: dataR, backgroundColor: '#a855f7' }] }, options: { responsive: true, maintainAspectRatio: false, scales: { x: { stacked: true }, y: { stacked: true, max: 100 } } } });
             
             const checklistContainer = document.getElementById('kb12-check-list');
+            const ea = computeEpistemicAgency(globalAllNotes, users);
+            const nz = globalNoteCount || 1;
+            const pct = v => (v * 100).toFixed(0) + '%';
+            const activeStudents = users.filter(u => userStats[u.id].notesCreated > 0).length;
+            const perStudent = users.length > 0 ? globalNoteCount / users.length : 0;
             const checks = [
                 { title: 'Real Ideas', pass: globalClassStats.totalNotes > 5, desc: '是否產生了足夠觀點？', val: `${globalClassStats.totalNotes} 篇` },
-                { title: 'Idea Diversity', pass: globalClassStats.studentCount > 0 && (globalClassStats.totalNotes / globalClassStats.studentCount) > 1.5, desc: '是否大部分學生參與？', val: '人均 > 1.5' },
-                { title: 'Epistemic Agency', pass: (totalScaffolds.question / globalNoteCount) > 0.1, desc: '提問比例 > 10%', val: `${(totalScaffolds.question/globalNoteCount*100).toFixed(1)}%` },
+                { title: 'Idea Diversity', pass: users.length > 0 && perStudent > 1.5 && (activeStudents / users.length) >= 0.8, desc: '是否大部分學生參與(參與率 ≥ 80% 且人均 > 1.5 篇)？', val: `人均 ${perStudent.toFixed(1)} 篇;${activeStudents}/${users.length} 人參與` },
+                { title: 'Epistemic Agency', pass: ea.total > 0 && ea.rate >= 0.6, desc: '學生是否主動設定方向、自我修正、提出解釋(三面向綜合判定,不只看提問)', val: ea.total > 0 ? `${ea.passCount}/${ea.total} 位學生達標,平均指數 ${ea.avgScore.toFixed(2)}(主動發起 ${pct(ea.avgI)}、自我修正 ${pct(ea.avgM)}、提出解釋 ${pct(ea.avgE)})` : '尚無資料' },
                 { title: 'Community Knowledge', pass: parseFloat(globalClassStats.density) > 0.3, desc: '密度 > 0.3', val: globalClassStats.density },
-                { title: 'Improvable Ideas', pass: (totalScaffolds.improve / globalNoteCount) > 0.15, desc: '改進比例 > 15%', val: `${(totalScaffolds.improve/globalNoteCount*100).toFixed(1)}%` },
+                { title: 'Improvable Ideas', pass: (totalScaffolds.improve / nz) > 0.15, desc: '改進比例 > 15%', val: `${(totalScaffolds.improve / nz * 100).toFixed(1)}%` },
                 { title: 'Rise Above', pass: globalClassStats.raRate > 5, desc: '昇華率 > 5%', val: `${globalClassStats.raRate}%` }
             ];
             checklistContainer.innerHTML = checks.map(c => `<div class="flex items-start p-2 border-b border-yellow-100 last:border-0"><div class="mr-3 mt-1">${c.pass ? '<i class="fas fa-check-circle text-green-500"></i>' : '<i class="fas fa-exclamation-circle text-red-400"></i>'}</div><div><div class="font-bold text-sm text-slate-700">${c.title}</div><div class="text-xs text-slate-500">${c.desc}</div><div class="text-xs font-mono font-bold ${c.pass ? 'text-green-600' : 'text-red-500'} mt-1">Val: ${c.val}</div></div></div>`).join('');
@@ -2141,7 +2182,7 @@ async function fetchRefAIInsight(key, aiPrompt, currentVal, currentStatus, force
             },
             'kb12': { 
                 title: 'KB 12原則落實', 
-                theory: '以 12 項原則作為知識建構社群的最高指導方針。', 
+                theory: '以 12 項原則作為知識建構社群的最高指導方針。其中 Epistemic Agency(認知能動性)指學生自己負責推進知識,本檢核以「主動發起、自我修正、提出解釋」三面向綜合判定(文字面向為關鍵字啟發式,僅供輔助)。', 
                 source: 'Scardamalia, M. (2002). Collective cognitive responsibility for the advancement of knowledge. Liberal Education in a Knowledge Society, 97, 67-98.', 
                 ai_prompt: '如何讓班級符合更多 KB 原則？' 
             },
