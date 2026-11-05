@@ -1421,14 +1421,22 @@ overviewNetwork = new vis.Network(container, { nodes: new vis.DataSet(nodesData)
         function initConceptNetwork() { 
             const container = document.getElementById('concept-network-container'); 
             if(conceptNetworkInstance) { conceptNetworkInstance.destroy(); conceptNetworkInstance = null; }
-            const stopWords = ['的','是','在','有','和','了','與','就','也','但','我','你','他','我們','嗎','吧','個','這','那','不','人','都','很','？','！','。','，','：','...','嗎','呢','啊'];
+            const stopWords = ['的','是','在','有','和','了','與','就','也','但','我','你','他','我們','嗎','吧','個','這','那','不','人','都','很','？','！','。','，','：','...','嗎','呢','啊','你們','他們','而','及','或','若','如果','因為','所以','可以','可能','還是','已經','不是','就是','一個','這個','那個','什麼','怎麼','為什麼','是不是','沒有','需要','應該','我覺得','覺得','然後','比較','真的','一定','其實','而是','不只','只是','但是','所有','這樣','那樣','這些','那些','自己','大家','一些','一次','一起','現在','之前','目前','後面','前面','這次','一開始','這一路','沒錯','不能','最後','清楚','同一','這種','不同'];
+            const conceptSegmenter = (typeof Intl !== 'undefined' && Intl.Segmenter) ? new Intl.Segmenter('zh-TW', { granularity: 'word' }) : null;
             const replyCounts = {};
             globalAllNotes.forEach(n => replyCounts[n.id] = 0);
             globalAllNotes.forEach(n => { if (n.parentId && replyCounts[n.parentId] !== undefined) replyCounts[n.parentId]++; });
             const getNoteHeat = (n) => { let s = 1; if (n.type === 'riseabove') s = 4; else if (n.type === 'question') s = 3; else if (n.type === 'improve') s = 2; return s + ((replyCounts[n.id]||0) * 0.8); };
             const keywordMap = {}; 
             globalAllNotes.forEach(n => {
-                const tokens = (n.title + " " + n.content).toLowerCase().split(/[\s,，.。:：!?！？"”'’()（）]+/);
+                const text = (n.title + " " + n.content).toLowerCase();
+                let tokens;
+                if (conceptSegmenter) {
+                    // 中文斷詞:取出真正的詞彙(如「聲波」「濾網」),而不是整句話
+                    tokens = Array.from(conceptSegmenter.segment(text)).filter(s => s.isWordLike).map(s => s.segment);
+                } else {
+                    tokens = text.split(/[\s,，.。:：!?！？"”'’()（）]+/);
+                }
                 const unique = new Set();
                 tokens.forEach(t => { if (t.length > 1 && !stopWords.includes(t) && isNaN(t)) unique.add(t); });
                 unique.forEach(w => { if (!keywordMap[w]) keywordMap[w] = []; keywordMap[w].push(n.id); });
@@ -1467,6 +1475,14 @@ overviewNetwork = new vis.Network(container, { nodes: new vis.DataSet(nodesData)
             document.body.insertAdjacentHTML('beforeend', `<div id="keyword-modal" class="modal-overlay open" onclick="this.remove()"><div class="modal-content max-w-md" onclick="event.stopPropagation()"><div class="modal-header bg-blue-50"><h3 class="text-lg font-bold text-blue-900 flex items-center"><i class="fas fa-search mr-2"></i> 關鍵字上下文分析</h3><button onclick="document.getElementById('keyword-modal').remove()" class="text-slate-400 hover:text-slate-600"><i class="fas fa-times text-xl"></i></button></div><div class="modal-body"><div class="mb-4 text-sm text-slate-500">關鍵字 <span class="font-bold text-blue-600 text-lg mx-1">${word}</span> 出現在 ${noteIds.length} 篇筆記中：</div><div class="border border-slate-200 rounded-lg max-h-[300px] overflow-y-auto custom-scrollbar">${listHtml}</div></div></div></div>`);
         }
 
+        // 依「實際發文日期」分組(取代原本每 7 天切一格的 Week N)
+        function dayKeyOf(ts){ const d=new Date(ts); return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); }
+        function buildDayBuckets(sorted, makeExtra){
+            const map = new Map();
+            sorted.forEach(n => { const k = dayKeyOf(n.dateTime); if(!map.has(k)){ const d=new Date(n.dateTime); map.set(k, Object.assign({ key:k, start:n.dateTime, label:(d.getMonth()+1)+'/'+d.getDate() }, makeExtra ? makeExtra() : {})); } });
+            return map;
+        }
+
         let lexicalChartInstance;
         function initLexicalChart() { 
             const ctx = document.getElementById('lexicalChart').getContext('2d'); 
@@ -1477,25 +1493,12 @@ overviewNetwork = new vis.Network(container, { nodes: new vis.DataSet(nodesData)
             let dataPoints = [];
 
             if (sortedNotes.length === 0) {
-                labels = ['Week 1']; dataPoints = [0];
+                labels = ['無資料']; dataPoints = [0];
             } else {
-                const startDate = sortedNotes[0].dateTime;
-                const endDate = sortedNotes[sortedNotes.length - 1].dateTime;
-                const timeSpan = endDate - startDate;
-                const interval = (timeSpan < 1000 * 60 * 60 * 24 * 14) ? (1000 * 60 * 60 * 24) : (1000 * 60 * 60 * 24 * 7);
-
-                let currentStart = startDate;
+                const dayMap = buildDayBuckets(sortedNotes, () => ({ len: 0 }));
+                sortedNotes.forEach(n => { dayMap.get(dayKeyOf(n.dateTime)).len += ((n.content || "") + (n.title || "")).length; });
                 let cumulative = 0;
-                while(currentStart <= endDate + interval) {
-                    labels.push((timeSpan < 1000 * 60 * 60 * 24 * 14) ? new Date(currentStart).toLocaleDateString() : `Week ${labels.length + 1}`);
-                    const notesInPeriod = sortedNotes.filter(n => n.dateTime >= currentStart && n.dateTime < currentStart + interval);
-                    notesInPeriod.forEach(n => {
-                        const text = (n.content || "") + (n.title || "");
-                        cumulative += text.length; 
-                    });
-                    dataPoints.push(cumulative);
-                    currentStart += interval;
-                }
+                dayMap.forEach(b => { cumulative += b.len; labels.push(b.label); dataPoints.push(cumulative); });
             }
 
             lexicalChartInstance = new Chart(ctx, { type: 'line', data: { labels: labels, datasets: [{ label: '知識詞彙累積量', data: dataPoints, borderColor: '#8b5cf6', backgroundColor: 'rgba(139, 92, 246, 0.1)', fill: true, tension: 0.4 }] }, options: { responsive: true, maintainAspectRatio: false } }); 
@@ -1606,11 +1609,10 @@ overviewNetwork = new vis.Network(container, { nodes: new vis.DataSet(nodesData)
             const ctx = document.getElementById('streamChart').getContext('2d'); if (streamChart) streamChart.destroy(); 
             if (globalAllNotes.length === 0) return;
             const sortedNotes = [...globalAllNotes].sort((a, b) => a.dateTime - b.dateTime); if(sortedNotes.length === 0) return;
-            const startDate = sortedNotes[0].dateTime; const endDate = sortedNotes[sortedNotes.length - 1].dateTime; const timeSpan = endDate - startDate; const isDaily = timeSpan < (1000 * 60 * 60 * 24 * 14); const interval = isDaily ? (1000 * 60 * 60 * 24) : (1000 * 60 * 60 * 24 * 7);
-            const buckets = []; let currentStart = startDate;
-            while(currentStart <= endDate + interval) { buckets.push({ start: currentStart, label: isDaily ? new Date(currentStart).toLocaleDateString() : `Week ${buckets.length + 1}`, counts: { question: 0, extend: 0, improve: 0, riseabove: 0 }, notes: { question: [], extend: [], improve: [], riseabove: [] } }); currentStart += interval; }
+            const bucketMap = buildDayBuckets(sortedNotes, () => ({ counts: { question: 0, extend: 0, improve: 0, riseabove: 0 }, notes: { question: [], extend: [], improve: [], riseabove: [] } }));
+            const buckets = [...bucketMap.values()];
             sortedNotes.forEach(n => {
-                const bucket = buckets.find(b => n.dateTime >= b.start && n.dateTime < b.start + interval);
+                const bucket = bucketMap.get(dayKeyOf(n.dateTime));
                 if (bucket) { let type = n.type === 'counter' ? 'improve' : n.type; if(!bucket.counts[type]) type = 'extend'; if(bucket.counts[type] !== undefined) { bucket.counts[type]++; bucket.notes[type].push(n); } }
             });
             const labels = buckets.map(b => b.label);
@@ -1919,25 +1921,16 @@ overviewNetwork = new vis.Network(container, { nodes: new vis.DataSet(nodesData)
                 let labelsL = []; let academicData = []; let commonData = [];
 
                 if (sortedNotes.length === 0) {
-                    labelsL = ['Week 1']; academicData = [0]; commonData = [0];
+                    labelsL = ['無資料']; academicData = [0]; commonData = [0];
                 } else {
-                    const startDate = sortedNotes[0].dateTime;
-                    const endDate = sortedNotes[sortedNotes.length - 1].dateTime;
-                    const timeSpan = endDate - startDate;
-                    const interval = (timeSpan < 1000 * 60 * 60 * 24 * 14) ? (1000 * 60 * 60 * 24) : (1000 * 60 * 60 * 24 * 7);
-                    
-                    const buckets = [];
-                    let currentStart = startDate;
-                    while(currentStart <= endDate + interval) {
-                        buckets.push({ start: currentStart, label: (timeSpan < 1000 * 60 * 60 * 24 * 14) ? new Date(currentStart).toLocaleDateString() : `Week ${buckets.length + 1}`, academic: 0, common: 0 });
-                        currentStart += interval;
-                    }
+                    const bucketMap = buildDayBuckets(sortedNotes, () => ({ academic: 0, common: 0 }));
+                    const buckets = [...bucketMap.values()];
 
                     const academicKeywords = ['因為', '所以', '導致', '發現', '理論', '證據', '假設', '可能', '代表', '影響', '差異', '重要', '分析'];
                     const commonKeywords = ['我', '覺得', '不知道', '好', '對', '吧', '嗎', '呢', '啊', '然後', '就是'];
 
                     sortedNotes.forEach(n => {
-                        const bucket = buckets.find(b => n.dateTime >= b.start && n.dateTime < b.start + interval);
+                        const bucket = bucketMap.get(dayKeyOf(n.dateTime));
                         if (bucket) {
                             const text = (n.content || "") + (n.title || "");
                             academicKeywords.forEach(k => { if(text.includes(k)) bucket.academic++; });
