@@ -237,7 +237,7 @@
                     <select id="topic-selector-overview" onchange="filterDataByTopic(this.value)" class="bg-white border border-slate-300 text-slate-700 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 shadow-sm">
                         <option value="all" selected>所有主題 (All Topics)</option>
                     </select>
-                    <button onclick="openRef('class_diagnosis')" class="ai-btn bg-purple-600 hover:bg-purple-700 shadow-md whitespace-nowrap"><i class="fas fa-brain mr-2"></i> 全班深度診斷</button>
+                    <button onclick="triggerClassDiagnosisAI(false, true)" class="ai-btn bg-purple-600 hover:bg-purple-700 shadow-md whitespace-nowrap"><i class="fas fa-brain mr-2"></i> AI 診斷</button>
                     <span class="bg-white px-3 py-1 rounded-full text-xs border border-slate-200 shadow-sm flex items-center ml-2 whitespace-nowrap"><i class="fas fa-calendar-alt mr-2 text-slate-400"></i> <span id="current-date-display">Week 5</span></span>
                 </div>
             </header>
@@ -245,6 +245,22 @@
             <div class="insight-box" id="offline-insight-container">
                 <div class="insight-header"><i class="fas fa-lightbulb text-yellow-500 mr-2 text-xl"></i> 💡 數據診斷與教學導引 (Data-Driven Insight)</div>
                 <div class="text-sm text-slate-700 leading-relaxed" id="offline-insight-content">正在分析班級數據...</div>
+            </div>
+
+            <div class="card border-l-4 border-purple-400" id="ai-diagnosis-card">
+                <div class="flex flex-wrap justify-between items-start gap-2 mb-2">
+                    <div>
+                        <h3 class="font-bold text-slate-800"><i class="fas fa-brain text-purple-600 mr-2"></i>AI 教學診斷 (AI Diagnosis)</h3>
+                        <p class="text-xs text-slate-500" id="ai-diagnosis-scope">依目前範圍的統計數據與抽樣貼文,由 AI 產生診斷與教學建議</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button class="ref-btn" onclick="openRef('class_diagnosis')"><i class="fas fa-book"></i> Ref:</button>
+                        <button id="ai-diagnosis-btn" onclick="triggerClassDiagnosisAI(true, false)" class="ai-btn bg-purple-600 hover:bg-purple-700 shadow-md whitespace-nowrap"><i class="fas fa-magic mr-2"></i> 產生 AI 診斷</button>
+                    </div>
+                </div>
+                <div id="ai-diagnosis-result" class="text-sm text-slate-800 leading-relaxed">
+                    <span class="text-slate-500">按下「產生 AI 診斷」,AI 會彙整 KB 12 原則檢核、各項指標、學生分佈與抽樣貼文,告訴您目前班級(或小組)的狀態、需要關注的學生,以及下一堂課可以怎麼做。</span>
+                </div>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
@@ -876,6 +892,7 @@ async function geminiFetch(key, init) {
             }
 
            renderStaticDiagnosis(globalClassStats); 
+            try { showDiagnosisBadge(); const dc = aiCache.diagnosis && aiCache.diagnosis[activeTopicFilter]; const dbx = document.getElementById('ai-diagnosis-result'); if (dc && dbx && !dbx.querySelector('.fa-spinner')) dbx.innerHTML = dc.html; else if (dbx && !dc && !dbx.querySelector('.fa-spinner')) dbx.innerHTML = '<span class="text-slate-500">按下「產生 AI 診斷」,AI 會彙整 KB 12 原則檢核、各項指標、學生分佈與抽樣貼文,告訴您目前班級(或小組)的狀態、需要關注的學生,以及下一堂課可以怎麼做。</span>'; } catch (e) {}
             renderOverviewTrajectory(filteredNodes);
             renderSequentialMatrix(filteredNodes);
             renderKnowledgeBrokers(filteredNodes, students);
@@ -2005,6 +2022,132 @@ overviewNetwork = new vis.Network(container, { nodes: new vis.DataSet(nodesData)
             const depthTrend = [Math.min(20, inquiryScore/4), Math.min(40, agencyScore/2), Math.min(60, ideaImpScore/1.2), Math.min(80, synthesisScore), inquiryScore]; 
 
             return { user, noteCount, scaffoldCounts, visNodes, visEdges: egoEdges, depthTrend, radarData, role, badgeColor, topKeywords, balanceData, inDegree, outDegree };
+        }
+
+        // ===========================================
+        //  AI 教學診斷(全班 / 小組)
+        //  - 學生姓名不會傳給 AI:以代號 S01、S02… 取代,AI 回覆後再在本機換回姓名
+        //  - 傳給 AI 的內容:統計指標、KB 12 檢核結果、學生指標、各組比較、前後期趨勢、少量抽樣貼文
+        // ===========================================
+        // HTML 跳脫(避免 AI 或資料中的特殊字元破壞頁面)
+        function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]; }); }
+        aiCache.diagnosis = aiCache.diagnosis || {};
+        function diagDataSig() {
+            const last = globalAllNotes.length ? globalAllNotes[globalAllNotes.length - 1].id : '';
+            return activeTopicFilter + '|' + globalAllNotes.length + '|' + last;
+        }
+        function buildDiagnosisPayload() {
+            const db = getRealData();
+            const users = getScopedStudents(db, db.nodes || []);
+            const codeOf = {}, nameOf = {};
+            users.forEach((u, i) => { const c = 'S' + String(i + 1).padStart(2, '0'); codeOf[String(u.id)] = c; nameOf[c] = u.name || '未命名'; });
+            const pct = v => (v * 100).toFixed(0) + '%';
+            const notes = globalAllNotes;
+            const N = notes.length || 1;
+            const cnt = { question: 0, extend: 0, improve: 0, counter: 0, riseabove: 0 };
+            notes.forEach(n => { if (cnt[n.type] !== undefined) cnt[n.type]++; });
+
+            // 需要最新的 KB 12 檢核結果(切換分頁時才會算),這裡先更新一次
+            try { initAcademicAnalysis(); } catch (e) { console.error(e); }
+            const kb = window.kb12Results || {};
+            const kbLines = Object.keys(kb).map(k => '- ' + k.replace('kb12_', '') + ':' + kb[k].status + '|' + kb[k].val);
+
+            // 學生指標
+            const stuLines = [];
+            users.forEach(u => {
+                let m = null; try { m = calculateStudentMetrics(db, u.id); } catch (e) {}
+                if (!m || !m.noteCount) { stuLines.push('- ' + codeOf[String(u.id)] + ':此範圍內沒有發文'); return; }
+                const r = m.radarData;
+                stuLines.push('- ' + codeOf[String(u.id)] + ':貼文' + m.noteCount + '篇;角色=' + m.role + ';主體性' + r[0] + '、社群互動' + r[1] + '、觀點改進' + r[2] + '、昇華整合' + r[3] + '、持續探究' + r[4] + ';收到回應' + m.inDegree + '次、給出回應' + m.outDegree + '次');
+            });
+
+            // 各討論區(小組)比較
+            const grpLines = [];
+            const byTopic = {};
+            notes.forEach(n => { (byTopic[n.topicId] = byTopic[n.topicId] || []).push(n); });
+            const topicName = {}; (db.topics || []).forEach(t => { topicName[String(t.id)] = t.name; });
+            Object.keys(byTopic).forEach(tid => {
+                const list = byTopic[tid]; const L = list.length || 1;
+                const q = list.filter(n => n.type === 'question').length, im = list.filter(n => n.type === 'improve' || n.type === 'counter').length, ra = list.filter(n => n.type === 'riseabove').length;
+                grpLines.push('- ' + (topicName[tid] || tid) + ':貼文' + list.length + '篇;提問' + pct(q / L) + '、改進/反駁' + pct(im / L) + '、整合' + pct(ra / L) + ';回應他人' + pct(kbCrossAuthorRate(list)));
+            });
+
+            // 前後期趨勢(依發文日期對半分)
+            const days = [...new Set(notes.map(n => dayKeyOf(n.dateTime)))];
+            const half = Math.ceil(days.length / 2); const early = new Set(days.slice(0, half));
+            const part = f => { const a = notes.filter(n => f(early.has(dayKeyOf(n.dateTime)))); const A = a.length || 1; return '貼文' + a.length + '篇;提問' + pct(a.filter(n => n.type === 'question').length / A) + '、改進/反駁' + pct(a.filter(n => n.type === 'improve' || n.type === 'counter').length / A) + '、整合' + pct(a.filter(n => n.type === 'riseabove').length / A); };
+            const trend = '前半段(' + half + ' 個發文日):' + part(x => x) + '\n- 後半段(' + (days.length - half) + ' 個發文日):' + part(x => !x);
+
+            // 抽樣貼文(最多 12 篇,每篇截 80 字,作者以代號表示)
+            const pick = [];
+            ['riseabove', 'question', 'counter', 'improve'].forEach(tp => { notes.filter(n => n.type === tp).slice(-3).forEach(n => pick.push(n)); });
+            // 貼文內容若提到同學姓名(全名或名字),也一律換成代號,避免姓名傳給 AI
+            const scrub = txt => { let o = String(txt || ''); users.forEach(u => { const c = codeOf[String(u.id)]; const nm = String(u.name || ''); if (nm.length >= 2) o = o.split(nm).join(c); if (nm.length >= 3) o = o.split(nm.slice(-2)).join(c); }); return o; };
+            const sample = pick.map(n => '- [' + (kbTypeMap[n.type] || n.type) + '|' + (codeOf[String(n.author)] || '?') + '] ' + scrub(n.title) + ':' + scrub(String(n.content || '').slice(0, 80))).join('\n');
+
+            const s = globalClassStats;
+            const scope = activeTopicFilter === 'all' ? '全班(所有討論區)' : ('單一討論區:' + (topicName[String(activeTopicFilter)] || activeTopicFilter));
+            const prompt = '你是知識建構(Knowledge Building)教學顧問,請根據下面的數據,為任課老師做一份「AI 教學診斷」。\n' +
+                '【重要規則】只能根據我提供的數據下結論,引用具體數字;不要編造沒有的資料;學生一律用代號(如 S01)稱呼;語氣專業但白話。\n' +
+                '【分析範圍】' + scope + '\n' +
+                '【總體數據】貼文' + notes.length + '篇、學生' + users.length + '人、網絡密度' + s.density + '、發言吉尼係數' + s.gini + '(越小越平均)、昇華率' + s.raRate + '%、風險人數' + s.riskCount + '\n' +
+                '【貼文類型】提問' + cnt.question + '(' + pct(cnt.question / N) + ')、延伸' + cnt.extend + '(' + pct(cnt.extend / N) + ')、改進' + cnt.improve + '(' + pct(cnt.improve / N) + ')、反駁' + cnt.counter + '(' + pct(cnt.counter / N) + ')、整合' + cnt.riseabove + '(' + pct(cnt.riseabove / N) + ')\n' +
+                '【KB 12 原則檢核(程式依固定規則計算,文字類指標為關鍵字估計)】\n' + kbLines.join('\n') + '\n' +
+                '【各討論區比較】\n' + grpLines.join('\n') + '\n' +
+                '【前後期趨勢】\n- ' + trend + '\n' +
+                '【學生指標(0~100)】\n' + stuLines.join('\n') + '\n' +
+                '【抽樣貼文(共 ' + pick.length + ' 篇,僅供理解討論內容)】\n' + sample + '\n\n' +
+                '請用繁體中文、Markdown 輸出,依序包含以下區塊,總字數約 500~700 字:\n' +
+                '## 整體診斷(2~3 句話說明目前狀態)\n## 做得好的地方(最多 3 點,各附數據)\n## 需要關注的問題(最多 3 點,各附數據與可能原因)\n## 建議關注的學生(列出代號、原因、建議的介入方式;若沒有需要特別關注的,請明說)\n## 下一堂課可以怎麼做(3 個具體、可執行的教學行動)\n## 診斷的限制(1~2 句,提醒哪些指標只是估計)';
+            return { prompt, nameOf, scope, sig: diagDataSig(), users: users.length };
+        }
+
+        function showDiagnosisBadge() {
+            const holder = document.getElementById('ai-diagnosis-scope'); if (!holder) return;
+            const scopeTxt = activeTopicFilter === 'all' ? '全班' : '目前選擇的討論區';
+            const c = aiCache.diagnosis[activeTopicFilter];
+            holder.innerHTML = '範圍:' + scopeTxt + ';依統計數據與抽樣貼文產生' + (c && c.sig !== diagDataSig() ? ' <span class="ml-1 px-2 py-0.5 rounded bg-amber-100 text-amber-700 font-bold">資料已更新,建議重新診斷</span>' : '');
+        }
+
+        async function triggerClassDiagnosisAI(force, scrollTo) {
+            const box = document.getElementById('ai-diagnosis-result');
+            const btn = document.getElementById('ai-diagnosis-btn');
+            if (!box) return;
+            if (scrollTo) { const card = document.getElementById('ai-diagnosis-card'); if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+            const cached = aiCache.diagnosis[activeTopicFilter];
+            if (cached && !force && !scrollTo) { box.innerHTML = cached.html; showDiagnosisBadge(); return; }
+            if (cached && !force && scrollTo) { box.innerHTML = cached.html; showDiagnosisBadge(); return; }
+            if (!globalAllNotes.length) { box.innerHTML = '<span class="text-slate-500">此範圍尚無討論內容,無法進行診斷。</span>'; return; }
+
+            box.innerHTML = '<div class="flex items-center text-purple-700 font-bold"><i class="fas fa-spinner fa-spin mr-2"></i>AI 正在彙整數據並撰寫診斷,請稍候(約 10~30 秒)...</div>';
+            if (btn) { btn.disabled = true; btn.classList.add('opacity-60', 'cursor-not-allowed'); }
+            let payload;
+            try { payload = buildDiagnosisPayload(); } catch (e) {
+                console.error(e);
+                box.innerHTML = '<span class="text-red-600">整理數據時發生錯誤:' + esc(e.message || e) + '</span>';
+                if (btn) { btn.disabled = false; btn.classList.remove('opacity-60', 'cursor-not-allowed'); }
+                return;
+            }
+            const result = await callGeminiAPI(payload.prompt);
+            if (btn) { btn.disabled = false; btn.classList.remove('opacity-60', 'cursor-not-allowed'); }
+            if (String(result).startsWith('⚠️')) {
+                box.innerHTML = '<div class="p-3 bg-red-50 border border-red-200 rounded text-red-700"><i class="fas fa-exclamation-circle mr-2"></i>' + esc(result) + '</div>';
+                return;
+            }
+            // 在本機把代號換回學生姓名(姓名不會傳給 AI)
+            let text = String(result);
+            Object.keys(payload.nameOf).sort((a, b) => b.length - a.length).forEach(code => {
+                text = text.split(code).join('**' + payload.nameOf[code] + '**');
+            });
+            const model = window.__geminiModel ? ('模型:' + esc(window.__geminiModel) + ';') : '';
+            const html = '<div class="flex flex-wrap justify-between items-center gap-2 mb-2 text-[11px] text-slate-500">' +
+                '<span><i class="fas fa-robot mr-1 text-purple-500"></i>' + model + '範圍:' + esc(payload.scope) + ';產生時間:' + new Date().toLocaleString('zh-TW', { hour12: false }) + '</span>' +
+                '<button onclick="triggerClassDiagnosisAI(true,false)" class="px-2 py-1 rounded bg-purple-100 text-purple-700 hover:bg-purple-200"><i class="fas fa-sync-alt mr-1"></i>重新診斷</button></div>' +
+                '<div class="p-4 bg-purple-50 border border-purple-100 rounded-lg prose-sm" id="ai-diagnosis-md">' + marked.parse(text) + '</div>' +
+                '<div class="mt-2 text-[11px] text-slate-400">AI 診斷依上述統計數據與少量抽樣貼文產生,僅供教學參考,請老師結合課堂觀察判斷。學生姓名不會傳送給 AI。</div>';
+            aiCache.diagnosis[activeTopicFilter] = { html: html, sig: payload.sig };
+            box.innerHTML = html;
+            showDiagnosisBadge();
         }
 
         // --- 5. 導入真實 AI 個別化診斷與快取 (針對個別學生) ---
