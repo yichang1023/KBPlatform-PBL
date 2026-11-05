@@ -673,14 +673,43 @@
         }
 
         // --- 1. 真實 Gemini API 呼叫模組 ---
-        // Gemini 模型自動備援:新金鑰用新模型,舊金鑰仍可用 gemini-2.5-flash(遇到 404 自動換下一個)
+        // Gemini 模型自動選擇:向 Google 查詢這把金鑰「實際可用」的模型,挑出版本最新的 flash 模型;
+// 查不到時依序嘗試 gemini-3.8-flash、gemini-2.5-flash(遇到 404 自動換下一個)。
+async function geminiPickModels(key) {
+    const tail = String(key).slice(-6);
+    try {
+        const c = JSON.parse(localStorage.getItem('kb_ai_models') || 'null');
+        if (c && c.tail === tail && Date.now() - c.t < 6 * 3600 * 1000 && Array.isArray(c.list)) return c.list;
+    } catch (e) {}
+    let list = [];
+    try {
+        const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=200&key=' + key);
+        if (r.ok) {
+            const j = await r.json();
+            const ver = n => parseFloat((n.match(/^gemini-([0-9]+(?:[.][0-9]+)?)/) || [0, 0])[1]);
+            list = (j.models || [])
+                .filter(m => (m.supportedGenerationMethods || []).includes('generateContent'))
+                .map(m => String(m.name).replace('models/', ''))
+                .filter(n => /^gemini-[0-9]+([.][0-9]+)?-flash$/.test(n))
+                .sort((a, b) => ver(b) - ver(a))
+                .slice(0, 3);
+        }
+    } catch (e) {}
+    try { localStorage.setItem('kb_ai_models', JSON.stringify({ tail: tail, t: Date.now(), list: list })); } catch (e) {}
+    return list;
+}
 async function geminiFetch(key, init) {
     let stored = ''; try { stored = localStorage.getItem('kb_ai_model') || ''; } catch (e) {}
-    const models = [stored, 'gemini-3.8-flash', 'gemini-2.5-flash'].filter((m, i, a) => m && a.indexOf(m) === i);
+    const discovered = await geminiPickModels(key);
+    // 優先使用查詢到的最新模型;上次成功的模型與固定備援排在後面
+    const models = [].concat(discovered, [stored], ['gemini-3.8-flash', 'gemini-2.5-flash']).filter((m, i, arr) => m && arr.indexOf(m) === i);
     let last;
     for (const m of models) {
         const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + m + ':generateContent?key=' + key, init);
-        if (r.status !== 404) { if (r.ok) { try { localStorage.setItem('kb_ai_model', m); } catch (e) {} } return r; }
+        if (r.status !== 404) {
+            if (r.ok) { try { localStorage.setItem('kb_ai_model', m); } catch (e) {} window.__geminiModel = m; }
+            return r;
+        }
         last = r;
     }
     return last;
@@ -1273,16 +1302,22 @@ overviewNetwork = new vis.Network(container, { nodes: new vis.DataSet(nodesData)
             // ==========================================
 
             // 2. 觀點多樣性 (Idea Diversity) - 使用修正後的分母 (小組人數)
-            const diversityScore = stats.totalNotes > 0 ? Math.min(100, Math.round(((stats.totalNotes / targetStudentCount) / 4) * 100)) : 0;
+            // 觀點多樣性 = 參與者覆蓋率(50%) + 對照性想法占比(提問/反駁/改進,達 40% 為滿分)(50%)
+            const contrastShare = tCount > 0 ? ((typeCounts.question || 0) + (typeCounts.counter || 0) + (typeCounts.improve || 0)) / tCount : 0;
+            const coverage = Math.min(1, activeAuthors.size / Math.max(1, targetStudentCount));
+            const diversityScore = stats.totalNotes > 0 ? Math.min(100, Math.round((coverage * 0.5 + Math.min(1, contrastShare / 0.4) * 0.5) * 100)) : 0;
 
             // 3. 集體責任 (Collective Responsibility)
-            const responsibilityScore = stats.totalNotes > 0 ? Math.min(100, Math.round(stats.density * 250)) : 0;
+            // 集體責任 = 跨作者回應率(回應別人的貼文占比,達 60% 為滿分)。舊算法的「密度」幾乎每篇都有上層,恆接近滿分,無法區分。
+            const responsibilityScore = stats.totalNotes > 0 ? Math.min(100, Math.round(kbCrossAuthorRate(stats.nodes) / 0.6 * 100)) : 0;
 
             // 4. 真實問題 (Real Ideas, Authentic Problems)
             const problemScore = stats.totalNotes > 0 ? Math.min(100, Math.round((qCount / tCount) * 285)) : 0;
 
             // 5. 權威資料 (Constructive Uses of Information)
-            const dataScore = stats.totalNotes > 0 ? Math.min(100, Math.round((eCount / tCount) * 250)) : 0;
+            // 權威資料 = 引用文獻/官方資料/實測紀錄的貼文占比(達 10% 為滿分)。舊算法誤用「延伸」類型比例,與資料引用無關。
+            const srcShare = tCount > 0 ? stats.nodes.filter(n => KB_SRC_RE.test((n.title || '') + ' ' + (n.content || ''))).length / tCount : 0;
+            const dataScore = stats.totalNotes > 0 ? Math.min(100, Math.round(srcShare / 0.10 * 100)) : 0;
 
             // 6. 觀點改進 (Improvable Ideas)
             const improvableScore = stats.totalNotes > 0 ? Math.min(100, Math.round((iCount / tCount) * 222)) : 0;
@@ -1672,6 +1707,17 @@ overviewNetwork = new vis.Network(container, { nodes: new vis.DataSet(nodesData)
             }); 
         }
 
+        // ⭐ KB 原則共用判斷工具
+        // 引用權威/外部資料的線索(文獻、研究、官方資料、網址、實測紀錄等)
+        const KB_SRC_RE = /(文獻|研究顯示|研究指出|根據|資料顯示|資料指出|論文|報告|官方|EPA|WHO|教授|查到|查了|網站|來源|https?:|實測|測量|紀錄)/;
+        // 跨作者回應率:回應「別人」發言的貼文占全部貼文的比例(不含回自己)
+        function kbCrossAuthorRate(notes) {
+            const by = {}; notes.forEach(n => { by[n.id] = n; });
+            let c = 0;
+            notes.forEach(n => { const p = n.parentId ? by[n.parentId] : null; if (p && String(p.author) !== String(n.author)) c++; });
+            return notes.length ? c / notes.length : 0;
+        }
+
         // ⭐ Epistemic Agency(認知能動性)綜合判定
         // 不再只看「提問比例」。依三個面向判斷學生是否「自己負責推進知識」:
         //   1. 主動發起:提問、開新話題,或提出下一步/假設/計畫
@@ -1755,33 +1801,83 @@ overviewNetwork = new vis.Network(container, { nodes: new vis.DataSet(nodesData)
                 } 
             });
 
-            const sortedUsers = Object.values(userStats).sort((a,b) => b.notesCreated - a.notesCreated).slice(0, 5);
+            const sortedUsers = Object.values(userStats).filter(u => u.notesCreated > 0).sort((a,b) => b.notesCreated - a.notesCreated).slice(0, 5); // 只列出目前範圍內有發文的學生
             const totalScaffolds = { question: 0, extend: 0, improve: 0, riseabove: 0 }; let globalNoteCount = 0;
             Object.values(userStats).forEach(u => { totalScaffolds.question += u.scaffolds.question; totalScaffolds.extend += u.scaffolds.extend; totalScaffolds.improve += u.scaffolds.improve; totalScaffolds.riseabove += u.scaffolds.riseabove; globalNoteCount += u.notesCreated; });
             const normalize = (val, total) => total > 0 ? ((val/total)*100).toFixed(1) : 0;
+            // 全班平均固定以「全班所有學生的全部貼文」計算,不受上方主題/小組切換影響(下方個別學生則依目前選擇的範圍顯示)
+            const classAll = { question: 0, extend: 0, improve: 0, riseabove: 0 }; let classAllCount = 0;
+            const studentIdSet = new Set(users.map(u => String(u.id)));
+            (globalRawDB.nodes || []).forEach(n => {
+                if (!studentIdSet.has(String(n.author))) return;
+                classAllCount++;
+                const ty = n.type === 'counter' ? 'improve' : n.type;
+                if (classAll[ty] !== undefined) classAll[ty]++;
+            });
             const labels = ['全班平均', ...sortedUsers.map(u => u.name || '?')];
-            const dataQ = [normalize(totalScaffolds.question, globalNoteCount), ...sortedUsers.map(u => normalize(u.scaffolds.question, u.notesCreated))];
-            const dataE = [normalize(totalScaffolds.extend, globalNoteCount), ...sortedUsers.map(u => normalize(u.scaffolds.extend, u.notesCreated))];
-            const dataI = [normalize(totalScaffolds.improve, globalNoteCount), ...sortedUsers.map(u => normalize(u.scaffolds.improve, u.notesCreated))];
-            const dataR = [normalize(totalScaffolds.riseabove, globalNoteCount), ...sortedUsers.map(u => normalize(u.scaffolds.riseabove, u.notesCreated))];
+            const dataQ = [normalize(classAll.question, classAllCount), ...sortedUsers.map(u => normalize(u.scaffolds.question, u.notesCreated))];
+            const dataE = [normalize(classAll.extend, classAllCount), ...sortedUsers.map(u => normalize(u.scaffolds.extend, u.notesCreated))];
+            const dataI = [normalize(classAll.improve, classAllCount), ...sortedUsers.map(u => normalize(u.scaffolds.improve, u.notesCreated))];
+            const dataR = [normalize(classAll.riseabove, classAllCount), ...sortedUsers.map(u => normalize(u.scaffolds.riseabove, u.notesCreated))];
             const ctx2 = document.getElementById('scaffoldProfileChart').getContext('2d'); if (scaffoldProfileChart) scaffoldProfileChart.destroy();
             scaffoldProfileChart = new Chart(ctx2, { type: 'bar', data: { labels: labels, datasets: [{ label: '提問', data: dataQ, backgroundColor: '#3b82f6' }, { label: '延伸', data: dataE, backgroundColor: '#eab308' }, { label: '改進', data: dataI, backgroundColor: '#22c55e' }, { label: '整合', data: dataR, backgroundColor: '#a855f7' }] }, options: { responsive: true, maintainAspectRatio: false, scales: { x: { stacked: true }, y: { stacked: true, max: 100 } } } });
             
             const checklistContainer = document.getElementById('kb12-check-list');
-            const ea = computeEpistemicAgency(globalAllNotes, users);
+            const notes = globalAllNotes;
+            const ea = computeEpistemicAgency(notes, users);
             const nz = globalNoteCount || 1;
             const pct = v => (v * 100).toFixed(0) + '%';
             const activeStudents = users.filter(u => userStats[u.id].notesCreated > 0).length;
             const perStudent = users.length > 0 ? globalNoteCount / users.length : 0;
+            const byId = {}; notes.forEach(n => { byId[n.id] = n; });
+            const gave = new Set(), got = new Set();
+            notes.forEach(n => { const p = n.parentId ? byId[n.parentId] : null; if (p && String(p.author) !== String(n.author)) { gave.add(String(n.author)); got.add(String(p.author)); } });
+            const bothCount = users.filter(u => gave.has(String(u.id)) && got.has(String(u.id))).length;
+            const crossRate = kbCrossAuthorRate(notes);
+            const qishCount = notes.filter(n => n.type === 'question' || /[?？]/.test((n.title || '') + (n.content || ''))).length;
+            const contrastCount = totalScaffolds.question + totalScaffolds.improve; // 改進類已含反駁
+            const srcCount = notes.filter(n => KB_SRC_RE.test((n.title || '') + ' ' + (n.content || ''))).length;
+            const raAuthors = users.filter(u => userStats[u.id].scaffolds.riseabove > 0).length;
+            const giniVal = parseFloat(globalClassStats.gini) || 0;
+            const uCnt = users.length || 1;
             const checks = [
-                { title: 'Real Ideas', pass: globalClassStats.totalNotes > 5, desc: '是否產生了足夠觀點？', val: `${globalClassStats.totalNotes} 篇` },
-                { title: 'Idea Diversity', pass: users.length > 0 && perStudent > 1.5 && (activeStudents / users.length) >= 0.8, desc: '是否大部分學生參與(參與率 ≥ 80% 且人均 > 1.5 篇)？', val: `人均 ${perStudent.toFixed(1)} 篇;${activeStudents}/${users.length} 人參與` },
-                { title: 'Epistemic Agency', pass: ea.total > 0 && ea.rate >= 0.6, desc: '學生是否主動設定方向、自我修正、提出解釋(三面向綜合判定,不只看提問)', val: ea.total > 0 ? `${ea.passCount}/${ea.total} 位學生達標,平均指數 ${ea.avgScore.toFixed(2)}(主動發起 ${pct(ea.avgI)}、自我修正 ${pct(ea.avgM)}、提出解釋 ${pct(ea.avgE)})` : '尚無資料' },
-                { title: 'Community Knowledge', pass: parseFloat(globalClassStats.density) > 0.3, desc: '密度 > 0.3', val: globalClassStats.density },
-                { title: 'Improvable Ideas', pass: (totalScaffolds.improve / nz) > 0.15, desc: '改進比例 > 15%', val: `${(totalScaffolds.improve / nz * 100).toFixed(1)}%` },
-                { title: 'Rise Above', pass: globalClassStats.raRate > 5, desc: '昇華率 > 5%', val: `${globalClassStats.raRate}%` }
+                { key: 'kb12_real', title: 'Real Ideas, Authentic Problems', pass: globalNoteCount > 0 && (qishCount / nz) >= 0.15 && perStudent >= 3,
+                  desc: '是否有真實的疑問驅動討論(提問/疑問型貼文 ≥ 15%,且人均 ≥ 3 篇)',
+                  val: `疑問型貼文 ${pct(qishCount / nz)}(${qishCount} 篇);人均 ${perStudent.toFixed(1)} 篇`,
+                  meaning: '知識建構從學生「真的想知道」的問題開始。疑問型貼文太少,代表討論可能只是在完成任務,而不是在解決自己想搞懂的問題。老師可以鼓勵學生把卡住的地方直接寫成問題。' },
+                { key: 'kb12_diversity', title: 'Idea Diversity', pass: users.length > 0 && (activeStudents / users.length) >= 0.8 && (contrastCount / nz) >= 0.30,
+                  desc: '是否有多元觀點(參與率 ≥ 80%,且提問/改進/反駁等對照性想法 ≥ 30%)',
+                  val: `${activeStudents}/${users.length} 人參與;對照性想法 ${pct(contrastCount / nz)}`,
+                  meaning: '多元觀點不是人多就好,還要有不同想法互相碰撞。如果大家都在附和延伸,看起來很和諧,但想法其實沒有被挑戰。老師可以請學生針對同學的說法提出「如果不是這樣呢?」。' },
+                { key: 'kb12_agency', title: 'Epistemic Agency', pass: ea.total > 0 && ea.rate >= 0.6,
+                  desc: '學生是否主動設定方向、自我修正、提出解釋(三面向綜合判定,不只看提問)',
+                  val: ea.total > 0 ? `${ea.passCount}/${ea.total} 位學生達標,平均指數 ${ea.avgScore.toFixed(2)}(主動發起 ${pct(ea.avgI)}、自我修正 ${pct(ea.avgM)}、提出解釋 ${pct(ea.avgE)})` : '尚無資料',
+                  meaning: 'Epistemic Agency 是學生自己負責推進知識,而不是等老師指定。三個面向裡哪一項偏低,就是最需要引導的地方:發起低代表學生等待指令,修正低代表想法一次就定案,解釋低代表只說結論不說原因。' },
+                { key: 'kb12_community', title: 'Community Knowledge, Collective Responsibility', pass: crossRate >= 0.5 && users.length > 0 && (bothCount / users.length) >= 0.8,
+                  desc: '是否互相回應彼此的想法(回應「別人」的貼文 ≥ 50%,且 ≥ 80% 學生既回應過別人也被回應過)',
+                  val: `跨作者回應 ${pct(crossRate)};${bothCount}/${users.length} 人有來有往`,
+                  meaning: '集體責任是每個人都對全班的知識進展負責。如果跨作者回應率低,代表大家各說各話;如果有人只回應別人卻沒人理他,或只發文卻不回應,就是社群裡的斷點。' },
+                { key: 'kb12_improve', title: 'Improvable Ideas', pass: (totalScaffolds.improve / nz) > 0.15,
+                  desc: '想法是否持續被改進(改進/反駁類貼文 > 15%)',
+                  val: `${(totalScaffolds.improve / nz * 100).toFixed(1)}%`,
+                  meaning: '知識建構把所有想法都視為「還可以更好」。改進與反駁類貼文占比高,代表大家願意修正別人和自己的想法,而不是一次定案。' },
+                { key: 'kb12_riseabove', title: 'Rise Above', pass: globalClassStats.raRate > 5 && (raAuthors / uCnt) >= 0.3,
+                  desc: '是否把分散想法整合成更高層次的結論(昇華率 > 5%,且 ≥ 30% 學生寫過整合)',
+                  val: `昇華率 ${globalClassStats.raRate}%;${raAuthors}/${users.length} 人寫過整合`,
+                  meaning: '昇華是把零散想法收斂成更高層次的結論。如果整合都由少數人(例如組長)負責,其他人可能只是在供應素材。老師可以輪流讓不同學生做整合。' },
+                { key: 'kb12_sources', title: 'Constructive Uses of Authoritative Sources', pass: (srcCount / nz) >= 0.05,
+                  desc: '是否有建設性地引用文獻、官方資料或實測紀錄(貼文占比 ≥ 5%)',
+                  val: `引用資料的貼文 ${pct(srcCount / nz)}(${srcCount} 篇)`,
+                  meaning: '權威資料要用來「支撐或挑戰想法」,而不是直接貼上答案。占比太低代表討論多半靠個人想像;太高則要確認學生是否真的消化資料。此項以關鍵字判斷,僅供參考。' },
+                { key: 'kb12_democratize', title: 'Democratizing Knowledge', pass: giniVal < 0.4,
+                  desc: '發言是否分佈平均(發言量吉尼係數 < 0.4)',
+                  val: `吉尼係數 ${giniVal.toFixed(2)}`,
+                  meaning: '民主化代表每個人都有機會貢獻想法,而不是少數人主導。吉尼係數越接近 0 越平均,越接近 1 代表發言越集中在少數人身上。' }
             ];
-            checklistContainer.innerHTML = checks.map(c => `<div class="flex items-start p-2 border-b border-yellow-100 last:border-0"><div class="mr-3 mt-1">${c.pass ? '<i class="fas fa-check-circle text-green-500"></i>' : '<i class="fas fa-exclamation-circle text-red-400"></i>'}</div><div><div class="font-bold text-sm text-slate-700">${c.title}</div><div class="text-xs text-slate-500">${c.desc}</div><div class="text-xs font-mono font-bold ${c.pass ? 'text-green-600' : 'text-red-500'} mt-1">Val: ${c.val}</div></div></div>`).join('');
+            // 供 Ref 視窗讀取每個項目的即時數值與說明
+            window.kb12Results = {};
+            checks.forEach(c => { window.kb12Results[c.key] = { val: c.val, status: c.pass ? '達標' : '尚未達標', meaning: c.meaning }; });
+            checklistContainer.innerHTML = checks.map(c => `<div class="flex items-start p-2 border-b border-yellow-100 last:border-0"><div class="mr-3 mt-1">${c.pass ? '<i class="fas fa-check-circle text-green-500"></i>' : '<i class="fas fa-exclamation-circle text-red-400"></i>'}</div><div><div class="font-bold text-sm text-slate-700 flex items-center gap-2">${c.title}<button class="ref-btn px-2 py-1 text-[10px]" onclick="openRef('${c.key}')"><i class="fas fa-book"></i> Ref</button></div><div class="text-xs text-slate-500">${c.desc}</div><div class="text-xs font-mono font-bold ${c.pass ? 'text-green-600' : 'text-red-500'} mt-1">Val: ${c.val}</div></div></div>`).join('');
         }
 
         function calculateStudentMetrics(db, userId) {
@@ -2190,6 +2286,54 @@ async function fetchRefAIInsight(key, aiPrompt, currentVal, currentStatus, force
                 source: 'Scardamalia, M. (2002). Collective cognitive responsibility for the advancement of knowledge. Liberal Education in a Knowledge Society, 97, 67-98.', 
                 ai_prompt: '如何讓班級符合更多 KB 原則？' 
             },
+            'kb12_real': { 
+                title: 'Real Ideas, Authentic Problems', 
+                theory: '真實想法與真實問題:知識建構從學生真正想解決的問題出發,而不是練習題或老師預設的答案。', 
+                source: 'Scardamalia, M. (2002). Collective cognitive responsibility for the advancement of knowledge. In B. Smith (Ed.), Liberal education in a knowledge society (pp. 67-98). Open Court.', 
+                ai_prompt: '學生的討論缺少真實疑問時,老師該怎麼引導?' 
+            },
+            'kb12_diversity': { 
+                title: 'Idea Diversity', 
+                theory: '觀點多樣性:要真正理解一個想法,必須接觸與它不同、甚至對立的想法;多樣性是想法進步的動力。', 
+                source: 'Scardamalia, M. (2002). Collective cognitive responsibility for the advancement of knowledge. In B. Smith (Ed.), Liberal education in a knowledge society (pp. 67-98). Open Court.', 
+                ai_prompt: '如何讓班上出現更多不同的觀點而不只是互相附和?' 
+            },
+            'kb12_agency': { 
+                title: 'Epistemic Agency', 
+                theory: '認知能動性:學生自己設定目標、規劃、監控並修正自己的學習與想法,負起推進知識的責任。', 
+                source: 'Scardamalia, M. (2002). Collective cognitive responsibility for the advancement of knowledge. In B. Smith (Ed.), Liberal education in a knowledge society (pp. 67-98). Open Court. / Scardamalia, M., & Bereiter, C. (2006). Knowledge building. In The Cambridge Handbook of the Learning Sciences.', 
+                ai_prompt: '如何提升學生的認知能動性,讓他們更主動負責自己的知識推進?' 
+            },
+            'kb12_community': { 
+                title: 'Community Knowledge, Collective Responsibility', 
+                theory: '社群知識與集體責任:知識是社群共同擁有的,每個人都有責任貢獻並推進全班的理解。', 
+                source: 'Scardamalia, M. (2002). Collective cognitive responsibility for the advancement of knowledge. In B. Smith (Ed.), Liberal education in a knowledge society (pp. 67-98). Open Court.', 
+                ai_prompt: '如何讓學生更願意回應同學、為全班知識負責?' 
+            },
+            'kb12_improve': { 
+                title: 'Improvable Ideas', 
+                theory: '可改進的想法:所有想法都是「還可以更好」的,社群持續檢驗、修正與改良,才會產生進步。', 
+                source: 'Scardamalia, M. (2002). Collective cognitive responsibility for the advancement of knowledge. In B. Smith (Ed.), Liberal education in a knowledge society (pp. 67-98). Open Court.', 
+                ai_prompt: '如何引導學生更多地改進與挑戰彼此的想法?' 
+            },
+            'kb12_riseabove': { 
+                title: 'Rise Above', 
+                theory: '昇華:把分散的想法整合,提出更高層次、涵蓋更廣的解釋,是知識建構的核心動作。', 
+                source: 'Scardamalia, M. (2002). Collective cognitive responsibility for the advancement of knowledge. In B. Smith (Ed.), Liberal education in a knowledge society (pp. 67-98). Open Court.', 
+                ai_prompt: '如何讓更多學生(而不只是組長)參與觀點整合與昇華?' 
+            },
+            'kb12_sources': { 
+                title: 'Constructive Uses of Authoritative Sources', 
+                theory: '權威資料的建設性使用:引用專家與文獻不是為了取代思考,而是用來支撐、挑戰或深化社群的想法。', 
+                source: 'Scardamalia, M. (2002). Collective cognitive responsibility for the advancement of knowledge. In B. Smith (Ed.), Liberal education in a knowledge society (pp. 67-98). Open Court.', 
+                ai_prompt: '如何引導學生建設性地使用文獻與外部資料?' 
+            },
+            'kb12_democratize': { 
+                title: 'Democratizing Knowledge', 
+                theory: '知識民主化:所有成員(不分能力或地位)都有權貢獻並被聽見,不是少數人主導。', 
+                source: 'Scardamalia, M. (2002). Collective cognitive responsibility for the advancement of knowledge. In B. Smith (Ed.), Liberal education in a knowledge society (pp. 67-98). Open Court.', 
+                ai_prompt: '如何避免少數人主導討論,讓更多人發言?' 
+            },
             'impact_scatter': { 
                 title: '互動影響力', 
                 theory: '產出-影響力矩陣 (Socio-cognitive dynamics)。', 
@@ -2374,6 +2518,11 @@ async function fetchRefAIInsight(key, aiPrompt, currentVal, currentStatus, force
                 dynamicVal = '用專家標準來打分數';
                 dynamicStatus = '高品質社群檢核';
                 meaningText = '這是用學者的嚴格標準來檢驗班級。如果發現「知識昇華」被打叉了，代表大家講完想法就鳥獸散了。這時老師就可以跳出來，帶領全班做一次總結收斂。';
+            }
+            else if (key.indexOf('kb12_') === 0) {
+                const r = (window.kb12Results || {})[key];
+                if (r) { dynamicVal = r.val; dynamicStatus = r.status; meaningText = r.meaning; }
+                else { dynamicVal = '請先切換到「學術分析」頁'; dynamicStatus = '尚無數據'; meaningText = '此項目的數值要在學術分析頁計算完成後才會顯示。'; }
             }
             else if (key === 'impact_scatter') {
                 dynamicVal = '看見班上的隱形高手';

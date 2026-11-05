@@ -316,14 +316,43 @@
             console.log(`[Identity] Role set to: ${role}, Key: ${userKey}`);
         }
 
-        // Gemini 模型自動備援:新金鑰用新模型,舊金鑰仍可用 gemini-2.5-flash(遇到 404 自動換下一個)
+        // Gemini 模型自動選擇:向 Google 查詢這把金鑰「實際可用」的模型,挑出版本最新的 flash 模型;
+// 查不到時依序嘗試 gemini-3.8-flash、gemini-2.5-flash(遇到 404 自動換下一個)。
+async function geminiPickModels(key) {
+    const tail = String(key).slice(-6);
+    try {
+        const c = JSON.parse(localStorage.getItem('kb_ai_models') || 'null');
+        if (c && c.tail === tail && Date.now() - c.t < 6 * 3600 * 1000 && Array.isArray(c.list)) return c.list;
+    } catch (e) {}
+    let list = [];
+    try {
+        const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=200&key=' + key);
+        if (r.ok) {
+            const j = await r.json();
+            const ver = n => parseFloat((n.match(/^gemini-([0-9]+(?:[.][0-9]+)?)/) || [0, 0])[1]);
+            list = (j.models || [])
+                .filter(m => (m.supportedGenerationMethods || []).includes('generateContent'))
+                .map(m => String(m.name).replace('models/', ''))
+                .filter(n => /^gemini-[0-9]+([.][0-9]+)?-flash$/.test(n))
+                .sort((a, b) => ver(b) - ver(a))
+                .slice(0, 3);
+        }
+    } catch (e) {}
+    try { localStorage.setItem('kb_ai_models', JSON.stringify({ tail: tail, t: Date.now(), list: list })); } catch (e) {}
+    return list;
+}
 async function geminiFetch(key, init) {
     let stored = ''; try { stored = localStorage.getItem('kb_ai_model') || ''; } catch (e) {}
-    const models = [stored, 'gemini-3.8-flash', 'gemini-2.5-flash'].filter((m, i, a) => m && a.indexOf(m) === i);
+    const discovered = await geminiPickModels(key);
+    // 優先使用查詢到的最新模型;上次成功的模型與固定備援排在後面
+    const models = [].concat(discovered, [stored], ['gemini-3.8-flash', 'gemini-2.5-flash']).filter((m, i, arr) => m && arr.indexOf(m) === i);
     let last;
     for (const m of models) {
         const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + m + ':generateContent?key=' + key, init);
-        if (r.status !== 404) { if (r.ok) { try { localStorage.setItem('kb_ai_model', m); } catch (e) {} } return r; }
+        if (r.status !== 404) {
+            if (r.ok) { try { localStorage.setItem('kb_ai_model', m); } catch (e) {} window.__geminiModel = m; }
+            return r;
+        }
         last = r;
     }
     return last;
