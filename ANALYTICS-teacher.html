@@ -8,16 +8,12 @@
     <!-- ========================================== -->
     <!-- 1. 引入 Firebase SDK -->
     <!-- ========================================== -->
-    <script>
-/* HTML 跳脫:避免學生輸入的標題/內容被當成程式碼執行 */
-function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); }
-</script>
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 
     <!-- 核心函式庫 -->
-    <link rel="stylesheet" href="tailwind.css">
+    <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
@@ -1014,7 +1010,7 @@ function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(
                     const colors = ['bg-yellow-100 text-yellow-700 border-yellow-300', 'bg-slate-100 text-slate-600', 'bg-slate-50 text-slate-500'];
                     const icons = ['fa-crown', 'fa-medal', 'fa-award'];
                     
-                    return `<div class="flex items-center justify-between p-2 rounded border ${colors[idx] || colors[2]}"><div class="flex items-center gap-3"><div class="w-6 h-6 rounded-full bg-white flex items-center justify-center text-xs shadow-sm"><i class="fas ${icons[idx]}"></i></div><span class="font-bold text-sm">${esc(name)}</span></div><div class="text-xs font-mono opacity-80">Score: ${score}</div></div>`;
+                    return `<div class="flex items-center justify-between p-2 rounded border ${colors[idx] || colors[2]}"><div class="flex items-center gap-3"><div class="w-6 h-6 rounded-full bg-white flex items-center justify-center text-xs shadow-sm"><i class="fas ${icons[idx]}"></i></div><span class="font-bold text-sm">${name}</span></div><div class="text-xs font-mono opacity-80">Score: ${score}</div></div>`;
                 }).join('');
             }
         }
@@ -1049,7 +1045,7 @@ function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(
         function populateTopicSelectors(topics) {
             const selectors = ['topic-selector-ideas', 'topic-selector-quality', 'topic-selector-overview', 'topic-selector-academic'];
             let options = `<option value="all">所有主題 (All Topics)</option>`;
-            if (topics.length > 0) options += topics.map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join('');
+            if (topics.length > 0) options += topics.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
             else options = `<option value="all" disabled>暫無主題</option>`;
             
             selectors.forEach(id => {
@@ -1184,7 +1180,7 @@ function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(
                     riskIcon.className = 'fas fa-exclamation-triangle text-red-200 text-3xl';
                     
                     riskLink.className = 'mt-2 flex flex-col gap-1';
-                    const badges = stats.riskStudentsList.slice(0, 4).map(name => `<span class="bg-red-50 text-red-700 px-1.5 py-0.5 rounded text-[10px] truncate max-w-[75px] inline-block border border-red-200" title="${esc(name)}">${esc(name)}</span>`).join(' ');
+                    const badges = stats.riskStudentsList.slice(0, 4).map(name => `<span class="bg-red-50 text-red-700 px-1.5 py-0.5 rounded text-[10px] truncate max-w-[75px] inline-block border border-red-200" title="${name}">${name}</span>`).join(' ');
                     const more = stats.riskStudentsList.length > 4 ? `<span class="text-[10px] text-red-500 font-bold ml-1">+${stats.riskStudentsList.length - 4}</span>` : '';
                     
                     riskLink.innerHTML = `
@@ -1450,20 +1446,12 @@ overviewNetwork = new vis.Network(container, { nodes: new vis.DataSet(nodesData)
         function showKeywordContext(word, noteIds) {
             const listHtml = noteIds.map(id => {
                 const n = globalAllNotes.find(x => x.id === id); if(!n) return '';
-                const highlighted = esc(n.content).replace(new RegExp(esc(word).replace(/[.*+?^()|{}$]/g, '[$&]'), 'gi'), (m) => `<span class="bg-yellow-200 font-bold px-1 rounded">${m}</span>`);
+                const highlighted = n.content.replace(new RegExp(word, 'gi'), `<span class="bg-yellow-200 font-bold px-1 rounded">${word}</span>`);
                 let author = n.author; if (globalRawDB.userList) { const u = Object.values(globalRawDB.userList).find(u => String(u.id) === String(n.author)); if (u) author = u.name || '?'; }
-                return `<div class="p-3 border-b border-slate-100 hover:bg-slate-50 cursor-pointer transition" onclick="viewNote('${n.id}')"><div class="flex justify-between items-center mb-1"><span class="text-sm font-bold text-slate-700">${esc(n.title)}</span><span class="text-xs text-slate-400">${n.date}</span></div><div class="text-xs text-slate-500 mb-1">By ${esc(author)}</div><div class="text-xs text-slate-600 line-clamp-2">${highlighted}</div></div>`;
+                return `<div class="p-3 border-b border-slate-100 hover:bg-slate-50 cursor-pointer transition" onclick="viewNote('${n.id}')"><div class="flex justify-between items-center mb-1"><span class="text-sm font-bold text-slate-700">${n.title}</span><span class="text-xs text-slate-400">${n.date}</span></div><div class="text-xs text-slate-500 mb-1">By ${author}</div><div class="text-xs text-slate-600 line-clamp-2">${highlighted}</div></div>`;
             }).join('');
             const existing = document.getElementById('keyword-modal'); if(existing) existing.remove();
             document.body.insertAdjacentHTML('beforeend', `<div id="keyword-modal" class="modal-overlay open" onclick="this.remove()"><div class="modal-content max-w-md" onclick="event.stopPropagation()"><div class="modal-header bg-blue-50"><h3 class="text-lg font-bold text-blue-900 flex items-center"><i class="fas fa-search mr-2"></i> 關鍵字上下文分析</h3><button onclick="document.getElementById('keyword-modal').remove()" class="text-slate-400 hover:text-slate-600"><i class="fas fa-times text-xl"></i></button></div><div class="modal-body"><div class="mb-4 text-sm text-slate-500">關鍵字 <span class="font-bold text-blue-600 text-lg mx-1">${word}</span> 出現在 ${noteIds.length} 篇筆記中：</div><div class="border border-slate-200 rounded-lg max-h-[300px] overflow-y-auto custom-scrollbar">${listHtml}</div></div></div></div>`);
-        }
-
-        // 依「實際發文日期」分組(取代原本每 7 天切一格的 Week N)
-        function dayKeyOf(ts){ const d=new Date(ts); return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); }
-        function buildDayBuckets(sorted, makeExtra){
-            const map = new Map();
-            sorted.forEach(n => { const k = dayKeyOf(n.dateTime); if(!map.has(k)){ const d=new Date(n.dateTime); map.set(k, Object.assign({ key:k, start:n.dateTime, label:(d.getMonth()+1)+'/'+d.getDate() }, makeExtra ? makeExtra() : {})); } });
-            return map;
         }
 
         let lexicalChartInstance;
@@ -1476,12 +1464,25 @@ overviewNetwork = new vis.Network(container, { nodes: new vis.DataSet(nodesData)
             let dataPoints = [];
 
             if (sortedNotes.length === 0) {
-                labels = ['無資料']; dataPoints = [0];
+                labels = ['Week 1']; dataPoints = [0];
             } else {
-                const dayMap = buildDayBuckets(sortedNotes, () => ({ len: 0 }));
-                sortedNotes.forEach(n => { dayMap.get(dayKeyOf(n.dateTime)).len += ((n.content || "") + (n.title || "")).length; });
+                const startDate = sortedNotes[0].dateTime;
+                const endDate = sortedNotes[sortedNotes.length - 1].dateTime;
+                const timeSpan = endDate - startDate;
+                const interval = (timeSpan < 1000 * 60 * 60 * 24 * 14) ? (1000 * 60 * 60 * 24) : (1000 * 60 * 60 * 24 * 7);
+
+                let currentStart = startDate;
                 let cumulative = 0;
-                dayMap.forEach(b => { cumulative += b.len; labels.push(b.label); dataPoints.push(cumulative); });
+                while(currentStart <= endDate + interval) {
+                    labels.push((timeSpan < 1000 * 60 * 60 * 24 * 14) ? new Date(currentStart).toLocaleDateString() : `Week ${labels.length + 1}`);
+                    const notesInPeriod = sortedNotes.filter(n => n.dateTime >= currentStart && n.dateTime < currentStart + interval);
+                    notesInPeriod.forEach(n => {
+                        const text = (n.content || "") + (n.title || "");
+                        cumulative += text.length; 
+                    });
+                    dataPoints.push(cumulative);
+                    currentStart += interval;
+                }
             }
 
             lexicalChartInstance = new Chart(ctx, { type: 'line', data: { labels: labels, datasets: [{ label: '知識詞彙累積量', data: dataPoints, borderColor: '#8b5cf6', backgroundColor: 'rgba(139, 92, 246, 0.1)', fill: true, tension: 0.4 }] }, options: { responsive: true, maintainAspectRatio: false } }); 
@@ -1499,7 +1500,7 @@ overviewNetwork = new vis.Network(container, { nodes: new vis.DataSet(nodesData)
                 let x = 10 + (replyCounts[n.id] / maxReplies) * 80; x += (idSum % 10 - 5);
                 x = Math.max(5, Math.min(95, x)); y = Math.max(5, Math.min(95, y));
                 const dot = document.createElement('div'); dot.className = 'absolute cursor-pointer group hover:scale-125 transition-transform z-10'; dot.style.left = `${x}%`; dot.style.bottom = `${y}%`; dot.onclick = () => viewNote(n.id);
-                dot.innerHTML = `<div class="w-3 h-3 ${n.type === 'question' ? 'bg-red-500' : 'bg-blue-500'} rounded-full shadow-lg hotspot-dot"></div><div class="absolute -top-8 -left-10 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap z-20 pointer-events-none w-max max-w-[150px] truncate p-1 shadow-xl border border-slate-700 hidden md:block">${esc(n.title)}</div>`;
+                dot.innerHTML = `<div class="w-3 h-3 ${n.type === 'question' ? 'bg-red-500' : 'bg-blue-500'} rounded-full shadow-lg hotspot-dot"></div><div class="absolute -top-8 -left-10 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap z-20 pointer-events-none w-max max-w-[150px] truncate p-1 shadow-xl border border-slate-700 hidden md:block">${n.title}</div>`;
                 container.appendChild(dot);
             });
         }
@@ -1515,7 +1516,7 @@ overviewNetwork = new vis.Network(container, { nodes: new vis.DataSet(nodesData)
                 let icon = 'fa-comment'; let color = 'bg-white border-slate-200';
                 if(n.type === 'question') { icon = 'fa-question'; color = 'bg-red-50 border-red-200'; } else if(n.type === 'riseabove') { icon = 'fa-layer-group'; color = 'bg-purple-50 border-purple-200'; } else if(n.type === 'improve') { icon = 'fa-arrow-up'; color = 'bg-green-50 border-green-200'; }
                 const typeLabel = kbTypeMap[n.type] || '一般';
-                item.innerHTML = `<div class="absolute -left-10 top-0 w-8 h-8 bg-white rounded-full flex items-center justify-center border-2 border-slate-200 text-slate-400 text-xs"><i class="fas ${icon}"></i></div><div class="${color} border p-3 rounded-lg shadow-sm"><div class="flex justify-between items-center mb-1"><span class="text-xs font-bold text-slate-700">${esc(n.title || '無標題')}</span><span class="text-[10px] text-slate-400">${n.date}</span></div><div class="mb-1"><span class="text-[10px] bg-slate-100 text-slate-600 px-1 py-0.5 rounded border border-slate-300 font-medium">${typeLabel}</span></div><div class="text-xs text-slate-600 line-clamp-2">${esc(n.content)}</div></div>`;
+                item.innerHTML = `<div class="absolute -left-10 top-0 w-8 h-8 bg-white rounded-full flex items-center justify-center border-2 border-slate-200 text-slate-400 text-xs"><i class="fas ${icon}"></i></div><div class="${color} border p-3 rounded-lg shadow-sm"><div class="flex justify-between items-center mb-1"><span class="text-xs font-bold text-slate-700">${n.title || '無標題'}</span><span class="text-[10px] text-slate-400">${n.date}</span></div><div class="mb-1"><span class="text-[10px] bg-slate-100 text-slate-600 px-1 py-0.5 rounded border border-slate-300 font-medium">${typeLabel}</span></div><div class="text-xs text-slate-600 line-clamp-2">${n.content}</div></div>`;
                 container.appendChild(item);
             });
         }
@@ -1548,7 +1549,7 @@ overviewNetwork = new vis.Network(container, { nodes: new vis.DataSet(nodesData)
              resultDiv.classList.remove('hidden');
              resultDiv.innerHTML = '<div class="flex items-center text-indigo-600 font-bold"><i class="fas fa-spinner fa-spin mr-2"></i>AI 正在深入閱讀並提煉共識，請稍候...</div>';
              
-             const notesToAnalyze = globalAllNotes.slice(0, 30).map(n => `[${kbTypeMap[n.type]||'一般'}] ${esc(n.title)}: ${esc(n.content)}`).join('\n');
+             const notesToAnalyze = globalAllNotes.slice(0, 30).map(n => `[${kbTypeMap[n.type]||'一般'}] ${n.title}: ${n.content}`).join('\n');
              const prompt = `請以知識建構(Knowledge Building)專家角度，總結以下學生的討論內容（限 150 字以內）。請精煉指出：1. 目前達成的核心共識 2. 值得深究的衝突或迷思 3. 給老師的下一步引導建議。\n\n討論內容：\n${notesToAnalyze}`;
 
              const aiResult = await callGeminiAPI(prompt);
@@ -1577,11 +1578,11 @@ overviewNetwork = new vis.Network(container, { nodes: new vis.DataSet(nodesData)
                 let uName = n.author; if (globalRawDB.userList) { const u = Object.values(globalRawDB.userList).find(u => String(u.id) === String(n.author)); if (u) uName = u.name || '?'; }
                 userActivity[uName] = (userActivity[uName] || 0) + 1;
                 const logItem = document.createElement('div'); logItem.className = 'content-log-item cursor-pointer hover:bg-slate-50 transition p-2 rounded'; logItem.onclick = () => viewNote(n.id);
-                logItem.innerHTML = `<div class="flex justify-between"><span class="font-bold text-indigo-900 text-xs truncate max-w-[70%]">${esc(n.title)}</span><span class="text-[10px] text-slate-400 bg-slate-100 px-1 rounded">${esc(uName)}</span></div><p class="text-slate-600 leading-snug mt-1 text-xs truncate">${esc(n.content)}</p>`;
+                logItem.innerHTML = `<div class="flex justify-between"><span class="font-bold text-indigo-900 text-xs truncate max-w-[70%]">${n.title}</span><span class="text-[10px] text-slate-400 bg-slate-100 px-1 rounded">${uName}</span></div><p class="text-slate-600 leading-snug mt-1 text-xs truncate">${n.content}</p>`;
                 logContainer.appendChild(logItem);
             });
             document.getElementById('topic-total-chars').innerText = totalChars; document.getElementById('topic-avg-len').innerText = Math.round(totalChars / globalAllNotes.length);
-            Object.entries(userActivity).sort((a,b) => b[1] - a[1]).slice(0, 3).forEach(([name, count]) => { const badge = document.createElement('span'); badge.className = 'bg-slate-100 text-slate-600 px-2 py-1 rounded text-xs border border-slate-200'; badge.innerText = `${esc(name)} (${count})`; topUsersContainer.appendChild(badge); });
+            Object.entries(userActivity).sort((a,b) => b[1] - a[1]).slice(0, 3).forEach(([name, count]) => { const badge = document.createElement('span'); badge.className = 'bg-slate-100 text-slate-600 px-2 py-1 rounded text-xs border border-slate-200'; badge.innerText = `${name} (${count})`; topUsersContainer.appendChild(badge); });
             const rawWords = allText.split(/[\s,，.。:：!?！？"”'’()（）]+/); const freq = {}; rawWords.forEach(w => { if(w.length > 1 && !stopWords.includes(w) && isNaN(w)) freq[w] = (freq[w] || 0) + 1; });
             const topKeywords = Object.keys(freq).sort((a,b) => freq[b] - freq[a]).slice(0, 10);
             if (topKeywords.length === 0) kwContainer.innerHTML = '<span class="text-xs text-slate-400">內容過少無法提取</span>'; else topKeywords.forEach(k => { const tag = document.createElement('span'); tag.className = 'keyword-tag'; tag.innerText = `${k} (${freq[k]})`; kwContainer.appendChild(tag); });
@@ -1592,10 +1593,11 @@ overviewNetwork = new vis.Network(container, { nodes: new vis.DataSet(nodesData)
             const ctx = document.getElementById('streamChart').getContext('2d'); if (streamChart) streamChart.destroy(); 
             if (globalAllNotes.length === 0) return;
             const sortedNotes = [...globalAllNotes].sort((a, b) => a.dateTime - b.dateTime); if(sortedNotes.length === 0) return;
-            const bucketMap = buildDayBuckets(sortedNotes, () => ({ counts: { question: 0, extend: 0, improve: 0, riseabove: 0 }, notes: { question: [], extend: [], improve: [], riseabove: [] } }));
-            const buckets = [...bucketMap.values()];
+            const startDate = sortedNotes[0].dateTime; const endDate = sortedNotes[sortedNotes.length - 1].dateTime; const timeSpan = endDate - startDate; const isDaily = timeSpan < (1000 * 60 * 60 * 24 * 14); const interval = isDaily ? (1000 * 60 * 60 * 24) : (1000 * 60 * 60 * 24 * 7);
+            const buckets = []; let currentStart = startDate;
+            while(currentStart <= endDate + interval) { buckets.push({ start: currentStart, label: isDaily ? new Date(currentStart).toLocaleDateString() : `Week ${buckets.length + 1}`, counts: { question: 0, extend: 0, improve: 0, riseabove: 0 }, notes: { question: [], extend: [], improve: [], riseabove: [] } }); currentStart += interval; }
             sortedNotes.forEach(n => {
-                const bucket = bucketMap.get(dayKeyOf(n.dateTime));
+                const bucket = buckets.find(b => n.dateTime >= b.start && n.dateTime < b.start + interval);
                 if (bucket) { let type = n.type === 'counter' ? 'improve' : n.type; if(!bucket.counts[type]) type = 'extend'; if(bucket.counts[type] !== undefined) { bucket.counts[type]++; bucket.notes[type].push(n); } }
             });
             const labels = buckets.map(b => b.label);
@@ -1859,7 +1861,7 @@ overviewNetwork = new vis.Network(container, { nodes: new vis.DataSet(nodesData)
                 const displayName = s.name || 'Unknown';
                 const initial = displayName[0];
 
-                el.innerHTML = `<div class="flex justify-between items-center"><div class="flex items-center gap-3"><div class="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-xs">${initial}</div><div><div class="font-bold text-slate-700 text-sm">${esc(displayName)}</div><div class="text-[10px] text-slate-500">${s.id}</div></div></div><i class="fas fa-chevron-right text-xs text-slate-300"></i></div>`;
+                el.innerHTML = `<div class="flex justify-between items-center"><div class="flex items-center gap-3"><div class="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-xs">${initial}</div><div><div class="font-bold text-slate-700 text-sm">${displayName}</div><div class="text-[10px] text-slate-500">${s.id}</div></div></div><i class="fas fa-chevron-right text-xs text-slate-300"></i></div>`;
                 container.appendChild(el);
             });
         }
@@ -1904,16 +1906,25 @@ overviewNetwork = new vis.Network(container, { nodes: new vis.DataSet(nodesData)
                 let labelsL = []; let academicData = []; let commonData = [];
 
                 if (sortedNotes.length === 0) {
-                    labelsL = ['無資料']; academicData = [0]; commonData = [0];
+                    labelsL = ['Week 1']; academicData = [0]; commonData = [0];
                 } else {
-                    const bucketMap = buildDayBuckets(sortedNotes, () => ({ academic: 0, common: 0 }));
-                    const buckets = [...bucketMap.values()];
+                    const startDate = sortedNotes[0].dateTime;
+                    const endDate = sortedNotes[sortedNotes.length - 1].dateTime;
+                    const timeSpan = endDate - startDate;
+                    const interval = (timeSpan < 1000 * 60 * 60 * 24 * 14) ? (1000 * 60 * 60 * 24) : (1000 * 60 * 60 * 24 * 7);
+                    
+                    const buckets = [];
+                    let currentStart = startDate;
+                    while(currentStart <= endDate + interval) {
+                        buckets.push({ start: currentStart, label: (timeSpan < 1000 * 60 * 60 * 24 * 14) ? new Date(currentStart).toLocaleDateString() : `Week ${buckets.length + 1}`, academic: 0, common: 0 });
+                        currentStart += interval;
+                    }
 
                     const academicKeywords = ['因為', '所以', '導致', '發現', '理論', '證據', '假設', '可能', '代表', '影響', '差異', '重要', '分析'];
                     const commonKeywords = ['我', '覺得', '不知道', '好', '對', '吧', '嗎', '呢', '啊', '然後', '就是'];
 
                     sortedNotes.forEach(n => {
-                        const bucket = bucketMap.get(dayKeyOf(n.dateTime));
+                        const bucket = buckets.find(b => n.dateTime >= b.start && n.dateTime < b.start + interval);
                         if (bucket) {
                             const text = (n.content || "") + (n.title || "");
                             academicKeywords.forEach(k => { if(text.includes(k)) bucket.academic++; });
