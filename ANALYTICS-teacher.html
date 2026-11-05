@@ -688,8 +688,14 @@ async function geminiFetch(key, init) {
 
         async function callGeminiAPI(promptText) {
             // ⭐ 像學生端一樣，直接從 Local Storage 即時抓取 index 設定的 Key
-            const currentApiKey = localStorage.getItem('kb_ai_key');
-            
+            let currentApiKey = localStorage.getItem('kb_ai_key');
+            // 本機沒有金鑰時,改從雲端設定讀取(與學生端相同,讓老師端也能直接繼承首頁儲存的金鑰)
+            if (!currentApiKey) {
+                try {
+                    const sdoc = await firebase.firestore().collection('kb_platform').doc('settings').get();
+                    if (sdoc.exists && sdoc.data().gemini_api_key) currentApiKey = sdoc.data().gemini_api_key;
+                } catch (e) { console.error('[AI] 讀取雲端金鑰失敗:', e); }
+            }
             if (!currentApiKey) return "⚠️ API Key 尚未載入，請先至首頁輸入並儲存金鑰。";
             
             // ⭐ 修正模型名稱：改為與 index 相同的 gemini-2.5-flash
@@ -699,6 +705,7 @@ async function geminiFetch(key, init) {
                 systemInstruction: { parts: [{ text: "你是一位專精於知識建構(Knowledge Building)理論的教育數據分析專家。請用繁體中文回答，語氣專業但白話，給予第一線教師具體、可操作的教學建議。請不要使用過多抽象的學術名詞。" }] }
             };
 
+            let lastErr = '';
             for (let attempt = 0; attempt < 3; attempt++) {
                 try {
                     const response = await geminiFetch(currentApiKey, {
@@ -706,11 +713,12 @@ async function geminiFetch(key, init) {
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload)
                     });
-                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    if (!response.ok) { let m = ''; try { const ej = await response.json(); m = (ej.error && ej.error.message) || ''; } catch (e2) {} throw new Error('HTTP ' + response.status + (m ? ' ' + m : '')); }
                     const result = await response.json();
                     return result.candidates?.[0]?.content?.parts?.[0]?.text || "無法生成內容。";
                 } catch (error) {
-                    if (attempt === 2) return "⚠️ AI 伺服器連線或運算失敗，請稍後再試。";
+                    lastErr = String(error && error.message ? error.message : error);
+                    if (attempt === 2) return "⚠️ AI 伺服器連線或運算失敗，請稍後再試。(" + lastErr.slice(0, 200) + ")";
                     await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt))); 
                 }
             }
@@ -2038,6 +2046,7 @@ async function fetchRefAIInsight(key, aiPrompt, currentVal, currentStatus, force
     const prompt = `身為專精於「知識建構(Knowledge Building)」的教育專家，老師現在有這個疑問：「${aiPrompt}」\n\n${targetDesc}在該指標的實際狀況為：【數值：${currentVal}】、【狀態判定：${currentStatus}】。\n\n請根據這個實際狀態，給予老師一段不超過 150 字、具體可操作的教學介入建議。請使用繁體中文。`;
     
     const aiResult = await callGeminiAPI(prompt);
+    const aiFailed = String(aiResult).startsWith('⚠️');
     
     const html = `
         <div class="mt-3 p-3 bg-purple-50 text-purple-800 text-sm rounded border border-purple-100 relative">
@@ -2045,9 +2054,11 @@ async function fetchRefAIInsight(key, aiPrompt, currentVal, currentStatus, force
             ${marked.parse(aiResult)}
         </div>`;
         
-    aiCache.refs[cacheKey] = html;
+    if (!aiFailed) aiCache.refs[cacheKey] = html; // 失敗的結果不暫存,下次點擊會重新呼叫
     
-    box.innerHTML = `<span><i class="fas fa-check-circle mr-2 text-green-500"></i> 獲得 AI 建議</span>`;
+    box.innerHTML = aiFailed
+        ? `<span><i class="fas fa-exclamation-circle mr-2 text-red-500"></i> AI 呼叫失敗(可按下方重新分析)</span>`
+        : `<span><i class="fas fa-check-circle mr-2 text-green-500"></i> 獲得 AI 建議</span>`;
     resultDiv.innerHTML = html;
     resultDiv.classList.remove('hidden');
 }
