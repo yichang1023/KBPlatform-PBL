@@ -1357,6 +1357,7 @@ overviewNetwork = new vis.Network(container, { nodes: new vis.DataSet(nodesData)
                 firebase.initializeApp(firebaseConfig);
             }
             const cloudDb = firebase.firestore();
+            cloudDb.settings({ experimentalAutoDetectLongPolling: true }); // 自動偵測網路:被擋時改用長輪詢,避免要等 10 秒才連上
 
             dbStatus.innerText = "Syncing...";
             dbStatus.className = "text-yellow-400 font-bold";
@@ -1386,6 +1387,8 @@ overviewNetwork = new vis.Network(container, { nodes: new vis.DataSet(nodesData)
             } catch (e) { lastRaw = null; }
 
             cloudDb.collection('kb_platform').doc(DB_DOC).onSnapshot((doc) => {
+                // 尚未連上雲端時,Firebase 會先回報「不存在」的離線結果,這不代表沒有資料,忽略它並繼續等待
+                if (!doc.exists && doc.metadata && doc.metadata.fromCache) return;
                 if (doc.exists) {
                     const d = doc.data();
                     const data = { nodes: d.nodes || [], topics: d.topics || [], userList: d.userList || {} };

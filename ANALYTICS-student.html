@@ -522,6 +522,7 @@
     };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
+    db.settings({ experimentalAutoDetectLongPolling: true }); // 自動偵測網路:被擋時改用長輪詢,避免要等 10 秒才連上
     const DB_COLLECTION = 'kb_platform';
     const DB_DOC = 'class_data_v31_noweek_814';
     const SETTINGS_DOC = db.collection('kb_platform').doc('settings');
@@ -821,6 +822,8 @@ ${specificData}
 
         db.collection(DB_COLLECTION).doc(DB_DOC).onSnapshot((doc) => {
             const dbStatus = document.getElementById('db-status-text');
+            // 尚未連上雲端時,Firebase 會先回報「不存在」的離線結果,這不代表沒有資料,忽略它並繼續等待
+            if (!doc.exists && doc.metadata && doc.metadata.fromCache) return;
             if (doc.exists) {
                 const data = doc.data();
                 let raw = null;

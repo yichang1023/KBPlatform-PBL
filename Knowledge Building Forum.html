@@ -292,6 +292,7 @@
         };
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
+        db.settings({ experimentalAutoDetectLongPolling: true }); // 自動偵測網路:被擋時改用長輪詢,避免要等 10 秒才連上
         const DB_COLLECTION = 'kb_platform';
         const DB_DOC = 'class_data_v31_noweek_814'; // 新文件名: 載入 814 則修正版資料(舊雲端資料不被覆蓋)
 
@@ -1288,6 +1289,8 @@
             },
             load: () => {
                 db.collection(DB_COLLECTION).doc(DB_DOC).onSnapshot((doc) => {
+                    // 尚未連上雲端時會先收到「不存在」的離線結果;絕不能因此用範例資料覆蓋雲端,所以直接忽略
+                    if (!doc.exists && doc.metadata && doc.metadata.fromCache) return;
                     if (doc.exists) {
                         const data = doc.data();
                         window.state.userList = data.userList || window.SEED_DATA.userList;

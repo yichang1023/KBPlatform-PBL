@@ -238,6 +238,7 @@
             firebase.initializeApp(firebaseConfig);
         }
         const db = firebase.firestore();
+        db.settings({ experimentalAutoDetectLongPolling: true }); // 自動偵測網路:被擋時改用長輪詢,避免要等 10 秒才連上
 
         // [Project AETHER] 2. Logic Controller
         let selectedRole = null;
