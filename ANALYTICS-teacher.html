@@ -1448,7 +1448,7 @@ overviewNetwork = new vis.Network(container, { nodes: new vis.DataSet(nodesData)
             dbStatus.innerText = "Syncing...";
             dbStatus.className = "text-yellow-400 font-bold";
 
-            const DB_DOC = 'class_data_v31_noweek_814'; 
+            const DB_DOC = 'class_data_v32_g3_rewrite'; 
             // ⚡ 先用上次的暫存資料立刻畫出畫面,同時等雲端最新資料;雲端資料一到就以雲端為準(同步不受影響)
             const CACHE_KEY = 'kb_dash_cache_' + DB_DOC;
             let lastRaw = null;
