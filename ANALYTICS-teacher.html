@@ -1841,7 +1841,7 @@ overviewNetwork = new vis.Network(container, { nodes: new vis.DataSet(nodesData)
             const normalize = (val, total) => total > 0 ? ((val/total)*100).toFixed(1) : 0;
             // 全班平均固定以「全班所有學生的全部貼文」計算,不受上方主題/小組切換影響(下方個別學生則依目前選擇的範圍顯示)
             const classAll = { question: 0, extend: 0, improve: 0, riseabove: 0 }; let classAllCount = 0;
-            const studentIdSet = new Set(users.map(u => String(u.id)));
+            const studentIdSet = new Set(Object.values(globalRawDB.userList || {}).filter(u => u.role !== 'teacher').map(u => String(u.id))); // 全班所有學生(不受小組切換影響)
             (globalRawDB.nodes || []).forEach(n => {
                 if (!studentIdSet.has(String(n.author))) return;
                 classAllCount++;
