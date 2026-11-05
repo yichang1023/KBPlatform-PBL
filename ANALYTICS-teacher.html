@@ -101,8 +101,8 @@
         .dot-challenge { background-color: #eab308; } .dot-synthesis { background-color: #22c55e; }
         .lens-detail-box { background: #f8fafc; border-left: 4px solid #94a3b8; padding: 16px; border-radius: 0 8px 8px 0; min-height: 120px; font-size: 0.9rem; transition: all 0.3s; }
         .lens-detail-title { font-weight: 700; margin-bottom: 8px; display: flex; align-items: center; font-size: 1rem; }
-        .example-quote { background: rgba(255,255,255,0.6); padding: 8px; border-radius: 6px; margin-top: 8px; font-size: 0.85rem; font-style: italic; border: 1px dashed rgba(0,0,0,0.1); }
-        .example-author { font-weight: bold; font-style: normal; color: #475569; font-size: 0.75rem; }
+        .example-quote { color: #000000; background: rgba(255,255,255,0.6); padding: 8px; border-radius: 6px; margin-top: 8px; font-size: 0.85rem; font-style: italic; border: 1px dashed rgba(0,0,0,0.1); }
+        .example-author { font-weight: bold; font-style: normal; color: #000000; font-size: 0.75rem; }
 
         /* Timeline */
         .timeline-line { position: absolute; left: 28px; top: 10px; bottom: 10px; width: 2px; background: #cbd5e1; z-index: 0; }
@@ -517,7 +517,7 @@
                         <button class="ref-btn" onclick="openRef('lens')"><i class="fas fa-book"></i> Ref:</button>
                     </div>
                     <div class="h-[250px] bg-slate-50 rounded border border-slate-100 relative"><div id="lens-network-container" class="absolute inset-0"></div></div>
-                    <div id="lens-detail" class="mt-2 text-xs text-slate-500 p-2 bg-slate-50 rounded">點擊節點查看詳情...</div>
+                    <div id="lens-detail" class="mt-2 text-xs text-black p-2 bg-slate-50 rounded">點擊節點查看詳情...</div>
                 </div>
                 <div class="card">
                     <div class="flex justify-between items-center mb-4">
@@ -1429,9 +1429,9 @@ overviewNetwork = new vis.Network(container, { nodes: new vis.DataSet(nodesData)
 
             const nodes = new vis.DataSet([
                 { id: 'Fact', label: `事實\nFact\n(${counts.Fact})`, color: '#cbd5e1', shape: 'dot', size: getSize(counts.Fact) },
-                { id: 'Theory', label: `理論\nTheory\n(${counts.Theory})`, color: '#3b82f6', shape: 'dot', size: getSize(counts.Theory), font:{color:'white'} },
-                { id: 'Challenge', label: `挑戰\nChallenge\n(${counts.Challenge})`, color: '#eab308', shape: 'dot', size: getSize(counts.Challenge), font:{color:'white'} },
-                { id: 'Synthesis', label: `整合\nSynthesis\n(${counts.Synthesis})`, color: '#22c55e', shape: 'dot', size: getSize(counts.Synthesis), font:{color:'white'} }
+                { id: 'Theory', label: `理論\nTheory\n(${counts.Theory})`, color: '#3b82f6', shape: 'dot', size: getSize(counts.Theory) },
+                { id: 'Challenge', label: `挑戰\nChallenge\n(${counts.Challenge})`, color: '#eab308', shape: 'dot', size: getSize(counts.Challenge) },
+                { id: 'Synthesis', label: `整合\nSynthesis\n(${counts.Synthesis})`, color: '#22c55e', shape: 'dot', size: getSize(counts.Synthesis) }
             ]);
             const edges = new vis.DataSet([
                 { from: 'Fact', to: 'Theory', arrows:'to' },
@@ -1441,12 +1441,12 @@ overviewNetwork = new vis.Network(container, { nodes: new vis.DataSet(nodesData)
                 { from: 'Theory', to: 'Synthesis', arrows:'to' }
             ]);
 
-            lensNetwork = new vis.Network(container, { nodes, edges }, { nodes: { font: { face: 'Noto Sans TC' } }, physics: { stabilization: true } });
+            lensNetwork = new vis.Network(container, { nodes, edges }, { nodes: { font: { face: 'Noto Sans TC', color: '#000000', size: 14 } }, physics: { stabilization: true } });
             lensNetwork.on("click", function (params) {
                 const detailBox = document.getElementById('lens-detail');
                 let info = null;
                 if (params.nodes.length > 0) info = lensInteractions[params.nodes[0]];
-                if (info) detailBox.innerHTML = `<div class="lens-detail-title text-slate-700 ${info.color.split(' ')[0].replace('bg-','text-')}">${info.title}</div><p class="text-slate-600">${info.text}</p><div class="example-quote"><div class="example-author">學生實例 (Student Voices)：</div>${info.example || "暫無範例"}</div>`;
+                if (info) detailBox.innerHTML = `<div class="lens-detail-title text-black">${info.title}</div><p class="text-black">${info.text}</p><div class="example-quote"><div class="example-author">學生實例 (Student Voices)：</div>${info.example || "暫無範例"}</div>`;
             });
         }
         
@@ -1926,7 +1926,11 @@ overviewNetwork = new vis.Network(container, { nodes: new vis.DataSet(nodesData)
             const badge = document.getElementById('kb-role-badge'); badge.innerText = data.role; badge.className = `text-[10px] px-2 py-0.5 rounded-full border font-bold tracking-wide ${data.badgeColor}`; badge.classList.remove('hidden');
             document.getElementById('student-keywords-container').innerHTML = data.topKeywords.length > 0 ? data.topKeywords.map(k => `<span class="bg-amber-50 text-amber-700 border border-amber-200 px-2 py-1 rounded text-xs">${k}</span>`).join('') : '<span class="text-xs text-slate-400">無詞彙</span>';
             const ctxR = document.getElementById('radarChart').getContext('2d'); if(radarChartInstance) radarChartInstance.destroy(); radarChartInstance = new Chart(ctxR, { type: 'radar', data: { labels: ['主體性','社群互動','觀點改進','昇華整合','持續探究'], datasets: [{ label: displayName, data: data.radarData, backgroundColor:'rgba(59,130,246,0.2)', borderColor:'#3B82F6' }] }, options: { responsive:true, maintainAspectRatio:false, scales: { r: { suggestedMin: 0, suggestedMax: 100, ticks:{display:false} } } } });
-            const container = document.getElementById('ego-network-container'); if(egoNetworkInstance) { egoNetworkInstance.destroy(); egoNetworkInstance = null; } egoNetworkInstance = new vis.Network(container, { nodes: new vis.DataSet(data.visNodes), edges: new vis.DataSet(data.visEdges) }, { nodes: { shape: 'dot' }, physics: { stabilization: true } });
+            const container = document.getElementById('ego-network-container'); if(egoNetworkInstance) { egoNetworkInstance.destroy(); egoNetworkInstance = null; } egoNetworkInstance = new vis.Network(container, { nodes: new vis.DataSet(data.visNodes), edges: new vis.DataSet(data.visEdges) }, { nodes: { shape: 'dot' }, physics: { stabilization: { enabled: true, iterations: 120, updateInterval: 50, fit: true }, barnesHut: { damping: 0.6 } } });
+            // 排列穩定後就關閉物理運算,圖不會再一直晃動(仍可手動拖曳節點)
+            const stopEgoPhysics = () => { if (egoNetworkInstance) egoNetworkInstance.setOptions({ physics: false }); };
+            egoNetworkInstance.once('stabilizationIterationsDone', stopEgoPhysics);
+            setTimeout(stopEgoPhysics, 2500);
             const ctxB = document.getElementById('balanceChart').getContext('2d'); if(balanceChartInstance) balanceChartInstance.destroy(); 
             const totalBal = data.balanceData[0] + data.balanceData[1];
             document.getElementById('bal-init').innerText = totalBal > 0 ? Math.round(data.balanceData[0]/totalBal*100) + '%' : '0%'; 
