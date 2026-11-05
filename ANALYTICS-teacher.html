@@ -761,6 +761,40 @@ async function geminiFetch(key, init) {
             return { nodes: [], topics: [], userList: {} };
         }
 
+        // --- 範圍內的學生 ---
+        // 選了某一組(主題)時,只計算「該組成員」,不要把其他組、沒有在這個主題發言的同學算成 0 篇,
+        // 否則吉尼係數、風險人數、人均篇數、象限圖平均值都會被稀釋或誇大。
+        // 組別由學生帳號判斷(例如 stu_g1_xxx 屬於 t_g1);判斷不出來時,改用「在該主題有發言的人」。
+        function getScopedStudents(db, nodes) {
+            const all = Object.values((db && db.userList) || {}).filter(u => u.role !== 'teacher');
+            if (activeTopicFilter === 'all') return all;
+            const byId = all.filter(u => { const g = String(u.id).match(/^stu_g([0-9]+)_/); return g && ('t_g' + g[1]) === String(activeTopicFilter); });
+            if (byId.length) return byId;
+            const authors = new Set((nodes || []).filter(n => String(n.topicId) === String(activeTopicFilter)).map(n => String(n.author)));
+            const byAuthor = all.filter(u => authors.has(String(u.id)));
+            return byAuthor.length ? byAuthor : all;
+        }
+
+        // 網絡密度(社會網絡分析):各討論區中「實際出現的學生回應關係」占「所有可能的關係」的比例,取各區平均。
+        // 舊算法只是「有上層文章的貼文比例」,幾乎每篇都有上層,恆接近 1,不是真正的網絡密度。
+        function calcNetworkDensity(nodes) {
+            const byTopic = {};
+            nodes.forEach(n => { const k = String(n.topicId || 'unknown'); (byTopic[k] = byTopic[k] || []).push(n); });
+            const byId = {}; nodes.forEach(n => { byId[n.id] = n; });
+            const ds = [];
+            Object.values(byTopic).forEach(list => {
+                const authors = new Set(list.map(n => String(n.author)));
+                if (authors.size < 2) return;
+                const edges = new Set();
+                list.forEach(n => {
+                    const p = n.parentId ? byId[n.parentId] : null;
+                    if (p && String(p.author) !== String(n.author)) edges.add(String(n.author) + '>' + String(p.author));
+                });
+                ds.push(edges.size / (authors.size * (authors.size - 1)));
+            });
+            return ds.length ? ds.reduce((a, b) => a + b, 0) / ds.length : 0;
+        }
+
         // --- 3. 班級總體計算 (Class Overview) ---
         let overviewTrajectoryChart;
 
@@ -792,11 +826,11 @@ async function geminiFetch(key, init) {
             }));
 
             const userList = db.userList || {};
-            const students = Object.values(userList).filter(u => u.role !== 'teacher');
+            const students = getScopedStudents(db, nodes);
             
             const totalNotes = filteredNodes.length;
             const links = filteredNodes.filter(n => n.parentId).length;
-            const density = totalNotes > 0 ? (links / totalNotes).toFixed(2) : 0;
+            const density = totalNotes > 0 ? calcNetworkDensity(filteredNodes).toFixed(2) : 0;
             const riseAboves = filteredNodes.filter(n => n.type === 'riseabove').length;
             const raRate = totalNotes > 0 ? Math.round((riseAboves / totalNotes) * 100) : 0;
             
@@ -1754,7 +1788,7 @@ overviewNetwork = new vis.Network(container, { nodes: new vis.DataSet(nodesData)
 
         let impactScatterChart, scaffoldProfileChart;
         function initAcademicAnalysis() {
-            const users = Object.values(globalRawDB.userList || {}).filter(u => u.role !== 'teacher');
+            const users = getScopedStudents(globalRawDB, globalRawDB.nodes || []);
             const userStats = {}; users.forEach(u => { userStats[u.id] = { id: String(u.id), name: u.name, notesCreated: 0, repliesReceived: 0, scaffolds: { question: 0, extend: 0, improve: 0, riseabove: 0 } }; });
             globalAllNotes.forEach(n => {
                 const authorId = String(n.author);
@@ -1941,18 +1975,32 @@ overviewNetwork = new vis.Network(container, { nodes: new vis.DataSet(nodesData)
             const freq = {}; tokens.forEach(w => { if(w.length > 1 && !stopWords.includes(w) && isNaN(w)) freq[w] = (freq[w] || 0) + 1; });
             const topKeywords = Object.entries(freq).sort((a,b) => b[1] - a[1]).slice(0, 8).map(k => `${k[0]} (${k[1]})`);
             
-            const initiateCount = myNodes.filter(n => !n.parentId).length; 
+            // 自己發起 = 提問、開新話題,或提出下一步/假設的貼文(舊算法只算「沒有上層文章」,但討論串本來就是一條接一條,幾乎沒有人算得到)
+            const initiateCount = myNodes.filter(n => n.type === 'question' || !n.parentId || EA_PLAN.test((n.title || '') + ' ' + (n.content || ''))).length; 
             const collaborateCount = noteCount - initiateCount; 
             const balanceData = [initiateCount, collaborateCount];
 
-            const baseAgency = (scaffoldCounts.question + scaffoldCounts.riseabove + scaffoldCounts.improve) * 12;
-            const agencyScore = Math.min(baseAgency + (scaffoldCounts.other * 5), 100); 
-            
-            const communityScore = Math.min((inDegree + outDegree) * 15 + (noteCount > 0 ? 10 : 0), 100); 
-            const ideaImpScore = Math.min((scaffoldCounts.improve + scaffoldCounts.counter) * 25 + (scaffoldCounts.extend * 5), 100); 
-            const synthesisScore = Math.min(scaffoldCounts.riseabove * 35 + (scaffoldCounts.improve * 5), 100); 
-            const inquiryScore = Math.min(noteCount * 12 + (inDegree > 0 ? 10 : 0), 100); 
-            
+            // KB 核心能力五項改用「比例」計算(達到目標比例即滿分)。
+            // 舊算法用貼文「次數」加總並設上限,學生各有數十篇貼文時,五項幾乎都會被推到 100 分,看不出差異。
+            const cap100 = v => Math.max(0, Math.min(100, Math.round(v)));
+            const nN = Math.max(1, noteCount);
+            // 主體性:沿用 Epistemic Agency 綜合指數(主動發起、自我修正、提出解釋)
+            const eaOne = computeEpistemicAgency(globalAllNotes, [user]).per[0];
+            const agencyScore = eaOne ? cap100(eaOne.score * 100) : 0;
+            // 社群互動:互動過的不同同學占同討論區其他成員的比例(50%)+ 回應別人的貼文占比(90% 為滿分,50%)
+            const myTopics = new Set(myNodes.map(n => n.topicId));
+            const mates = new Set(globalAllNotes.filter(n => myTopics.has(n.topicId)).map(n => String(n.author)).filter(a => a !== uIdStr)); // 同一討論區的其他成員
+            const crossOut = myNodes.filter(n => { const p = n.parentId ? globalAllNotes.find(x => x.id === n.parentId) : null; return p && String(p.author) !== uIdStr; }).length;
+            const communityScore = noteCount > 0 ? cap100(Math.min(1, (egoNodes.size - 1) / Math.max(1, mates.size)) * 50 + Math.min(1, (crossOut / nN) / 0.9) * 50) : 0;
+            // 觀點改進:改進/反駁貼文占比(45% 為滿分)
+            const ideaImpScore = noteCount > 0 ? cap100(((scaffoldCounts.improve + scaffoldCounts.counter) / nN) / 0.45 * 100) : 0;
+            // 昇華整合:整合貼文占比(12% 為滿分,60%)+ 改進/反駁占比(45% 為滿分,40%)
+            const synthesisScore = noteCount > 0 ? cap100(Math.min(1, (scaffoldCounts.riseabove / nN) / 0.12) * 60 + Math.min(1, ((scaffoldCounts.improve + scaffoldCounts.counter) / nN) / 0.45) * 40) : 0;
+            // 持續探究:有發文的日期占全部發文日(50%)+ 被他人回覆的比例(80% 為滿分,50%)
+            const allDays = new Set(globalAllNotes.map(n => dayKeyOf(n.dateTime)));
+            const myDays = new Set(myNodes.map(n => dayKeyOf(n.dateTime)));
+            const inquiryScore = noteCount > 0 ? cap100((allDays.size ? myDays.size / allDays.size : 0) * 50 + Math.min(1, (inDegree / nN) / 0.8) * 50) : 0;
+
             const radarData = [agencyScore, communityScore, ideaImpScore, synthesisScore, inquiryScore];
             const depthTrend = [Math.min(20, inquiryScore/4), Math.min(40, agencyScore/2), Math.min(60, ideaImpScore/1.2), Math.min(80, synthesisScore), inquiryScore]; 
 
