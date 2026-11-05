@@ -524,7 +524,7 @@
     const db = firebase.firestore();
     db.settings({ experimentalAutoDetectLongPolling: true }); // 自動偵測網路:被擋時改用長輪詢,避免要等 10 秒才連上
     const DB_COLLECTION = 'kb_platform';
-    const DB_DOC = 'class_data_v32_g3_rewrite';
+    const DB_DOC = 'class_data_v33_cross_group';
     const SETTINGS_DOC = db.collection('kb_platform').doc('settings');
 
     // --- Global State ---

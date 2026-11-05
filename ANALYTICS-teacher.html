@@ -791,24 +791,19 @@ async function geminiFetch(key, init) {
             return byAuthor.length ? byAuthor : all;
         }
 
-        // 網絡密度(社會網絡分析):各討論區中「實際出現的學生回應關係」占「所有可能的關係」的比例,取各區平均。
+        // 網絡密度(社會網絡分析):範圍內「學生之間」實際出現的回應關係(回應者→被回應者,不含回自己)
+        // 占「所有可能的關係」(人數 × (人數 - 1))的比例。選全班時,跨組互動也會被計入;選某一組時,只看該組成員彼此的互動。
         // 舊算法只是「有上層文章的貼文比例」,幾乎每篇都有上層,恆接近 1,不是真正的網絡密度。
-        function calcNetworkDensity(nodes) {
-            const byTopic = {};
-            nodes.forEach(n => { const k = String(n.topicId || 'unknown'); (byTopic[k] = byTopic[k] || []).push(n); });
+        function calcNetworkDensity(nodes, students) {
+            const ids = new Set((students || []).map(u => String(u.id)));
+            if (ids.size < 2) return 0;
             const byId = {}; nodes.forEach(n => { byId[n.id] = n; });
-            const ds = [];
-            Object.values(byTopic).forEach(list => {
-                const authors = new Set(list.map(n => String(n.author)));
-                if (authors.size < 2) return;
-                const edges = new Set();
-                list.forEach(n => {
-                    const p = n.parentId ? byId[n.parentId] : null;
-                    if (p && String(p.author) !== String(n.author)) edges.add(String(n.author) + '>' + String(p.author));
-                });
-                ds.push(edges.size / (authors.size * (authors.size - 1)));
+            const edges = new Set();
+            nodes.forEach(n => {
+                const p = n.parentId ? byId[n.parentId] : null;
+                if (p && String(p.author) !== String(n.author) && ids.has(String(n.author)) && ids.has(String(p.author))) edges.add(String(n.author) + '>' + String(p.author));
             });
-            return ds.length ? ds.reduce((a, b) => a + b, 0) / ds.length : 0;
+            return edges.size / (ids.size * (ids.size - 1));
         }
 
         // --- 3. 班級總體計算 (Class Overview) ---
@@ -846,7 +841,7 @@ async function geminiFetch(key, init) {
             
             const totalNotes = filteredNodes.length;
             const links = filteredNodes.filter(n => n.parentId).length;
-            const density = totalNotes > 0 ? calcNetworkDensity(filteredNodes).toFixed(2) : 0;
+            const density = totalNotes > 0 ? calcNetworkDensity(filteredNodes, students).toFixed(2) : 0;
             const riseAboves = filteredNodes.filter(n => n.type === 'riseabove').length;
             const raRate = totalNotes > 0 ? Math.round((riseAboves / totalNotes) * 100) : 0;
             
@@ -1302,7 +1297,11 @@ async function geminiFetch(key, init) {
             const nodesData = stats.students.map((u, index) => ({ id: String(u.id), label: u.name || '?', color: colorPalette[index % colorPalette.length], shape: 'dot', size: 15, font: { color: '#1e293b' } }));
             const studentIds = stats.students.map(u => String(u.id)); const edgesData = [];
             stats.nodes.forEach(n => { if(n.parentId) { const p = stats.nodes.find(x => x.id === n.parentId); if(p && String(p.author) !== String(n.author) && studentIds.includes(String(n.author)) && studentIds.includes(String(p.author))) { edgesData.push({from: String(n.author), to: String(p.author)}); } } });
-overviewNetwork = new vis.Network(container, { nodes: new vis.DataSet(nodesData), edges: new vis.DataSet(edgesData) }, { nodes: { font: { face: 'Noto Sans TC' } }, physics: { stabilization: false } });            
+overviewNetwork = new vis.Network(container, { nodes: new vis.DataSet(nodesData), edges: new vis.DataSet(edgesData) }, { nodes: { font: { face: 'Noto Sans TC' } }, physics: { stabilization: { enabled: true, iterations: 150, updateInterval: 50, fit: true }, barnesHut: { damping: 0.6 } } });
+            // 排列穩定後就關閉物理運算,圖不會再一直晃動(仍可手動拖曳節點)
+            const stopSnaPhysics = () => { if (overviewNetwork) overviewNetwork.setOptions({ physics: false }); };
+            overviewNetwork.once('stabilizationIterationsDone', stopSnaPhysics);
+            setTimeout(stopSnaPhysics, 2500);            
             const ctx1 = document.getElementById('principlesChart').getContext('2d');
             const typeCounts = { question:0, extend:0, improve:0, counter:0, riseabove:0 };
             stats.nodes.forEach(n => { if (typeCounts[n.type] !== undefined) typeCounts[n.type]++; });
@@ -1448,7 +1447,7 @@ overviewNetwork = new vis.Network(container, { nodes: new vis.DataSet(nodesData)
             dbStatus.innerText = "Syncing...";
             dbStatus.className = "text-yellow-400 font-bold";
 
-            const DB_DOC = 'class_data_v32_g3_rewrite'; 
+            const DB_DOC = 'class_data_v33_cross_group'; 
             // ⚡ 先用上次的暫存資料立刻畫出畫面,同時等雲端最新資料;雲端資料一到就以雲端為準(同步不受影響)
             const CACHE_KEY = 'kb_dash_cache_' + DB_DOC;
             let lastRaw = null;
@@ -1579,7 +1578,10 @@ overviewNetwork = new vis.Network(container, { nodes: new vis.DataSet(nodesData)
                     if (intersection.length > 0) edgesData.push({ from: w1, to: w2, value: intersection.length, color: { color: '#94a3b8', opacity: 0.4 }, title: `共現於 ${intersection.length} 篇筆記` });
                 }
             }
-            conceptNetworkInstance = new vis.Network(container, { nodes: new vis.DataSet(nodesData), edges: new vis.DataSet(edgesData) }, { nodes: { scaling: { min: 10, max: 30 } }, edges: { scaling: { min: 1, max: 5 }, smooth: { type: 'continuous' } }, physics: { stabilization: false, barnesHut: { gravitationalConstant: -2000 } } });
+            conceptNetworkInstance = new vis.Network(container, { nodes: new vis.DataSet(nodesData), edges: new vis.DataSet(edgesData) }, { nodes: { scaling: { min: 10, max: 30 } }, edges: { scaling: { min: 1, max: 5 }, smooth: { type: 'continuous' } }, physics: { stabilization: { enabled: true, iterations: 150, updateInterval: 50, fit: true }, barnesHut: { gravitationalConstant: -2000, damping: 0.6 } } });
+            const stopConceptPhysics = () => { if (conceptNetworkInstance) conceptNetworkInstance.setOptions({ physics: false }); };
+            conceptNetworkInstance.once('stabilizationIterationsDone', stopConceptPhysics);
+            setTimeout(stopConceptPhysics, 2500);
             conceptNetworkInstance.on("click", function (params) { if (params.nodes.length > 0) showKeywordContext(params.nodes[0], keywordMap[params.nodes[0]]); });
         }
 
@@ -1912,9 +1914,9 @@ overviewNetwork = new vis.Network(container, { nodes: new vis.DataSet(nodesData)
                   desc: '想法是否持續被改進(改進/反駁類貼文 > 15%)',
                   val: `${(totalScaffolds.improve / nz * 100).toFixed(1)}%`,
                   meaning: '知識建構把所有想法都視為「還可以更好」。改進與反駁類貼文占比高,代表大家願意修正別人和自己的想法,而不是一次定案。' },
-                { key: 'kb12_riseabove', title: 'Rise Above', pass: globalClassStats.raRate > 5 && (raAuthors / uCnt) >= 0.3,
-                  desc: '是否把分散想法整合成更高層次的結論(昇華率 > 5%,且 ≥ 30% 學生寫過整合)',
-                  val: `昇華率 ${globalClassStats.raRate}%;${raAuthors}/${users.length} 人寫過整合`,
+                { key: 'kb12_riseabove', title: 'Rise Above', pass: (totalScaffolds.riseabove / nz * 100) >= 5 && (raAuthors / uCnt) >= 0.3,
+                  desc: '是否把分散想法整合成更高層次的結論(昇華率 ≥ 5%,且 ≥ 30% 學生寫過整合)',
+                  val: `昇華率 ${(totalScaffolds.riseabove / nz * 100).toFixed(1)}%;${raAuthors}/${users.length} 人寫過整合`,
                   meaning: '昇華是把零散想法收斂成更高層次的結論。如果整合都由少數人(例如組長)負責,其他人可能只是在供應素材。老師可以輪流讓不同學生做整合。' },
                 { key: 'kb12_sources', title: 'Constructive Uses of Authoritative Sources', pass: (srcCount / nz) >= 0.05,
                   desc: '是否有建設性地引用文獻、官方資料或實測紀錄(貼文占比 ≥ 5%)',
@@ -2361,39 +2363,181 @@ overviewNetwork = new vis.Network(container, { nodes: new vis.DataSet(nodesData)
       // ===========================================
 //  6. 動態呼叫 AI 進行 Ref 指標諮詢 (已修復學生獨立分析)
 // ===========================================
+// ===========================================
+//  Ref 的 AI 診斷:每一個 Ref 都會把「該指標的實際數據」一併交給 AI
+//  - 學生姓名以代號 S01、S02… 取代,AI 回覆後在本機換回姓名
+// ===========================================
+const REF_STUDENT_KEYS = ['radar', 'ego', 'balance', 'depth_trajectory', 'lexical_fingerprint'];
+function buildRefContext(key, studentId) {
+    const db = getRealData();
+    const users = getScopedStudents(db, db.nodes || []);
+    const codeOf = {}, nameOf = {};
+    users.forEach((u, i) => { const c = 'S' + String(i + 1).padStart(2, '0'); codeOf[String(u.id)] = c; nameOf[c] = u.name || '未命名'; });
+    const code = id => codeOf[String(id)] || '?';
+    const scrub = txt => { let o = String(txt || ''); users.forEach(u => { const c = codeOf[String(u.id)]; const nm = String(u.name || ''); if (nm.length >= 2) o = o.split(nm).join(c); if (nm.length >= 3) o = o.split(nm.slice(-2)).join(c); }); return o; };
+    const notes = globalAllNotes;
+    const N = notes.length || 1;
+    const pct = v => (v * 100).toFixed(0) + '%';
+    const byId = {}; notes.forEach(n => { byId[n.id] = n; });
+    const topicName = {}; (db.topics || []).forEach(t => { topicName[String(t.id)] = t.name; });
+    const cnt = { question: 0, extend: 0, improve: 0, counter: 0, riseabove: 0 };
+    notes.forEach(n => { if (cnt[n.type] !== undefined) cnt[n.type]++; });
+    const s = globalClassStats || {};
+
+    // 確保 KB 12 檢核結果是最新的
+    try { initAcademicAnalysis(); } catch (e) {}
+    const kb = window.kb12Results || {};
+
+    const timeline = () => {
+        const days = []; const map = {};
+        notes.slice().sort((a, b) => a.dateTime - b.dateTime).forEach(n => {
+            const k = dayKeyOf(n.dateTime);
+            if (!map[k]) { const d = new Date(n.dateTime); map[k] = { label: (d.getMonth() + 1) + '/' + d.getDate(), total: 0, q: 0, e: 0, i: 0, r: 0 }; days.push(map[k]); }
+            const m = map[k]; m.total++;
+            if (n.type === 'question') m.q++; else if (n.type === 'extend') m.e++; else if (n.type === 'riseabove') m.r++; else m.i++;
+        });
+        return ['各發文日貼文數(日期:總數|提問/延伸/改進反駁/整合):'].concat(days.map(m => '- ' + m.label + ':' + m.total + '|' + m.q + '/' + m.e + '/' + m.i + '/' + m.r));
+    };
+    const perStudent = () => {
+        const recv = {}, gave = {}, own = {};
+        notes.forEach(n => { own[n.author] = (own[n.author] || 0) + 1; const p = n.parentId ? byId[n.parentId] : null; if (p && String(p.author) !== String(n.author)) { gave[n.author] = (gave[n.author] || 0) + 1; recv[p.author] = (recv[p.author] || 0) + 1; } });
+        return ['各學生貼文與互動(代號:貼文數|回應他人|被他人回應):'].concat(users.map(u => '- ' + code(u.id) + ':' + (own[String(u.id)] || 0) + '|' + (gave[String(u.id)] || 0) + '|' + (recv[String(u.id)] || 0)));
+    };
+    const network = () => {
+        const pair = {};
+        notes.forEach(n => { const p = n.parentId ? byId[n.parentId] : null; if (p && String(p.author) !== String(n.author)) { const k = code(n.author) + '→' + code(p.author); pair[k] = (pair[k] || 0) + 1; } });
+        const top = Object.entries(pair).sort((a, b) => b[1] - a[1]).slice(0, 8).map(x => x[0] + ':' + x[1] + '次');
+        return ['網絡密度 ' + s.density + ';跨作者回應率 ' + pct(kbCrossAuthorRate(notes)), '互動最頻繁的關係(回應者→被回應者):' + (top.join('、') || '無')];
+    };
+    const threadInfo = () => {
+        const memo = {}; const depth = id => { if (memo[id]) return memo[id]; const n = byId[id]; memo[id] = (n && n.parentId && byId[n.parentId]) ? 1 + depth(n.parentId) : 1; return memo[id]; };
+        let max = 0; notes.forEach(n => { max = Math.max(max, depth(n.id)); });
+        const roots = notes.filter(n => !n.parentId).length;
+        const selfReply = notes.filter(n => { const p = n.parentId ? byId[n.parentId] : null; return p && String(p.author) === String(n.author); }).length;
+        return ['平均對話深度 ' + s.threadDepth + ' 層;最長討論串 ' + max + ' 層;討論串根(開頭貼文)' + roots + ' 個;回應自己的貼文 ' + selfReply + ' 篇(' + pct(selfReply / N) + ')。註:貼文多為一條接一條的連鎖,深度數字會偏大。'];
+    };
+    const transition = () => {
+        const lab = { question: '提問', extend: '延伸', improve: '改進', counter: '反駁', riseabove: '整合' };
+        const m = {}; notes.forEach(n => { const p = n.parentId ? byId[n.parentId] : null; if (p) { const k = (lab[p.type] || p.type) + '→' + (lab[n.type] || n.type); m[k] = (m[k] || 0) + 1; } });
+        return ['貼文類型接續(上層→回應)次數前 8 名:' + (Object.entries(m).sort((a, b) => b[1] - a[1]).slice(0, 8).map(x => x[0] + ' ' + x[1]).join('、') || '無')];
+    };
+    const keywords = (list) => {
+        const stop = new Set('的 是 在 有 和 了 與 就 也 但 我 你 他 我們 嗎 吧 個 這 那 不 人 都 很 而 及 或 如果 因為 所以 可以 可能 還是 已經 不是 就是 一個 什麼 怎麼 沒有 需要 應該 覺得 然後 比較 真的 一定 其實 而是 不只 只是 但是 這樣 自己 大家 一些 現在 之前 目前 沒錯 不能 最後 清楚 同一 這種 不同'.split(' '));
+        const seg = (typeof Intl !== 'undefined' && Intl.Segmenter) ? new Intl.Segmenter('zh-TW', { granularity: 'word' }) : null;
+        const m = {};
+        list.forEach(n => {
+            const tx = scrub(((n.title || '') + ' ' + (n.content || '')).toLowerCase());
+            const toks = seg ? Array.from(seg.segment(tx)).filter(x => x.isWordLike).map(x => x.segment) : tx.split(/[ ,，.。:：!?！？]+/);
+            new Set(toks.filter(w => w.length > 1 && !stop.has(w) && isNaN(w))).forEach(w => { m[w] = (m[w] || 0) + 1; });
+        });
+        return Object.entries(m).sort((a, b) => b[1] - a[1]).slice(0, 15).map(x => x[0] + '(' + x[1] + ')').join('、');
+    };
+    const emotion = () => {
+        const c = { 好奇: 0, 困惑: 0, 驚訝: 0, 中性: 0 };
+        notes.forEach(n => { const x = (n.content || '') + (n.title || ''); if (/為什麼|如何|怎麼/.test(x)) c.好奇++; else if (/不懂|難|\?|？/.test(x)) c.困惑++; else if (/哇|原來|竟然|！|!/.test(x)) c.驚訝++; else c.中性++; });
+        return ['認知情緒分佈(依關鍵字判斷):好奇 ' + c.好奇 + '、困惑 ' + c.困惑 + '、驚訝 ' + c.驚訝 + '、中性 ' + c.中性];
+    };
+    const lensC = () => {
+        const c = { 事實: 0, 理論: 0, 挑戰: 0, 整合: 0 };
+        notes.forEach(n => { if (n.type === 'extend' || n.type === 'improve') c.理論++; else if (n.type === 'counter') c.挑戰++; else if (n.type === 'riseabove') c.整合++; else c.事實++; });
+        return ['認知層次分佈:事實 ' + c.事實 + '、理論 ' + c.理論 + '、挑戰 ' + c.挑戰 + '、整合 ' + c.整合];
+    };
+    const riseAbove = () => {
+        const a = {}; notes.filter(n => n.type === 'riseabove').forEach(n => { a[code(n.author)] = (a[code(n.author)] || 0) + 1; });
+        return ['整合(昇華)貼文共 ' + cnt.riseabove + ' 篇(' + pct(cnt.riseabove / N) + ');各學生整合篇數:' + (Object.entries(a).map(x => x[0] + ' ' + x[1]).join('、') || '無')];
+    };
+    const topReplied = () => {
+        const rc = {}; notes.forEach(n => { if (n.parentId) rc[n.parentId] = (rc[n.parentId] || 0) + 1; });
+        const top = notes.slice().sort((a, b) => (rc[b.id] || 0) - (rc[a.id] || 0)).slice(0, 5).map(n => '[' + (kbTypeMap[n.type] || n.type) + '|' + code(n.author) + '] ' + scrub(n.title) + '(被回應 ' + (rc[n.id] || 0) + ' 次)');
+        return ['被回應最多的貼文:'].concat(top.map(x => '- ' + x));
+    };
+    const typeDist = () => ['貼文類型:提問 ' + cnt.question + '、延伸 ' + cnt.extend + '、改進 ' + cnt.improve + '、反駁 ' + cnt.counter + '、整合 ' + cnt.riseabove];
+    const agencyDetail = () => {
+        const ea = computeEpistemicAgency(notes, users);
+        return ['認知能動性各學生(代號:主動發起/自我修正/提出解釋/指數):'].concat(ea.per.map(p => '- ' + code(p.id) + ':' + pct(p.ri) + '/' + pct(p.rm) + '/' + pct(p.re) + '/' + p.score.toFixed(2)));
+    };
+    const studentLines = (sid) => {
+        let m = null; try { m = calculateStudentMetrics(db, sid); } catch (e) {}
+        if (!m || !m.noteCount) return ['此學生在目前範圍內沒有貼文。'];
+        const r = m.radarData;
+        return ['學生 ' + code(sid) + ':貼文 ' + m.noteCount + ' 篇;角色=' + m.role + ';主體性 ' + r[0] + '、社群互動 ' + r[1] + '、觀點改進 ' + r[2] + '、昇華整合 ' + r[3] + '、持續探究 ' + r[4],
+            '貼文類型:提問 ' + m.scaffoldCounts.question + '、延伸 ' + m.scaffoldCounts.extend + '、改進 ' + m.scaffoldCounts.improve + '、反駁 ' + m.scaffoldCounts.counter + '、整合 ' + m.scaffoldCounts.riseabove,
+            '自己發起 ' + m.balanceData[0] + ' 篇、回應別人 ' + m.balanceData[1] + ' 篇;收到回應 ' + m.inDegree + ' 次、給出回應 ' + m.outDegree + ' 次',
+            '常用詞彙:' + scrub((m.topKeywords || []).join('、'))];
+    };
+
+    const extras = {
+        total_notes: [timeline, perStudent], density: [network, perStudent], rise_above: [riseAbove, timeline], risk: [perStudent],
+        gini: [perStudent], thread_depth: [threadInfo], class_diagnosis: [perStudent, timeline, threadInfo], kb_trajectory: [timeline],
+        lag_sequence: [transition], brokers: [perStudent, network], sna: [perStudent, network], principles: [typeDist], kb12: [],
+        kb12_real: [typeDist], kb12_diversity: [typeDist, perStudent], kb12_agency: [agencyDetail], kb12_community: [network, perStudent],
+        kb12_improve: [typeDist, transition], kb12_riseabove: [riseAbove], kb12_sources: [typeDist], kb12_democratize: [perStudent],
+        impact_scatter: [perStudent], scaffold_profile: [typeDist, perStudent], promisingness: [topReplied], concept_network: [() => ['目前主題的關鍵詞(出現篇數):' + keywords(notes)]],
+        lexical_growth: [timeline, () => ['關鍵詞:' + keywords(notes)]], lens: [lensC], stream: [timeline], emotion: [emotion],
+        lexical_growth_index: [timeline, () => ['關鍵詞:' + keywords(notes)]], scaffold_transition: [transition, typeDist]
+    };
+    const lines = [];
+    lines.push('【分析範圍】' + (activeTopicFilter === 'all' ? '全班(所有討論區)' : ('單一討論區:' + (topicName[String(activeTopicFilter)] || activeTopicFilter))));
+    lines.push('【總體數據】貼文 ' + notes.length + ' 篇、學生 ' + users.length + ' 人、網絡密度 ' + s.density + '、發言吉尼係數 ' + s.gini + '(越小越平均)、昇華率 ' + s.raRate + '%、風險人數 ' + s.riskCount + '、平均對話深度 ' + s.threadDepth);
+    lines.push('【' + typeDist()[0] + '】');
+    const kbKeys = Object.keys(kb);
+    if (kbKeys.length) lines.push('【KB 12 原則檢核(程式依固定規則計算)】\n' + kbKeys.map(k => '- ' + k.replace('kb12_', '') + ':' + kb[k].status + '|' + kb[k].val).join('\n'));
+    if (studentId || REF_STUDENT_KEYS.indexOf(key) >= 0) {
+        if (studentId) { lines.push('【此指標針對單一學生】\n' + studentLines(studentId).join('\n')); }
+    } else {
+        (extras[key] || [typeDist, perStudent]).forEach(f => { lines.push('【此指標相關數據】\n' + f().join('\n')); });
+    }
+    return { text: lines.join('\n'), nameOf: nameOf };
+}
+
 async function fetchRefAIInsight(key, aiPrompt, currentVal, currentStatus, force = false, studentId = '') {
     const box = document.getElementById(`ref-ai-box-${key}`);
     const resultDiv = document.getElementById(`ref-ai-result-${key}`);
-    
-    // ⭐ 修正 1：快取金鑰必須包含 studentId，這樣每個學生的分析才不會互相覆蓋！
-    const cacheKey = `ref_${key}_${activeTopicFilter}_${studentId}`;
-    
+
+    // 快取金鑰包含:指標、範圍、學生、資料版本 —— 資料更新後會自動重新診斷
+    const cacheKey = `ref_${key}_${activeTopicFilter}_${studentId}_${diagDataSig()}`;
+
     if (!force && aiCache.refs[cacheKey]) {
         resultDiv.innerHTML = aiCache.refs[cacheKey];
         resultDiv.classList.remove('hidden');
         return;
     }
 
-    box.innerHTML = `<i class="fas fa-spinner fa-spin mr-2"></i> 教學顧問 AI 運算中...`;
-    
-    // ⭐ 修正 2：動態切換 AI 提示詞的主詞，讓 AI 知道現在是在分析「班級」還是「特定學生」
-    const targetDesc = studentId ? "這位學生" : "目前班級";
-    const prompt = `身為專精於「知識建構(Knowledge Building)」的教育專家，老師現在有這個疑問：「${aiPrompt}」\n\n${targetDesc}在該指標的實際狀況為：【數值：${currentVal}】、【狀態判定：${currentStatus}】。\n\n請根據這個實際狀態，給予老師一段不超過 150 字、具體可操作的教學介入建議。請使用繁體中文。`;
-    
+    box.innerHTML = `<i class="fas fa-spinner fa-spin mr-2"></i> AI 正在依目前數據診斷...`;
+
+    let ctx;
+    try { ctx = buildRefContext(key, studentId); } catch (e) { console.error(e); ctx = { text: '(背景數據整理失敗,僅依下列指標數值回答)', nameOf: {} }; }
+    const info = (typeof refContent !== 'undefined' && refContent[key]) ? refContent[key] : {};
+    const targetDesc = studentId ? '這位學生' : '目前範圍的班級(或小組)';
+    const prompt = '你是專精「知識建構(Knowledge Building)」的教學顧問。老師正在查看指標「' + (info.title || key) + '」,想請你做 AI 診斷。\n' +
+        '【指標意義】' + (info.theory || '') + '\n' +
+        '【' + targetDesc + '在此指標的目前結果】數值:' + currentVal + ';狀態判定:' + currentStatus + '\n' +
+        ctx.text + '\n' +
+        '【老師的問題】' + aiPrompt + '\n\n' +
+        '【規則】只能根據上面的數據下結論並引用具體數字;不要編造沒有的資料;學生一律用代號(如 S01)稱呼;文字類指標(認知能動性、權威資料、詞彙分析等)是關鍵字估計,請在結論裡適度提醒。\n' +
+        '請用繁體中文、Markdown 輸出,約 250~350 字,包含:\n**這個數字代表什麼**(1~2 句)\n**可能的原因**(引用數據,1~2 點)\n**老師可以怎麼做**(2~3 個具體可執行的行動)\n**要留意的地方**(1 句)';
+
     const aiResult = await callGeminiAPI(prompt);
     const aiFailed = String(aiResult).startsWith('⚠️');
-    
+    // 在本機把代號換回學生姓名(姓名不會傳給 AI)
+    let shown = String(aiResult);
+    Object.keys(ctx.nameOf).sort((a, b) => b.length - a.length).forEach(c => { shown = shown.split(c).join('**' + ctx.nameOf[c] + '**'); });
+    const safeKey = String(key).replace(/'/g, '');
+    const safePrompt = String(aiPrompt).replace(/'/g, '');
+    const safeVal = String(currentVal).replace(/'/g, '');
+    const safeStatus = String(currentStatus).replace(/'/g, '');
     const html = `
         <div class="mt-3 p-3 bg-purple-50 text-purple-800 text-sm rounded border border-purple-100 relative">
-            <button onclick="fetchRefAIInsight('${key}', '${aiPrompt}', '${currentVal}', '${currentStatus}', true, '${studentId}')" class="absolute top-2 right-2 text-[10px] text-purple-500 hover:bg-purple-200 px-1.5 py-0.5 rounded transition"><i class="fas fa-sync-alt"></i></button>
-            ${marked.parse(aiResult)}
+            <button onclick="fetchRefAIInsight('${safeKey}', '${safePrompt}', '${safeVal}', '${safeStatus}', true, '${studentId}')" class="absolute top-2 right-2 text-[10px] text-purple-500 hover:bg-purple-200 px-1.5 py-0.5 rounded"><i class="fas fa-sync-alt mr-1"></i>重新診斷</button>
+            <div class="text-[10px] text-purple-400 mb-1">${window.__geminiModel ? ('模型:' + window.__geminiModel + ';') : ''}依目前數據產生,僅供教學參考;學生姓名不會傳給 AI</div>
+            ${marked.parse(shown)}
         </div>`;
-        
+
     if (!aiFailed) aiCache.refs[cacheKey] = html; // 失敗的結果不暫存,下次點擊會重新呼叫
-    
+
     box.innerHTML = aiFailed
-        ? `<span><i class="fas fa-exclamation-circle mr-2 text-red-500"></i> AI 呼叫失敗(可按下方重新分析)</span>`
-        : `<span><i class="fas fa-check-circle mr-2 text-green-500"></i> 獲得 AI 建議</span>`;
+        ? `<span><i class="fas fa-exclamation-circle mr-2 text-red-500"></i> AI 呼叫失敗(可按下方重新診斷)</span>`
+        : `<span><i class="fas fa-check-circle mr-2 text-green-500"></i> 已完成 AI 診斷</span>`;
     resultDiv.innerHTML = html;
     resultDiv.classList.remove('hidden');
 }
@@ -2847,9 +2991,9 @@ async function fetchRefAIInsight(key, aiPrompt, currentVal, currentStatus, force
                 </div>
 
                 <div class="ref-section">
-                    <div class="ref-section-title ref-ai-title"><i class="fas fa-robot mr-2"></i> 進階 AI 諮詢</div>
+                    <div class="ref-section-title ref-ai-title"><i class="fas fa-robot mr-2"></i> AI 診斷(依目前數據)</div>
                     <div id="ref-ai-box-${key}" class="ref-ai-box text-sm flex items-center justify-between" onclick="fetchRefAIInsight('${key}', '${content.ai_prompt}', '${dynamicVal}', '${dynamicStatus}', false, '${currentUid}')">
-                        <span><i class="fas fa-comment-dots mr-2"></i> 問 AI：${content.ai_prompt || '如何改善此指標？'}</span>
+                        <span><i class="fas fa-comment-dots mr-2"></i> AI 診斷：${content.ai_prompt || '如何改善此指標？'}</span>
                         <i class="fas fa-chevron-right text-xs opacity-50"></i>
                     </div>
                     <div id="ref-ai-result-${key}" class="hidden"></div>
