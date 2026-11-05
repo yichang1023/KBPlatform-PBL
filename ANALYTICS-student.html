@@ -533,6 +533,18 @@
     // ✅ Gemini AI Configuration
     // ✅ Gemini AI Configuration
 let apiKey = ""; 
+// Gemini 模型自動備援:新金鑰用新模型,舊金鑰仍可用 gemini-2.5-flash(遇到 404 自動換下一個)
+async function geminiFetch(key, init) {
+    let stored = ''; try { stored = localStorage.getItem('kb_ai_model') || ''; } catch (e) {}
+    const models = [stored, 'gemini-3.8-flash', 'gemini-2.5-flash'].filter((m, i, a) => m && a.indexOf(m) === i);
+    let last;
+    for (const m of models) {
+        const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + m + ':generateContent?key=' + key, init);
+        if (r.status !== 404) { if (r.ok) { try { localStorage.setItem('kb_ai_model', m); } catch (e) {} } return r; }
+        last = r;
+    }
+    return last;
+}
 let aiModelUrl = "";
 
 // 自動讀取 API Key 的機制
@@ -699,7 +711,7 @@ ${specificData}
 請用繁體中文回覆，語氣要充滿鼓勵。不要輸出多餘的開場白，直接給予 Markdown 內容。`;
 
         try {
-            const response = await fetch(aiModelUrl, { 
+            const response = await geminiFetch(apiKey, { 
                 method: 'POST', 
                 headers: { 'Content-Type': 'application/json' }, 
                 body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }) 
@@ -1483,7 +1495,7 @@ ${specificData}
         const promptText = mode === 'advice' ? `根據數據：${ctx} 給予該學生3點具體的知識建構改進建議 (繁體中文，語氣鼓勵，限150字內)。` : `根據數據：${ctx} 為學生撰寫一份「學習歷程檔案」的自我反思草稿 (Reflection Draft)。第一人稱，學術且真誠，限200字內。`;
 
         try {
-            const response = await fetch(aiModelUrl, { 
+            const response = await geminiFetch(apiKey, { 
                 method: 'POST', 
                 headers: { 'Content-Type': 'application/json' }, 
                 body: JSON.stringify({ contents: [{ parts: [{ text: promptText }] }] }) 
