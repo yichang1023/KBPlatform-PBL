@@ -13,7 +13,108 @@
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <link rel="preconnect" href="https://unpkg.com" crossorigin>
     <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script id="kb-net-player">
+/* 網絡圖「時間軸播放器」:依發文日期逐日重播關係網絡的形成過程(可暫停、拖曳時間軸、調整速度、自動播放) */
+(function () {
+  var SPEEDS = [0.5, 1, 2, 4, 8];
+  var players = {};
+  function lsGet(k, d) { try { var v = localStorage.getItem(k); return v === null ? d : v; } catch (e) { return d; } }
+  function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+  function dayKey(ts) { var d = new Date(ts); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); }
+  // 依時間戳列表建立「發文日」時間軸
+  window.kbMakeDays = function (timestamps) {
+    var seen = {}, labels = [];
+    timestamps.slice().sort(function (a, b) { return a - b; }).forEach(function (ts) {
+      var k = dayKey(ts);
+      if (seen[k] === undefined) { var d = new Date(ts); seen[k] = labels.length; labels.push((d.getMonth() + 1) + '/' + d.getDate()); }
+    });
+    return { labels: labels, index: function (ts) { var v = seen[dayKey(ts)]; return v === undefined ? 0 : v; } };
+  };
+  // 連線事件 → 逐日累積的連線(同一方向合併,線越粗代表次數越多)
+  window.kbEdgeFrames = function (events, colors) {
+    var cache = {};
+    return function (i) {
+      if (cache[i]) return cache[i];
+      var m = {};
+      events.forEach(function (e) {
+        if (e.d > i) return;
+        var k = e.from + '>' + e.to;
+        if (!m[k]) m[k] = { from: e.from, to: e.to, count: 0, types: {} };
+        m[k].count++; if (e.type) m[k].types[e.type] = (m[k].types[e.type] || 0) + 1;
+      });
+      cache[i] = Object.keys(m).map(function (k) {
+        var e = m[k], ed = { id: k, from: e.from, to: e.to, arrows: 'to', width: Math.min(6, 1 + e.count / 6), title: e.count + ' 次回應' };
+        if (colors) { var dom = Object.keys(e.types).sort(function (a, b) { return e.types[b] - e.types[a]; })[0]; if (dom && colors[dom]) ed.color = { color: colors[dom] }; }
+        return ed;
+      });
+      return cache[i];
+    };
+  };
+  window.kbAttachPlayer = function (o) {
+    if (players[o.id]) players[o.id].destroy();
+    var N = o.labels.length;
+    if (N < 2) return null;
+    var st = { i: N - 1, playing: false, timer: null, stopT: null, gone: false };
+    var speed = Number(lsGet('kb_net_speed', '1')); if (SPEEDS.indexOf(speed) < 0) speed = 1;
+    var auto = lsGet('kb_net_autoplay', '0') === '1';
+    Array.prototype.forEach.call(document.querySelectorAll('[data-kbnet="' + o.id + '"]'), function (x) { x.remove(); });
+    var wrap = document.createElement('div');
+    wrap.setAttribute('data-kbnet', o.id);
+    wrap.style.cssText = 'display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px;font-size:11px;color:#334155';
+    wrap.innerHTML = '<button type="button" data-a="play" style="padding:3px 10px;border-radius:6px;background:#4f46e5;color:#fff;font-weight:700;white-space:nowrap">▶ 播放</button>' +
+      '<input type="range" data-a="seek" min="0" max="' + (N - 1) + '" value="' + (N - 1) + '" style="flex:1;min-width:90px">' +
+      '<span data-a="label" style="min-width:44px;font-weight:700;text-align:center"></span>' +
+      '<label style="display:flex;align-items:center;gap:3px;white-space:nowrap">速度 <select data-a="speed" style="border:1px solid #cbd5e1;border-radius:4px;padding:1px 3px;background:#fff">' +
+      SPEEDS.map(function (s) { return '<option value="' + s + '"' + (s === speed ? ' selected' : '') + '>' + s + 'x</option>'; }).join('') + '</select></label>' +
+      '<label style="display:flex;align-items:center;gap:3px;cursor:pointer;white-space:nowrap"><input type="checkbox" data-a="auto"' + (auto ? ' checked' : '') + '> 自動播放</label>';
+    (o.anchor || o.container).insertAdjacentElement('afterend', wrap);
+    var btn = wrap.querySelector('[data-a=play]'), seek = wrap.querySelector('[data-a=seek]'), label = wrap.querySelector('[data-a=label]');
+    var spSel = wrap.querySelector('[data-a=speed]'), autoCb = wrap.querySelector('[data-a=auto]');
+
+    function alive() { return !st.gone && o.network && o.network.body && o.network.body.data; }
+    function physOn() { try { o.network.setOptions({ physics: { enabled: true, stabilization: false, barnesHut: { damping: 0.5 } } }); } catch (e) {} }
+    function physOffLater(ms) { clearTimeout(st.stopT); st.stopT = setTimeout(function () { try { if (alive()) o.network.setOptions({ physics: false }); } catch (e) {} }, ms); }
+    function apply(i, animate) {
+      if (!alive()) return;
+      st.i = i;
+      var f = o.build(i), ids, cur, rm;
+      ids = f.nodes.map(function (n) { return n.id; }); cur = o.nodesDS.getIds();
+      rm = cur.filter(function (id) { return ids.indexOf(id) < 0; }); if (rm.length) o.nodesDS.remove(rm);
+      o.nodesDS.update(f.nodes);
+      ids = f.edges.map(function (e) { return e.id; }); cur = o.edgesDS.getIds();
+      rm = cur.filter(function (id) { return ids.indexOf(id) < 0; }); if (rm.length) o.edgesDS.remove(rm);
+      o.edgesDS.update(f.edges);
+      seek.value = i; label.textContent = o.labels[i];
+      if (animate) { physOn(); physOffLater(1500); }
+    }
+    function stopTimer() { clearTimeout(st.timer); st.timer = null; }
+    function setPlaying(p) { st.playing = p; btn.textContent = p ? '⏸ 暫停' : '▶ 播放'; if (!p) stopTimer(); }
+    function schedule() { stopTimer(); st.timer = setTimeout(tick, 900 / speed); }
+    function tick() {
+      if (!st.playing || !alive()) { setPlaying(false); return; }
+      if (st.i >= N - 1) { setPlaying(false); physOffLater(1500); return; }
+      apply(st.i + 1, true);
+      if (st.i >= N - 1) { setPlaying(false); physOffLater(1800); } else schedule();
+    }
+    function play() {
+      if (!alive()) return;
+      if (st.i >= N - 1) apply(0, true);
+      setPlaying(true); schedule();
+    }
+    btn.onclick = function () { if (st.playing) setPlaying(false); else play(); };
+    seek.oninput = function () { setPlaying(false); apply(Number(seek.value), true); };
+    spSel.onchange = function () { speed = Number(spSel.value); lsSet('kb_net_speed', String(speed)); if (st.playing) schedule(); };
+    autoCb.onchange = function () { lsSet('kb_net_autoplay', autoCb.checked ? '1' : '0'); if (autoCb.checked && !st.playing) { apply(0, true); play(); } };
+    label.textContent = o.labels[N - 1];
+    var api = { destroy: function () { st.gone = true; stopTimer(); clearTimeout(st.stopT); if (wrap.parentNode) wrap.parentNode.removeChild(wrap); }, play: play, state: st };
+    players[o.id] = api;
+    if (auto) setTimeout(function () { if (alive() && !st.playing && st.i >= N - 1) { apply(0, true); play(); } }, 700);
+    return api;
+  };
+  window.kbPlayers = players;
+})();
+</script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 
     <!-- 核心函式庫 -->
@@ -1295,13 +1396,30 @@ async function geminiFetch(key, init) {
             if(overviewNetwork) { overviewNetwork.destroy(); overviewNetwork = null; }
             const colorPalette = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'];
             const nodesData = stats.students.map((u, index) => ({ id: String(u.id), label: u.name || '?', color: colorPalette[index % colorPalette.length], shape: 'dot', size: 15, font: { color: '#1e293b' } }));
-            const studentIds = stats.students.map(u => String(u.id)); const edgesData = [];
-            stats.nodes.forEach(n => { if(n.parentId) { const p = stats.nodes.find(x => x.id === n.parentId); if(p && String(p.author) !== String(n.author) && studentIds.includes(String(n.author)) && studentIds.includes(String(p.author))) { edgesData.push({from: String(n.author), to: String(p.author)}); } } });
-overviewNetwork = new vis.Network(container, { nodes: new vis.DataSet(nodesData), edges: new vis.DataSet(edgesData) }, { nodes: { font: { face: 'Noto Sans TC' } }, physics: { stabilization: { enabled: true, iterations: 150, updateInterval: 50, fit: true }, barnesHut: { damping: 0.6 } } });
+            const studentIds = stats.students.map(u => String(u.id));
+            const idSet = new Set(studentIds);
+            const byIdN = {}; stats.nodes.forEach(n => { byIdN[n.id] = n; });
+            const snaDays = kbMakeDays(stats.nodes.map(n => n.date));
+            const snaEvents = [], postDays = {};
+            stats.nodes.forEach(n => {
+                const d = snaDays.index(n.date), a = String(n.author);
+                if (idSet.has(a)) (postDays[a] = postDays[a] || []).push(d);
+                const p = n.parentId ? byIdN[n.parentId] : null;
+                if (p && String(p.author) !== a && idSet.has(a) && idSet.has(String(p.author))) snaEvents.push({ from: a, to: String(p.author), d: d });
+            });
+            const snaEdgeFrame = kbEdgeFrames(snaEvents);
+            const snaBuild = i => ({
+                nodes: nodesData.map(nd => { const c = (postDays[nd.id] || []).filter(x => x <= i).length; return Object.assign({}, nd, { size: 12 + Math.min(18, c / 6), title: nd.label + ':累計 ' + c + ' 篇' }); }),
+                edges: snaEdgeFrame(i)
+            });
+            const snaLast = snaDays.labels.length - 1;
+            const snaNodesDS = new vis.DataSet(snaBuild(snaLast).nodes), snaEdgesDS = new vis.DataSet(snaBuild(snaLast).edges);
+            overviewNetwork = new vis.Network(container, { nodes: snaNodesDS, edges: snaEdgesDS }, { nodes: { font: { face: 'Noto Sans TC' } }, physics: { stabilization: { enabled: true, iterations: 150, updateInterval: 50, fit: true }, barnesHut: { damping: 0.6 } } });
             // 排列穩定後就關閉物理運算,圖不會再一直晃動(仍可手動拖曳節點)
             const stopSnaPhysics = () => { if (overviewNetwork) overviewNetwork.setOptions({ physics: false }); };
             overviewNetwork.once('stabilizationIterationsDone', stopSnaPhysics);
-            setTimeout(stopSnaPhysics, 2500);            
+            setTimeout(stopSnaPhysics, 2500);
+            kbAttachPlayer({ id: 'sna', container: container, network: overviewNetwork, nodesDS: snaNodesDS, edgesDS: snaEdgesDS, labels: snaDays.labels, build: snaBuild });            
             const ctx1 = document.getElementById('principlesChart').getContext('2d');
             const typeCounts = { question:0, extend:0, improve:0, counter:0, riseabove:0 };
             stats.nodes.forEach(n => { if (typeCounts[n.type] !== undefined) typeCounts[n.type]++; });
@@ -1511,22 +1629,39 @@ overviewNetwork = new vis.Network(container, { nodes: new vis.DataSet(nodesData)
             });
 
             const getSize = (c) => Math.max(12, Math.min(45, 12 + c * 1.5));
-
-            const nodes = new vis.DataSet([
-                { id: 'Fact', label: `事實\nFact\n(${counts.Fact})`, color: '#cbd5e1', shape: 'dot', size: getSize(counts.Fact) },
-                { id: 'Theory', label: `理論\nTheory\n(${counts.Theory})`, color: '#3b82f6', shape: 'dot', size: getSize(counts.Theory) },
-                { id: 'Challenge', label: `挑戰\nChallenge\n(${counts.Challenge})`, color: '#eab308', shape: 'dot', size: getSize(counts.Challenge) },
-                { id: 'Synthesis', label: `整合\nSynthesis\n(${counts.Synthesis})`, color: '#22c55e', shape: 'dot', size: getSize(counts.Synthesis) }
-            ]);
-            const edges = new vis.DataSet([
-                { from: 'Fact', to: 'Theory', arrows:'to' },
-                { from: 'Theory', to: 'Challenge', arrows:'to' },
-                { from: 'Challenge', to: 'Synthesis', arrows:'to' },
-                { from: 'Theory', to: 'Theory', arrows:'to' },
-                { from: 'Theory', to: 'Synthesis', arrows:'to' }
-            ]);
-
-            lensNetwork = new vis.Network(container, { nodes, edges }, { nodes: { font: { face: 'Noto Sans TC', color: '#000000', size: 14 } }, physics: { stabilization: true } });
+            const lensDays = kbMakeDays(globalAllNotes.map(n => n.dateTime));
+            const lensBuild = i => {
+                const c = { Fact: 0, Theory: 0, Challenge: 0, Synthesis: 0 };
+                globalAllNotes.forEach(n => {
+                    if (lensDays.index(n.dateTime) > i) return;
+                    if (n.type === 'extend' || n.type === 'improve') c.Theory++;
+                    else if (n.type === 'counter') c.Challenge++;
+                    else if (n.type === 'riseabove') c.Synthesis++;
+                    else c.Fact++;
+                });
+                return {
+                    nodes: [
+                        { id: 'Fact', label: '事實\nFact\n(' + c.Fact + ')', color: '#cbd5e1', shape: 'dot', size: getSize(c.Fact) },
+                        { id: 'Theory', label: '理論\nTheory\n(' + c.Theory + ')', color: '#3b82f6', shape: 'dot', size: getSize(c.Theory) },
+                        { id: 'Challenge', label: '挑戰\nChallenge\n(' + c.Challenge + ')', color: '#eab308', shape: 'dot', size: getSize(c.Challenge) },
+                        { id: 'Synthesis', label: '整合\nSynthesis\n(' + c.Synthesis + ')', color: '#22c55e', shape: 'dot', size: getSize(c.Synthesis) }
+                    ],
+                    edges: [
+                        { id: 'e1', from: 'Fact', to: 'Theory', arrows: 'to' },
+                        { id: 'e2', from: 'Theory', to: 'Challenge', arrows: 'to' },
+                        { id: 'e3', from: 'Challenge', to: 'Synthesis', arrows: 'to' },
+                        { id: 'e4', from: 'Theory', to: 'Theory', arrows: 'to' },
+                        { id: 'e5', from: 'Theory', to: 'Synthesis', arrows: 'to' }
+                    ]
+                };
+            };
+            const lensLast = lensDays.labels.length - 1;
+            const nodes = new vis.DataSet(lensBuild(lensLast).nodes), edges = new vis.DataSet(lensBuild(lensLast).edges);
+            lensNetwork = new vis.Network(container, { nodes, edges }, { nodes: { font: { face: 'Noto Sans TC', color: '#000000', size: 14 } }, physics: { stabilization: { enabled: true, iterations: 100, updateInterval: 50, fit: true }, barnesHut: { damping: 0.6 } } });
+            const stopLensPhysics = () => { if (lensNetwork) lensNetwork.setOptions({ physics: false }); };
+            lensNetwork.once('stabilizationIterationsDone', stopLensPhysics);
+            setTimeout(stopLensPhysics, 2500);
+            kbAttachPlayer({ id: 'lens', container: container, anchor: container.parentElement, network: lensNetwork, nodesDS: nodes, edgesDS: edges, labels: lensDays.labels, build: lensBuild });
             lensNetwork.on("click", function (params) {
                 const detailBox = document.getElementById('lens-detail');
                 let info = null;
@@ -1570,18 +1705,28 @@ overviewNetwork = new vis.Network(container, { nodes: new vis.DataSet(nodesData)
                 else if (avgHeat >= 2.0) { color = { background: '#fef3c7', border: '#f59e0b' }; font = { size: 14, color: '#92400e' }; }
                 return { id: w, label: `${w}\n(${noteIds.length})`, value: noteIds.length, color: color, font: font, shape: 'dot', shadow: shadow };
             });
-            const edgesData = [];
-            for (let i = 0; i < sortedKeywords.length; i++) {
-                for (let j = i + 1; j < sortedKeywords.length; j++) {
-                    const w1 = sortedKeywords[i], w2 = sortedKeywords[j];
-                    const intersection = keywordMap[w1].filter(id => keywordMap[w2].includes(id));
-                    if (intersection.length > 0) edgesData.push({ from: w1, to: w2, value: intersection.length, color: { color: '#94a3b8', opacity: 0.4 }, title: `共現於 ${intersection.length} 篇筆記` });
+            const cpDays = kbMakeDays(globalAllNotes.map(n => n.dateTime));
+            const noteDay = {}; globalAllNotes.forEach(n => { noteDay[n.id] = cpDays.index(n.dateTime); });
+            const kwSet = {}; sortedKeywords.forEach(w => { kwSet[w] = new Set(keywordMap[w]); });
+            const cpBuild = i => {
+                const nds = nodesData.map(nd => { const c = keywordMap[nd.id].filter(id => noteDay[id] <= i).length; return Object.assign({}, nd, { value: Math.max(c, 0.1), label: nd.id + '\n(' + c + ')', hidden: c === 0 }); });
+                const eds = [];
+                for (let a = 0; a < sortedKeywords.length; a++) {
+                    for (let b = a + 1; b < sortedKeywords.length; b++) {
+                        const w1 = sortedKeywords[a], w2 = sortedKeywords[b];
+                        const inter = keywordMap[w1].filter(id => noteDay[id] <= i && kwSet[w2].has(id)).length;
+                        if (inter > 0) eds.push({ id: w1 + '|' + w2, from: w1, to: w2, value: inter, color: { color: '#94a3b8', opacity: 0.4 }, title: '共現於 ' + inter + ' 篇筆記' });
+                    }
                 }
-            }
-            conceptNetworkInstance = new vis.Network(container, { nodes: new vis.DataSet(nodesData), edges: new vis.DataSet(edgesData) }, { nodes: { scaling: { min: 10, max: 30 } }, edges: { scaling: { min: 1, max: 5 }, smooth: { type: 'continuous' } }, physics: { stabilization: { enabled: true, iterations: 150, updateInterval: 50, fit: true }, barnesHut: { gravitationalConstant: -2000, damping: 0.6 } } });
+                return { nodes: nds, edges: eds };
+            };
+            const cpLast = cpDays.labels.length - 1;
+            const cpNodesDS = new vis.DataSet(cpBuild(cpLast).nodes), cpEdgesDS = new vis.DataSet(cpBuild(cpLast).edges);
+            conceptNetworkInstance = new vis.Network(container, { nodes: cpNodesDS, edges: cpEdgesDS }, { nodes: { scaling: { min: 10, max: 30 } }, edges: { scaling: { min: 1, max: 5 }, smooth: { type: 'continuous' } }, physics: { stabilization: { enabled: true, iterations: 150, updateInterval: 50, fit: true }, barnesHut: { gravitationalConstant: -2000, damping: 0.6 } } });
             const stopConceptPhysics = () => { if (conceptNetworkInstance) conceptNetworkInstance.setOptions({ physics: false }); };
             conceptNetworkInstance.once('stabilizationIterationsDone', stopConceptPhysics);
             setTimeout(stopConceptPhysics, 2500);
+            kbAttachPlayer({ id: 'concept', container: container, network: conceptNetworkInstance, nodesDS: cpNodesDS, edgesDS: cpEdgesDS, labels: cpDays.labels, build: cpBuild });
             conceptNetworkInstance.on("click", function (params) { if (params.nodes.length > 0) showKeywordContext(params.nodes[0], keywordMap[params.nodes[0]]); });
         }
 
@@ -1966,7 +2111,7 @@ overviewNetwork = new vis.Network(container, { nodes: new vis.DataSet(nodesData)
                     const p = globalAllNotes.find(x => x.id === n.parentId); 
                     if(p && String(p.author) !== uIdStr) { 
                         egoNodes.add(String(p.author)); 
-                        egoEdges.push({from: uIdStr, to: String(p.author)}); 
+                        egoEdges.push({from: uIdStr, to: String(p.author), t: n.dateTime}); 
                         outDegree++; 
                     } 
                 } 
@@ -1976,7 +2121,7 @@ overviewNetwork = new vis.Network(container, { nodes: new vis.DataSet(nodesData)
                     const p = globalAllNotes.find(x => x.id === n.parentId); 
                     if(p && String(p.author) === uIdStr && String(n.author) !== uIdStr) { 
                         egoNodes.add(String(n.author)); 
-                        egoEdges.push({from: String(n.author), to: uIdStr}); 
+                        egoEdges.push({from: String(n.author), to: uIdStr, t: n.dateTime}); 
                         inDegree++; 
                     } 
                 } 
@@ -2223,11 +2368,18 @@ overviewNetwork = new vis.Network(container, { nodes: new vis.DataSet(nodesData)
             const badge = document.getElementById('kb-role-badge'); badge.innerText = data.role; badge.className = `text-[10px] px-2 py-0.5 rounded-full border font-bold tracking-wide ${data.badgeColor}`; badge.classList.remove('hidden');
             document.getElementById('student-keywords-container').innerHTML = data.topKeywords.length > 0 ? data.topKeywords.map(k => `<span class="bg-amber-50 text-amber-700 border border-amber-200 px-2 py-1 rounded text-xs">${k}</span>`).join('') : '<span class="text-xs text-slate-400">無詞彙</span>';
             const ctxR = document.getElementById('radarChart').getContext('2d'); if(radarChartInstance) radarChartInstance.destroy(); radarChartInstance = new Chart(ctxR, { type: 'radar', data: { labels: ['主體性','社群互動','觀點改進','昇華整合','持續探究'], datasets: [{ label: displayName, data: data.radarData, backgroundColor:'rgba(59,130,246,0.2)', borderColor:'#3B82F6' }] }, options: { responsive:true, maintainAspectRatio:false, scales: { r: { suggestedMin: 0, suggestedMax: 100, ticks:{display:false} } } } });
-            const container = document.getElementById('ego-network-container'); if(egoNetworkInstance) { egoNetworkInstance.destroy(); egoNetworkInstance = null; } egoNetworkInstance = new vis.Network(container, { nodes: new vis.DataSet(data.visNodes), edges: new vis.DataSet(dedupeEdges(data.visEdges)) }, { nodes: { shape: 'dot' }, physics: { stabilization: { enabled: true, iterations: 120, updateInterval: 50, fit: true }, barnesHut: { damping: 0.6 } } });
+            const container = document.getElementById('ego-network-container'); if(egoNetworkInstance) { egoNetworkInstance.destroy(); egoNetworkInstance = null; } const egoDays = kbMakeDays(globalAllNotes.map(n => n.dateTime));
+            const egoEvents = (data.visEdges || []).map(ed => ({ from: ed.from, to: ed.to, d: egoDays.index(ed.t) }));
+            const egoEdgeFrame = kbEdgeFrames(egoEvents);
+            const egoBuild = i => { const eds = egoEdgeFrame(i); const present = new Set([String(userId)]); eds.forEach(ed => { present.add(String(ed.from)); present.add(String(ed.to)); }); return { nodes: data.visNodes.filter(nd => present.has(String(nd.id))), edges: eds }; };
+            const egoLast = egoDays.labels.length - 1;
+            const egoNodesDS = new vis.DataSet(egoBuild(egoLast).nodes), egoEdgesDS = new vis.DataSet(egoBuild(egoLast).edges);
+            egoNetworkInstance = new vis.Network(container, { nodes: egoNodesDS, edges: egoEdgesDS }, { nodes: { shape: 'dot' }, physics: { stabilization: { enabled: true, iterations: 120, updateInterval: 50, fit: true }, barnesHut: { damping: 0.6 } } });
             // 排列穩定後就關閉物理運算,圖不會再一直晃動(仍可手動拖曳節點)
             const stopEgoPhysics = () => { if (egoNetworkInstance) egoNetworkInstance.setOptions({ physics: false }); };
             egoNetworkInstance.once('stabilizationIterationsDone', stopEgoPhysics);
             setTimeout(stopEgoPhysics, 2500);
+            kbAttachPlayer({ id: 'ego-t', container: container, anchor: container.parentElement, network: egoNetworkInstance, nodesDS: egoNodesDS, edgesDS: egoEdgesDS, labels: egoDays.labels, build: egoBuild });
             const ctxB = document.getElementById('balanceChart').getContext('2d'); if(balanceChartInstance) balanceChartInstance.destroy(); 
             const totalBal = data.balanceData[0] + data.balanceData[1];
             document.getElementById('bal-init').innerText = totalBal > 0 ? Math.round(data.balanceData[0]/totalBal*100) + '%' : '0%'; 
