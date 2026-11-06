@@ -1596,6 +1596,13 @@ overviewNetwork = new vis.Network(container, { nodes: new vis.DataSet(nodesData)
             document.body.insertAdjacentHTML('beforeend', `<div id="keyword-modal" class="modal-overlay open" onclick="this.remove()"><div class="modal-content max-w-md" onclick="event.stopPropagation()"><div class="modal-header bg-blue-50"><h3 class="text-lg font-bold text-blue-900 flex items-center"><i class="fas fa-search mr-2"></i> 關鍵字上下文分析</h3><button onclick="document.getElementById('keyword-modal').remove()" class="text-slate-400 hover:text-slate-600"><i class="fas fa-times text-xl"></i></button></div><div class="modal-body"><div class="mb-4 text-sm text-slate-500">關鍵字 <span class="font-bold text-blue-600 text-lg mx-1">${word}</span> 出現在 ${noteIds.length} 篇筆記中：</div><div class="border border-slate-200 rounded-lg max-h-[300px] overflow-y-auto custom-scrollbar">${listHtml}</div></div></div></div>`);
         }
 
+        // 同一方向的多條連線合併成一條(線的粗細代表回應次數),避免上百條重疊的線讓圖一直抖動
+        function dedupeEdges(edges) {
+            const m = {};
+            (edges || []).forEach(e => { const k = e.from + '>' + e.to; if (!m[k]) m[k] = { from: e.from, to: e.to, arrows: e.arrows || 'to', count: 0 }; m[k].count++; });
+            return Object.values(m).map(e => ({ from: e.from, to: e.to, arrows: e.arrows, width: Math.min(6, 1 + e.count / 6), title: e.count + ' 次回應' }));
+        }
+
         // 依「實際發文日期」分組(取代原本每 7 天切一格的 Week N)
         function dayKeyOf(ts){ const d=new Date(ts); return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); }
         function buildDayBuckets(sorted, makeExtra){
@@ -1740,7 +1747,7 @@ overviewNetwork = new vis.Network(container, { nodes: new vis.DataSet(nodesData)
             const scatterPoints = [];
             buckets.forEach((b, idx) => {
                 let currentY = 0;
-                ['question', 'extend', 'improve', 'riseabove'].forEach(type => {
+                ['riseabove', 'improve', 'extend', 'question'].forEach(type => { // 與圖上由下而上的疊加順序一致
                     if(b.notes[type].length > 0) scatterPoints.push({ x: b.label, y: currentY + (b.counts[type] / 2), noteId: b.notes[type][0].id, title: b.notes[type][0].title });
                     currentY += b.counts[type];
                 });
@@ -1749,11 +1756,11 @@ overviewNetwork = new vis.Network(container, { nodes: new vis.DataSet(nodesData)
                 data: { 
                     labels: labels, 
                     datasets: [
-                        { type: 'line', label: '整合', data: buckets.map(b => b.counts.riseabove), backgroundColor: 'rgba(168, 85, 247, 0.5)', fill: true, tension: 0.5, pointRadius: 0 },
-                        { type: 'line', label: '深化', data: buckets.map(b => b.counts.improve), backgroundColor: 'rgba(34, 197, 94, 0.5)', fill: true, tension: 0.5, pointRadius: 0 },
-                        { type: 'line', label: '延伸', data: buckets.map(b => b.counts.extend), backgroundColor: 'rgba(59, 130, 246, 0.5)', fill: true, tension: 0.5, pointRadius: 0 },
-                        { type: 'line', label: '提問', data: buckets.map(b => b.counts.question), backgroundColor: 'rgba(239, 68, 68, 0.5)', fill: true, tension: 0.5, pointRadius: 0 },
-                        { type: 'scatter', label: '關鍵發言', data: scatterPoints, backgroundColor: 'white', borderColor: '#475569', borderWidth: 2, pointRadius: 6 }
+                        { type: 'line', label: '整合', data: buckets.map(b => b.counts.riseabove), backgroundColor: 'rgba(168, 85, 247, 0.75)', borderColor: '#a855f7', borderWidth: 1.5, fill: 'origin', tension: 0.4, pointRadius: 0, order: 4 },
+                        { type: 'line', label: '深化', data: buckets.map(b => b.counts.improve), backgroundColor: 'rgba(34, 197, 94, 0.75)', borderColor: '#22c55e', borderWidth: 1.5, fill: '-1', tension: 0.4, pointRadius: 0, order: 3 },
+                        { type: 'line', label: '延伸', data: buckets.map(b => b.counts.extend), backgroundColor: 'rgba(59, 130, 246, 0.75)', borderColor: '#3b82f6', borderWidth: 1.5, fill: '-1', tension: 0.4, pointRadius: 0, order: 2 },
+                        { type: 'line', label: '提問', data: buckets.map(b => b.counts.question), backgroundColor: 'rgba(239, 68, 68, 0.75)', borderColor: '#ef4444', borderWidth: 1.5, fill: '-1', tension: 0.4, pointRadius: 0, order: 1 },
+                        { type: 'scatter', label: '關鍵發言', data: scatterPoints, backgroundColor: 'white', borderColor: '#475569', borderWidth: 2, pointRadius: 6, order: 0 }
                     ] 
                 }, 
                 options: { responsive: true, maintainAspectRatio: false, scales: { y: { stacked: true, beginAtZero: true } }, onClick: (e, activeEls) => { if (activeEls.length > 0) { const ds = streamChart.data.datasets[activeEls[0].datasetIndex]; if(ds.type === 'scatter') { const noteId = ds.data[activeEls[0].index].noteId; if(noteId) viewNote(noteId); } } } } 
@@ -2215,7 +2222,7 @@ overviewNetwork = new vis.Network(container, { nodes: new vis.DataSet(nodesData)
             const badge = document.getElementById('kb-role-badge'); badge.innerText = data.role; badge.className = `text-[10px] px-2 py-0.5 rounded-full border font-bold tracking-wide ${data.badgeColor}`; badge.classList.remove('hidden');
             document.getElementById('student-keywords-container').innerHTML = data.topKeywords.length > 0 ? data.topKeywords.map(k => `<span class="bg-amber-50 text-amber-700 border border-amber-200 px-2 py-1 rounded text-xs">${k}</span>`).join('') : '<span class="text-xs text-slate-400">無詞彙</span>';
             const ctxR = document.getElementById('radarChart').getContext('2d'); if(radarChartInstance) radarChartInstance.destroy(); radarChartInstance = new Chart(ctxR, { type: 'radar', data: { labels: ['主體性','社群互動','觀點改進','昇華整合','持續探究'], datasets: [{ label: displayName, data: data.radarData, backgroundColor:'rgba(59,130,246,0.2)', borderColor:'#3B82F6' }] }, options: { responsive:true, maintainAspectRatio:false, scales: { r: { suggestedMin: 0, suggestedMax: 100, ticks:{display:false} } } } });
-            const container = document.getElementById('ego-network-container'); if(egoNetworkInstance) { egoNetworkInstance.destroy(); egoNetworkInstance = null; } egoNetworkInstance = new vis.Network(container, { nodes: new vis.DataSet(data.visNodes), edges: new vis.DataSet(data.visEdges) }, { nodes: { shape: 'dot' }, physics: { stabilization: { enabled: true, iterations: 120, updateInterval: 50, fit: true }, barnesHut: { damping: 0.6 } } });
+            const container = document.getElementById('ego-network-container'); if(egoNetworkInstance) { egoNetworkInstance.destroy(); egoNetworkInstance = null; } egoNetworkInstance = new vis.Network(container, { nodes: new vis.DataSet(data.visNodes), edges: new vis.DataSet(dedupeEdges(data.visEdges)) }, { nodes: { shape: 'dot' }, physics: { stabilization: { enabled: true, iterations: 120, updateInterval: 50, fit: true }, barnesHut: { damping: 0.6 } } });
             // 排列穩定後就關閉物理運算,圖不會再一直晃動(仍可手動拖曳節點)
             const stopEgoPhysics = () => { if (egoNetworkInstance) egoNetworkInstance.setOptions({ physics: false }); };
             egoNetworkInstance.once('stabilizationIterationsDone', stopEgoPhysics);

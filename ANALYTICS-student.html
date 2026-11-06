@@ -1449,15 +1449,21 @@ ${specificData}
         const nodes = globalData.nodes || [], users = globalData.userList || {};
         const colors = { question: '#3b82f6', extend: '#eab308', improve: '#22c55e', counter: '#ef4444', riseabove: '#a855f7' };
         const interactants = new Set([userId]), edges = [];
+        const edgeMap = {}; // 同一對學生的多次回應合併成一條線
         
         nodes.forEach(n => {
             if(n.parentId) {
                 const p = nodes.find(x => x.id === n.parentId);
                 if(p) {
-                    if (n.author === userId && p.author !== userId) { interactants.add(p.author); edges.push({ from: userId, to: p.author, color: {color: colors[n.type] || '#cbd5e1'}, arrows: 'to' }); }
-                    if (p.author === userId && n.author !== userId) { interactants.add(n.author); edges.push({ from: n.author, to: userId, color: {color: colors[n.type] || '#cbd5e1'}, arrows: 'to' }); }
+                    if (n.author === userId && p.author !== userId) { interactants.add(p.author); const k = userId + '>' + p.author; (edgeMap[k] = edgeMap[k] || { from: userId, to: p.author, types: {}, count: 0 }); edgeMap[k].count++; edgeMap[k].types[n.type] = (edgeMap[k].types[n.type] || 0) + 1; }
+                    if (p.author === userId && n.author !== userId) { interactants.add(n.author); const k = n.author + '>' + userId; (edgeMap[k] = edgeMap[k] || { from: n.author, to: userId, types: {}, count: 0 }); edgeMap[k].count++; edgeMap[k].types[n.type] = (edgeMap[k].types[n.type] || 0) + 1; }
                 }
             }
+        });
+
+        Object.values(edgeMap).forEach(e => {
+            const dom = Object.keys(e.types).sort((a, b) => e.types[b] - e.types[a])[0];
+            edges.push({ from: e.from, to: e.to, arrows: 'to', color: { color: colors[dom] || '#cbd5e1' }, width: Math.min(6, 1 + e.count / 6), title: e.count + ' 次回應' });
         });
 
         const visNodes = Array.from(interactants).map(id => {
@@ -1467,7 +1473,13 @@ ${specificData}
 
         if(egoNetworkInstance) { egoNetworkInstance.destroy(); egoNetworkInstance = null; }
         if (visNodes.length <= 1) container.innerHTML = '<div class="flex h-full items-center justify-center text-slate-400 text-xs italic">尚無互動紀錄</div>';
-        else egoNetworkInstance = new vis.Network(container, { nodes: visNodes, edges: edges }, { nodes: { borderWidth: 2 }, physics: { stabilization: true, barnesHut: { gravitationalConstant: -2000 } } });
+        else {
+            egoNetworkInstance = new vis.Network(container, { nodes: visNodes, edges: edges }, { nodes: { borderWidth: 2 }, physics: { stabilization: { enabled: true, iterations: 120, updateInterval: 50, fit: true }, barnesHut: { gravitationalConstant: -2000, damping: 0.6 } } });
+            // 排列穩定後就關閉物理運算,圖不會再一直晃動(仍可手動拖曳節點)
+            const stopEgoPhysics = () => { if (egoNetworkInstance) egoNetworkInstance.setOptions({ physics: false }); };
+            egoNetworkInstance.once('stabilizationIterationsDone', stopEgoPhysics);
+            setTimeout(stopEgoPhysics, 2500);
+        }
     }
 
     function renderTimeline(notes, dbNodes) {
