@@ -1741,7 +1741,8 @@ overviewNetwork = new vis.Network(container, { nodes: new vis.DataSet(nodesData)
             const buckets = [...bucketMap.values()];
             sortedNotes.forEach(n => {
                 const bucket = bucketMap.get(dayKeyOf(n.dateTime));
-                if (bucket) { let type = n.type === 'counter' ? 'improve' : n.type; if(!bucket.counts[type]) type = 'extend'; if(bucket.counts[type] !== undefined) { bucket.counts[type]++; bucket.notes[type].push(n); } }
+                // 注意:判斷類型是否存在要用 === undefined;若用 !counts[type],數量為 0 時會被誤當成不存在,導致所有貼文都被算成「延伸」
+                if (bucket) { let type = n.type === 'counter' ? 'improve' : n.type; if(bucket.counts[type] === undefined) type = 'extend'; if(bucket.counts[type] !== undefined) { bucket.counts[type]++; bucket.notes[type].push(n); } }
             });
             const labels = buckets.map(b => b.label);
             const scatterPoints = [];
