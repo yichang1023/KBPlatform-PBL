@@ -1458,7 +1458,8 @@ async function initApiKey() {
 
         // 排序階段層級 (1, 2, 3...)
         const depths = Object.keys(groupedDesc).map(Number).sort((a, b) => a - b);
-        let logHtml = `<div class="max-h-[160px] overflow-y-auto custom-scrollbar mt-2 space-y-2 pr-1 pb-1">`;
+        // 清單高度:電腦版填滿卡片剩下的空間(basis 0 讓高度由右邊的樹決定,清單在裡面捲動),手機版限制在 420px 內捲動
+        let logHtml = `<div class="flex-1 lg:basis-0 min-h-[200px] max-h-[420px] lg:max-h-none overflow-y-auto custom-scrollbar mt-2 space-y-2 pr-1 pb-1">`;
 
         // 遍歷每個階段，生成摺疊面板
         depths.forEach(depth => {
