@@ -39,7 +39,7 @@
       '.kf-meta{font-size:10px;color:#9f7a89;padding:0 6px 2px}',
       '.kf-svg{width:100%;height:auto;display:block}',
       '.kf-b{opacity:0;transform:scale(.15);transform-box:fill-box;transform-origin:center;transition:opacity .55s ease,transform .7s cubic-bezier(.2,1.5,.4,1);cursor:pointer}',
-      '.kf-b.on{opacity:1;transform:scale(1)}',
+      '.kf-b.on{opacity:1;transform:scale(var(--bz,1))}',
       '.kf-b:hover circle{filter:brightness(1.08)}',
       '.kf-e{transition:stroke-dashoffset .8s ease,opacity .4s ease}',
       '.kf-m{opacity:0;transform:scale(.2);transform-box:fill-box;transform-origin:center;transition:opacity .8s ease,transform 1s ease}.kf-m.on{opacity:1}',
@@ -121,7 +121,7 @@
   /* ---------- 畫一棵樹 ---------- */
   function drawTree(host, lay, ctx) {
     var uid = 'kf' + Math.random().toString(36).slice(2, 7);
-    var bs = Math.max(0.95, Math.min(1.9, Math.sqrt(1.3 * R * R * 0.85 / (Math.max(20, lay.total) * 100))));
+    var bs = Math.max(1.45, Math.min(3.0, 1.35 * Math.sqrt(1.3 * R * R * 0.85 / (Math.max(12, lay.total) * 100))));   // 給小學生:花要大、要快看得到茂密
     var svg = el('svg', { viewBox: '0 120 ' + W + ' ' + (H - 120), class: 'kf-svg', role: 'img', 'aria-label': ctx.name + ' 的念念成櫻' }, host);
     var defs = el('defs', null, svg);
     var gSky = el('linearGradient', { id: uid + 's', x1: '0', y1: '0', x2: '0', y2: '1' }, defs);
@@ -162,7 +162,7 @@
     var edges = {}, skels = {}, masses = {};
     lay.skel.forEach(function (id) {
       var inf = lay.info[id], r0 = rng(h32(id + 'm'));
-      var m = el('circle', { cx: f1(inf.cx), cy: f1(inf.cy), r: f1(Math.min(46, 4.2 * Math.sqrt(inf.size) + 6)), fill: PALETTE.question[1 + (r0() > .5 ? 1 : 0)], 'fill-opacity': '.30', class: 'kf-m' }, massLayer);
+      var m = el('circle', { cx: f1(inf.cx), cy: f1(inf.cy), r: f1(Math.min(60, 5.2 * Math.sqrt(inf.size) + 10)), fill: PALETTE.question[1 + (r0() > .5 ? 1 : 0)], 'fill-opacity': '.38', class: 'kf-m' }, massLayer);
       masses[id] = m;
       var p = inf.skParent ? lay.info[inf.skParent] : null, x0 = p ? p.cx : CX, y0 = p ? p.cy : CY;
       var dx = inf.cx - x0, dy = inf.cy - y0, dist = Math.sqrt(dx * dx + dy * dy) || 1, bend = (r0() - 0.5) * 0.3 * dist;
@@ -190,10 +190,10 @@
       var inf = lay.info[id], n = inf.n, pal = PALETTE[n.type] || PALETTE.extend, r = rng(h32(id + 'b'));
       var g = el('g', { class: 'kf-b', 'data-id': id }, bloomLayer);
       var big = (1 + Math.min(3, inf.kids.length) * 0.18) * bs;
-      el('circle', { cx: f1(inf.x), cy: f1(inf.y), r: f1(8.5 * big), fill: pal[1], 'fill-opacity': '.30' }, g);
-      for (var k = 0; k < 9; k++) {
-        var a = (k / 9) * 6.283 + r() * 0.9, d = (2.2 + r() * 4.6) * big;
-        el('circle', { cx: f1(inf.x + Math.cos(a) * d), cy: f1(inf.y + Math.sin(a) * d), r: f1((2.3 + r() * 2.2) * big), fill: pal[Math.floor(r() * 3)], 'fill-opacity': f1(0.78 + r() * 0.2) }, g);
+      el('circle', { cx: f1(inf.x), cy: f1(inf.y), r: f1(9.5 * big), fill: pal[1], 'fill-opacity': '.38' }, g);
+      for (var k = 0; k < 11; k++) {
+        var a = (k / 11) * 6.283 + r() * 0.9, d = (2.2 + r() * 4.6) * big;
+        el('circle', { cx: f1(inf.x + Math.cos(a) * d), cy: f1(inf.y + Math.sin(a) * d), r: f1((2.6 + r() * 2.3) * big), fill: pal[Math.floor(r() * 3)], 'fill-opacity': f1(0.78 + r() * 0.2) }, g);
       }
       if (ctx.youId && String(n.author) === String(ctx.youId)) el('circle', { cx: f1(inf.x), cy: f1(inf.y), r: f1(11.5 * big), fill: 'none', stroke: '#f59e0b', 'stroke-width': 1.4, 'stroke-dasharray': '2.5 2', 'stroke-opacity': '.95' }, g);
       el('circle', { cx: f1(inf.x - 1.5), cy: f1(inf.y - 1.5), r: f1(1.7 * big), fill: '#fff', 'fill-opacity': '.8' }, g);
@@ -215,10 +215,10 @@
   function stageOf(visible, total) {
     if (visible === 0) return '種子';
     var f = visible / total;
-    if (f >= 1) return '盛開';
-    if (f < 0.08) return '樹苗';
-    if (f < 0.30) return '長出枝條';
-    if (f < 0.65) return '花苞滿枝';
+    if (f >= 0.8) return '盛開';
+    if (f < 0.06) return '樹苗';
+    if (f < 0.18) return '長出枝條';
+    if (f < 0.38) return '花苞滿枝';
     return '花開了';
   }
 
@@ -288,7 +288,7 @@
             var sk = d.skels[id]; if (sk) { var vc = visCount[id] || 0, inf2 = lay.info[id]; sk.el.setAttribute('stroke-dashoffset', vc > 0 ? 0 : sk.len); sk.el.setAttribute('stroke-width', f1(0.9 + 7 * Math.pow(vc / total, 0.62))); sk.el.style.opacity = vc > 0 ? 1 : 0; var mm = d.masses[id]; if (mm) { mm.classList.toggle('on', vc > 0); mm.style.transform = 'scale(' + f1(Math.min(1, Math.sqrt(vc / inf2.size))) + ')'; } }
           });
           // 樹幹:隨長出的貼文越來越粗;整棵樹也慢慢長大
-          var g = Math.sqrt(frac), wb = 5 + 15 * g, wt = 2.2 + 6 * g, th = TRUNK * (vis === 0 ? 0.1 : (0.45 + 0.55 * Math.sqrt(frac)));
+          var g = Math.sqrt(frac), wb = 5 + 15 * g, wt = 2.2 + 6 * g, th = TRUNK * (vis === 0 ? 0.1 : (0.6 + 0.4 * Math.sqrt(frac)));
           var ty = BY - th, sway = 5;
           d.trunk.setAttribute('d', 'M' + f1(BX - wb) + ' ' + BY + ' C' + f1(BX - wb * 0.55) + ' ' + f1(BY - th * 0.35) + ' ' + f1(BX - wt - sway) + ' ' + f1(BY - th * 0.7) + ' ' + f1(BX - wt) + ' ' + f1(ty) + ' L' + f1(BX + wt) + ' ' + f1(ty) + ' C' + f1(BX + wt - sway) + ' ' + f1(BY - th * 0.7) + ' ' + f1(BX + wb * 0.55) + ' ' + f1(BY - th * 0.35) + ' ' + f1(BX + wb) + ' ' + BY + ' Z');
           d.trunkHi.setAttribute('d', 'M' + f1(BX + wb * 0.25) + ' ' + (BY - 4) + ' C' + f1(BX + wb * 0.2) + ' ' + f1(BY - th * 0.4) + ' ' + f1(BX + wt * 0.4) + ' ' + f1(BY - th * 0.7) + ' ' + f1(BX + wt * 0.3) + ' ' + f1(ty + 4));
@@ -298,12 +298,13 @@
           d.rootEdge.setAttribute('stroke-width', f1(Math.max(1.4, wt * 0.9)));
           d.rootEdge.setAttribute('d', 'M' + CX + ' ' + f1(ty) + ' L' + f1(lay.info[lay.root.id].x) + ' ' + f1(lay.info[lay.root.id].y));
           d.rootEdge.style.opacity = vis === 0 ? 0 : 1;
-          var sc = vis === 0 ? 0.5 : (0.5 + 0.5 * Math.pow(frac, 0.45));
+          var sc = vis === 0 ? 0.6 : (0.78 + 0.22 * Math.pow(frac, 0.4));   // 樹一開始就不會太小
           d.tree.style.transform = 'scale(' + f1(sc) + ')';
+          d.tree.style.setProperty('--bz', f1(1 + 0.45 * Math.pow(1 - frac, 1.4)));
           d.seed.style.opacity = vis === 0 ? 1 : 0;
-          var nf = Math.round(Math.min(70, vis * 0.35));
+          var nf = Math.round(Math.min(70, vis * 0.6));
           d.fps.forEach(function (f, i) { f.classList.toggle('on', i < nf); });
-          d.falls.forEach(function (f) { f.classList.toggle('on', frac > 0.35); });
+          d.falls.forEach(function (f) { f.classList.toggle('on', frac > 0.2); });
           var st = stageOf(vis, total); t.stageEl.textContent = st;
           t.metaEl.textContent = '貼文 ' + vis + ' / ' + total + ' 則 · ' + t.people + ' 位同學 · ' + lay.forks + ' 個分岔';
         });
