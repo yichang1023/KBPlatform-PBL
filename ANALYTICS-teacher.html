@@ -2,9 +2,12 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>KB 分析中樞 (旗艦學術版) | Teacher Dashboard v20.48 Stable</title>
-    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>老師分析中樞 | KB 知識建構平台</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#4f46e5">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Crect width=%2764%27 height=%2764%27 rx=%2714%27 fill=%27%234f46e5%27/%3E%3Ctext x=%2732%27 y=%2743%27 font-family=%27sans-serif%27 font-size=%2728%27 font-weight=%27700%27 fill=%27white%27 text-anchor=%27middle%27%3EKB%3C/text%3E%3C/svg%3E">
+
     <!-- ========================================== -->
     <!-- 1. 引入 Firebase SDK -->
     <!-- ========================================== -->
@@ -114,8 +117,13 @@
   window.kbPlayers = players;
 })();
 </script>
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+<script src="kb-config.js"></script>
+<script src="kb-core.js"></script>
+<script src="kb-cloud.js"></script>
+    <script src="kb-ui.js"></script>
+    <style>@media (min-width: 768px) { #main-scroll-area { padding-top: 3.6rem !important; } }</style>
 
     <!-- 核心函式庫 -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -123,16 +131,16 @@
     <script src="https://unpkg.com/vis-network@10.1.4/standalone/umd/vis-network.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked@15.0.12/marked.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    
+
     <!-- 字型與樣式 -->
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap');
         body { font-family: 'Noto Sans TC', sans-serif; background-color: #f1f5f9; color: #1e293b; }
-        
+
         /* Card & Layout */
         .card { background: white; border-radius: 12px; border: 1px solid #e2e8f0; padding: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05); transition: all 0.2s; position: relative; display: flex; flex-direction: column; }
         .card:hover { box-shadow: 0 4px 6px rgba(0,0,0,0.05); transform: translateY(-1px); }
-        
+
         /* Navigation */
         .nav-item.active { background-color: #0f172a; color: white; border-left: 4px solid #3b82f6; }
         .kb-badge { font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 4px; font-weight: 600; }
@@ -165,12 +173,12 @@
         .modal-overlay.open .modal-content { transform: translateY(0); }
         .modal-header { background: #f8fafc; padding: 16px 20px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; }
         .modal-body { padding: 20px; font-size: 0.95rem; line-height: 1.7; color: #334155; overflow-y: auto; flex-grow: 1; -webkit-overflow-scrolling: touch; }
-        
+
         /* Ref Modal Section Styles */
         .ref-section { margin-bottom: 24px; border-bottom: 1px dashed #e2e8f0; padding-bottom: 20px; }
         .ref-section:last-child { border-bottom: none; }
         .ref-section-title { font-weight: 800; font-size: 0.95rem; margin-bottom: 10px; display: flex; align-items: center; letter-spacing: 0.02em; }
-        
+
         .ref-theory-title { color: #1e40af; }
         .ref-theory-box { background: #eff6ff; padding: 16px; border-radius: 8px; border-left: 4px solid #3b82f6; color: #1e3a8a; }
 
@@ -286,7 +294,7 @@
             <h1 class="text-xl font-bold tracking-wider text-white flex items-center"><i class="fas fa-network-wired mr-2 text-blue-500"></i> KB ANALYTICS</h1>
             <p class="text-xs text-slate-500 mt-1 ml-6">v20.48 AI-Powered</p>
         </div>
-        
+
         <div class="p-4 border-b border-slate-800 md:hidden flex justify-between items-center">
              <span class="text-white font-bold">選單</span>
              <button onclick="toggleSidebar()" class="text-slate-400"><i class="fas fa-times"></i></button>
@@ -305,12 +313,12 @@
             <button onclick="switchView('topics')" id="nav-topics" class="nav-item w-full flex items-center space-x-3 px-4 py-3 rounded-r-lg hover:bg-slate-800 transition text-left"><i class="fas fa-lightbulb w-5"></i><span>主題與觀點 (Ideas)</span></button>
             <button onclick="switchView('quality')" id="nav-quality" class="nav-item w-full flex items-center space-x-3 px-4 py-3 rounded-r-lg hover:bg-slate-800 transition text-left"><i class="fas fa-microscope w-5"></i><span>言談品質 (Quality)</span></button>
             <button onclick="switchView('academic')" id="nav-academic" class="nav-item w-full flex items-center space-x-3 px-4 py-3 rounded-r-lg hover:bg-slate-800 transition text-left text-purple-300 hover:text-purple-200"><i class="fas fa-graduation-cap w-5"></i><span>學術深度指標 (Academic)</span></button>
-            
+
             <div class="pt-4 mt-4 border-t border-slate-800">
                 <a href="Knowledge Building Forum.html" class="nav-item w-full flex items-center space-x-3 px-4 py-3 rounded-r-lg hover:bg-slate-800 transition text-left text-blue-400 hover:text-blue-300">
                     <i class="fas fa-comments w-5"></i><span>前往論壇 (Forum)</span>
                 </a>
-                
+
                 <a href="ANALYTICS-student.html" class="nav-item w-full flex items-center space-x-3 px-4 py-3 rounded-r-lg hover:bg-slate-800 transition text-left text-amber-400 hover:text-amber-300 mt-1">
                     <i class="fas fa-dharmachakra w-5"></i><span>前往知識輪盤 (Roulette)</span>
                 </a>
@@ -329,7 +337,7 @@
 
     <!-- Main Content -->
     <main class="flex-1 bg-slate-50 p-4 md:p-8 overflow-y-auto relative w-full" id="main-scroll-area">
-        
+
         <!-- VIEW 1: 總體概況 -->
         <div id="view-overview" class="section-view active space-y-4 md:space-y-6">
             <header class="flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
@@ -342,7 +350,7 @@
                     <span class="bg-white px-3 py-1 rounded-full text-xs border border-slate-200 shadow-sm flex items-center ml-2 whitespace-nowrap"><i class="fas fa-calendar-alt mr-2 text-slate-400"></i> <span id="current-date-display">Week 5</span></span>
                 </div>
             </header>
-            
+
             <div class="insight-box" id="offline-insight-container">
                 <div class="insight-header"><i class="fas fa-lightbulb text-yellow-500 mr-2 text-xl"></i> 💡 數據診斷與教學導引 (Data-Driven Insight)</div>
                 <div class="text-sm text-slate-700 leading-relaxed" id="offline-insight-content">正在分析班級數據...</div>
@@ -552,7 +560,7 @@
                     <div class="relative pl-8 space-y-10" id="evolution-timeline-container"></div>
                 </div>
             </div>
-            
+
             <div class="card mt-6 border-l-4 border-indigo-500">
                 <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 pb-4 border-b border-slate-100 gap-3">
                     <div>
@@ -565,7 +573,7 @@
                         <i class="fas fa-magic mr-2"></i> AI 內容總結
                     </button>
                 </div>
-                
+
                 <div class="flex flex-col lg:flex-row gap-6">
                     <div class="w-full lg:w-3/5 bg-slate-50 rounded-lg border border-slate-200 p-4 h-[300px] md:h-[400px] overflow-y-auto custom-scrollbar">
                         <div class="flex justify-between items-center mb-3 sticky top-0 bg-slate-50 pb-2 border-b border-slate-200">
@@ -576,7 +584,7 @@
                             <div class="text-center text-slate-400 text-sm mt-10">請選擇主題以檢視內容...</div>
                         </div>
                     </div>
-                    
+
                     <div class="w-full lg:w-2/5 flex flex-col gap-4">
                         <div class="bg-indigo-50 rounded-lg p-4 border border-indigo-100">
                             <h4 class="text-xs font-bold text-indigo-700 uppercase mb-2">
@@ -597,7 +605,7 @@
                                 </div>
                             </div>
                         </div>
-                        
+
                         <div class="bg-white rounded-lg p-4 border border-slate-200 flex-1">
                             <h4 class="text-xs font-bold text-slate-500 uppercase mb-2">
                                 <i class="fas fa-tags mr-1"></i> 關鍵詞提取 (Keywords)
@@ -606,7 +614,7 @@
                                 <span class="text-xs text-slate-400">等待分析...</span>
                             </div>
                         </div>
-                        
+
                         <div id="topic-ai-summary-result" class="hidden bg-indigo-50 rounded-lg p-4 border border-indigo-100 text-sm text-slate-700 h-[150px] overflow-y-auto custom-scrollbar"></div>
                     </div>
                 </div>
@@ -623,7 +631,7 @@
                     </select>
                 </div>
             </header>
-            
+
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div class="card">
                     <div class="flex flex-col justify-between items-start mb-4 gap-2">
@@ -751,18 +759,18 @@
     </main>
 
     <script>
-       
+
 
 
 // --- 0. 全域狀態與設置 ---
 
-        const aiCache = { topics: {}, students: {}, refs: {} }; 
+        const aiCache = { topics: {}, students: {}, refs: {} };
 
         const STORAGE_KEY = 'kb_platform_v15_data';
-        let globalClassStats = {}; 
-        let globalAllNotes = []; 
+        let globalClassStats = {};
+        let globalAllNotes = [];
         let globalRawDB = {};
-        let currentModalTopic = ''; 
+        let currentModalTopic = '';
         let activeTopicFilter = 'all';
 
         const kbTypeMap = {
@@ -819,7 +827,9 @@ async function geminiFetch(key, init) {
     let stored = ''; try { stored = localStorage.getItem('kb_ai_model') || ''; } catch (e) {}
     const discovered = await geminiPickModels(key);
     // 優先使用查詢到的最新模型;上次成功的模型與固定備援排在後面
-    const models = [].concat(discovered, [stored], ['gemini-3.8-flash', 'gemini-2.5-flash']).filter((m, i, arr) => m && arr.indexOf(m) === i);
+    let pref = ''; try { pref = ((KB.settings.get().ai || {}).model) || ''; } catch (e) {} if (pref === 'auto') pref = '';
+    // 設定中心指定的模型最優先;沒指定(自動)時,用查詢到的最新 flash 模型
+    const models = [].concat(pref ? [pref] : [], discovered, [stored], ['gemini-3.8-flash', 'gemini-2.5-flash']).filter((m, i, arr) => m && arr.indexOf(m) === i);
     let last;
     for (const m of models) {
         const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + m + ':generateContent?key=' + key, init);
@@ -834,16 +844,10 @@ async function geminiFetch(key, init) {
 
         async function callGeminiAPI(promptText) {
             // ⭐ 像學生端一樣，直接從 Local Storage 即時抓取 index 設定的 Key
-            let currentApiKey = localStorage.getItem('kb_ai_key');
-            // 本機沒有金鑰時,改從雲端設定讀取(與學生端相同,讓老師端也能直接繼承首頁儲存的金鑰)
-            if (!currentApiKey) {
-                try {
-                    const sdoc = await firebase.firestore().collection('kb_platform').doc('settings').get();
-                    if (sdoc.exists && sdoc.data().gemini_api_key) currentApiKey = sdoc.data().gemini_api_key;
-                } catch (e) { console.error('[AI] 讀取雲端金鑰失敗:', e); }
-            }
+            if (!KB.settings.get().ai.enabled) return "⚠️ AI 功能目前已被關閉(設定中心 → AI 設定)。";
+            const currentApiKey = localStorage.getItem('kb_ai_key');
             if (!currentApiKey) return "⚠️ API Key 尚未載入，請先至首頁輸入並儲存金鑰。";
-            
+
             // ⭐ 修正模型名稱：改為與 index 相同的 gemini-2.5-flash
             const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${currentApiKey}`;
             const payload = {
@@ -865,7 +869,7 @@ async function geminiFetch(key, init) {
                 } catch (error) {
                     lastErr = String(error && error.message ? error.message : error);
                     if (attempt === 2) return "⚠️ AI 伺服器連線或運算失敗，請稍後再試。(" + lastErr.slice(0, 200) + ")";
-                    await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt))); 
+                    await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt)));
                 }
             }
         }
@@ -913,7 +917,7 @@ async function geminiFetch(key, init) {
         function calculateClassOverview(db) {
             const nodes = db.nodes || [];
             globalRawDB = db;
-            
+
             let topics = db.topics || [];
             if (topics.length === 0 && nodes.length > 0) {
                 const uniqueTopics = [...new Set(nodes.map(n => n.topicId || 'unknown'))];
@@ -921,8 +925,8 @@ async function geminiFetch(key, init) {
             }
             populateTopicSelectors(topics);
 
-            const filteredNodes = activeTopicFilter === 'all' 
-                ? nodes 
+            const filteredNodes = activeTopicFilter === 'all'
+                ? nodes
                 : nodes.filter(n => String(n.topicId) === String(activeTopicFilter));
 
             globalAllNotes = filteredNodes.map(n => ({
@@ -934,23 +938,23 @@ async function geminiFetch(key, init) {
                 dateTime: new Date(n.date).getTime(),
                 topicId: String(n.topicId || 'unknown'),
                 author: String(n.author),
-                parentId: n.parentId 
+                parentId: n.parentId
             }));
 
             const userList = db.userList || {};
             const students = getScopedStudents(db, nodes);
-            
+
             const totalNotes = filteredNodes.length;
             const links = filteredNodes.filter(n => n.parentId).length;
             const density = totalNotes > 0 ? calcNetworkDensity(filteredNodes, students).toFixed(2) : 0;
             const riseAboves = filteredNodes.filter(n => n.type === 'riseabove').length;
             const raRate = totalNotes > 0 ? Math.round((riseAboves / totalNotes) * 100) : 0;
-            
+
             const studentNodes = filteredNodes.filter(n => students.some(u => String(u.id) === String(n.author)));
             const avgNotes = students.length > 0 ? (studentNodes.length / students.length) : 0;
 
             let riskCount = 0;
-            const riskStudentsList = []; 
+            const riskStudentsList = [];
             const userCounts = {};
             students.forEach(u => {
                 const count = filteredNodes.filter(n => String(n.author) === String(u.id)).length;
@@ -962,23 +966,23 @@ async function geminiFetch(key, init) {
                         riskStudentsList.push(u.name || u.id);
                     } else if (avgNotes >= 3 && count < 2) {
                         riskCount++;
-                        riskStudentsList.push(u.name || u.id); 
+                        riskStudentsList.push(u.name || u.id);
                     }
                 }
             });
 
             const countsArray = Object.values(userCounts).sort((a,b) => a-b);
             const gini = calculateGini(countsArray);
-            
+
             const threadDepth = calculateAvgThreadDepth(filteredNodes);
 
-            globalClassStats = { 
-                totalNotes, density, raRate, riskCount, riskStudentsList, 
+            globalClassStats = {
+                totalNotes, density, raRate, riskCount, riskStudentsList,
                 studentCount: students.length,
                 gini: gini.toFixed(2),
                 threadDepth: threadDepth.toFixed(1)
             };
-            
+
             if(document.getElementById('gini-coefficient')) {
                 document.getElementById('gini-coefficient').innerText = globalClassStats.gini;
                 document.getElementById('gini-coefficient').className = `text-2xl font-bold ${gini > 0.6 ? 'text-red-500' : (gini > 0.4 ? 'text-yellow-600' : 'text-green-600')}`;
@@ -987,21 +991,21 @@ async function geminiFetch(key, init) {
                 document.getElementById('avg-thread-depth').innerText = globalClassStats.threadDepth;
             }
 
-           renderStaticDiagnosis(globalClassStats); 
+           renderStaticDiagnosis(globalClassStats);
             try { showDiagnosisBadge(); const dc = aiCache.diagnosis && aiCache.diagnosis[activeTopicFilter]; const dbx = document.getElementById('ai-diagnosis-result'); if (dc && dbx && !dbx.querySelector('.fa-spinner')) dbx.innerHTML = dc.html; else if (dbx && !dc && !dbx.querySelector('.fa-spinner')) dbx.innerHTML = '<span class="text-slate-500">按下「產生 AI 診斷」,AI 會彙整 KB 12 原則檢核、各項指標、學生分佈與抽樣貼文,告訴您目前班級(或小組)的狀態、需要關注的學生,以及下一堂課可以怎麼做。</span>'; } catch (e) {}
             renderOverviewTrajectory(filteredNodes);
             renderSequentialMatrix(filteredNodes);
             renderKnowledgeBrokers(filteredNodes, students);
 
             // ⭐ 終極修正：把所有獨立變數和 globalClassStats 完美合併回傳
-            return { 
-                ...globalClassStats, 
-                totalNotes, 
-                density, 
-                raRate, 
-                riskCount, 
-                nodes: filteredNodes, 
-                students: students 
+            return {
+                ...globalClassStats,
+                totalNotes,
+                density,
+                raRate,
+                riskCount,
+                nodes: filteredNodes,
+                students: students
             };
         }
 
@@ -1048,7 +1052,7 @@ async function geminiFetch(key, init) {
             if(roots.length === 0 && nodes.length > 0) return 1;
 
             roots.forEach(r => getDepths(r, 1));
-            
+
             return pathCount > 0 ? totalDepth / pathCount : 0;
         }
 
@@ -1060,16 +1064,16 @@ async function geminiFetch(key, init) {
             if(sorted.length === 0) return;
 
             const labels = [];
-            const dataQ = []; 
-            const dataI = []; 
-            
+            const dataQ = [];
+            const dataI = [];
+
             let cumQ = 0;
             let cumI = 0;
-            
+
             sorted.forEach((n, idx) => {
                 if (n.type === 'question') cumQ++;
                 if (n.type === 'improve' || n.type === 'riseabove') cumI++;
-                
+
                 if (idx % Math.ceil(sorted.length / 20) === 0 || idx === sorted.length - 1) {
                     labels.push(n.date);
                     dataQ.push(cumQ);
@@ -1090,9 +1094,9 @@ async function geminiFetch(key, init) {
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: { legend: { display: false } },
-                    scales: { 
-                        x: { display: false }, 
-                        y: { display: false } 
+                    scales: {
+                        x: { display: false },
+                        y: { display: false }
                     },
                     elements: { point: { radius: 0 } }
                 }
@@ -1105,7 +1109,7 @@ async function geminiFetch(key, init) {
                 const types = ['question', 'extend', 'improve', 'riseabove'];
                 const labels = {'question':'提問', 'extend':'延伸', 'improve':'改進', 'riseabove':'整合'};
                 const matrix = {};
-                
+
                 types.forEach(t1 => {
                     matrix[t1] = {};
                     types.forEach(t2 => matrix[t1][t2] = 0);
@@ -1119,7 +1123,7 @@ async function geminiFetch(key, init) {
                             let t2 = n.type;
                             if(t1 === 'counter') t1 = 'improve';
                             if(t2 === 'counter') t2 = 'improve';
-                            
+
                             if(matrix[t1] && matrix[t1][t2] !== undefined) {
                                 matrix[t1][t2]++;
                             }
@@ -1128,7 +1132,7 @@ async function geminiFetch(key, init) {
                 });
 
                 let html = `<table class="seq-table"><tr class="seq-header-row"><th>From \\ To</th>${types.map(t => `<th class="text-xs">${labels[t]}</th>`).join('')}</tr>`;
-                
+
                 types.forEach(rowType => {
                     html += `<tr><th class="text-xs">${labels[rowType]}</th>`;
                     types.forEach(colType => {
@@ -1154,8 +1158,8 @@ async function geminiFetch(key, init) {
         function renderKnowledgeBrokers(nodes, students) {
             const adj = {};
             const studentIds = students.map(s => String(s.id));
-            studentIds.forEach(id => adj[id] = []); 
-            
+            studentIds.forEach(id => adj[id] = []);
+
             nodes.forEach(n => {
                 if(n.parentId) {
                     const p = nodes.find(x => x.id === n.parentId);
@@ -1175,8 +1179,8 @@ async function geminiFetch(key, init) {
                 const S = []; const P = {}; const sigma = {}; const d = {};
                 studentIds.forEach(v => { P[v] = []; sigma[v] = 0; d[v] = -1; });
                 sigma[s] = 1; d[s] = 0;
-                const Q = [s]; 
-                
+                const Q = [s];
+
                 while (Q.length > 0) {
                     const v = Q.shift(); S.push(v);
                     if (adj[v]) {
@@ -1199,7 +1203,7 @@ async function geminiFetch(key, init) {
 
             const sortedBrokers = Object.entries(CB).sort((a,b) => b[1] - a[1]).slice(0, 3);
             const container = document.getElementById('brokers-list-container');
-            
+
             if(sortedBrokers.length === 0 || sortedBrokers[0][1] === 0) {
                 container.innerHTML = '<div class="text-center text-slate-400 text-xs py-4">社群連結過於鬆散，無法識別經紀人 (Score=0)</div>';
             } else {
@@ -1207,10 +1211,10 @@ async function geminiFetch(key, init) {
                     const uid = item[0];
                     const score = item[1].toFixed(1);
                     const user = students.find(s => String(s.id) === uid);
-                    const name = user && user.name ? user.name : uid; 
+                    const name = user && user.name ? user.name : uid;
                     const colors = ['bg-yellow-100 text-yellow-700 border-yellow-300', 'bg-slate-100 text-slate-600', 'bg-slate-50 text-slate-500'];
                     const icons = ['fa-crown', 'fa-medal', 'fa-award'];
-                    
+
                     return `<div class="flex items-center justify-between p-2 rounded border ${colors[idx] || colors[2]}"><div class="flex items-center gap-3"><div class="w-6 h-6 rounded-full bg-white flex items-center justify-center text-xs shadow-sm"><i class="fas ${icons[idx]}"></i></div><span class="font-bold text-sm">${name}</span></div><div class="text-xs font-mono opacity-80">Score: ${score}</div></div>`;
                 }).join('');
             }
@@ -1248,7 +1252,7 @@ async function geminiFetch(key, init) {
             let options = `<option value="all">所有主題 (All Topics)</option>`;
             if (topics.length > 0) options += topics.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
             else options = `<option value="all" disabled>暫無主題</option>`;
-            
+
             selectors.forEach(id => {
                 const el = document.getElementById(id);
                 if(el) {
@@ -1264,30 +1268,30 @@ async function geminiFetch(key, init) {
             selectors.forEach(id => { const el = document.getElementById(id); if(el) el.value = topic; });
 
             if (globalRawDB && globalRawDB.nodes) {
-                initOverview(globalRawDB); 
-                
+                initOverview(globalRawDB);
+
                 document.getElementById('concept-network-container').innerHTML = '';
                 document.getElementById('promisingness-container').innerHTML = '';
                 document.getElementById('evolution-timeline-container').innerHTML = '';
                 document.getElementById('topic-content-log').innerHTML = '<div class="text-center py-10 text-slate-400"><i class="fas fa-spinner fa-spin mr-2"></i>載入中...</div>';
-                
+
                 const topicSummaryDiv = document.getElementById('topic-ai-summary-result');
                 if(topicSummaryDiv) topicSummaryDiv.classList.add('hidden');
 
-                setTimeout(() => { 
-                    initConceptNetwork(); 
-                    initLexicalChart(); 
+                setTimeout(() => {
+                    initConceptNetwork();
+                    initLexicalChart();
                     initPromisingnessChart();
                     initEvolutionTimeline();
                     initTopicContentAnalysis();
-                    
+
                     const activeViewEl = document.querySelector('.section-view.active');
-                    if (activeViewEl && activeViewEl.id === 'view-quality') { 
-                        initDeepLens(); 
-                        initStreamChart(); 
-                        initQualityNewMetrics(); 
-                    } 
-                    else if (activeViewEl && activeViewEl.id === 'view-academic') { initAcademicAnalysis(); } 
+                    if (activeViewEl && activeViewEl.id === 'view-quality') {
+                        initDeepLens();
+                        initStreamChart();
+                        initQualityNewMetrics();
+                    }
+                    else if (activeViewEl && activeViewEl.id === 'view-academic') { initAcademicAnalysis(); }
                     else if (activeViewEl && activeViewEl.id === 'view-students') {
                         const active = document.querySelector('.active-student');
                         if (active) loadStudentData(active.id.replace('student-btn-', ''));
@@ -1295,13 +1299,13 @@ async function geminiFetch(key, init) {
                 }, 100);
             }
         }
-        
+
         function refreshDashboardData() {
             const btn = document.getElementById('btn-refresh');
             const originalText = btn.innerHTML;
             btn.innerHTML = '<i class="fas fa-spinner fa-spin w-5"></i><span>同步中...</span>';
             btn.classList.add('opacity-75', 'cursor-not-allowed');
-            
+
             setTimeout(() => {
                 const db = getRealData();
                 if (db) {
@@ -1309,7 +1313,7 @@ async function geminiFetch(key, init) {
                     initOverview(db);
                     const activeViewEl = document.querySelector('.section-view.active');
                     const s1 = document.getElementById('topic-selector-ideas');
-                    if(s1) filterDataByTopic(s1.value); 
+                    if(s1) filterDataByTopic(s1.value);
                     if (activeViewEl && activeViewEl.id === 'view-academic') initAcademicAnalysis();
                     document.getElementById('db-status-text').innerText = "Synced: " + new Date().toLocaleTimeString();
                     document.getElementById('db-status-text').className = "text-green-400 font-bold";
@@ -1324,16 +1328,16 @@ async function geminiFetch(key, init) {
         let overviewNetwork, principlesChartInstance, kbPrinciplesChartInstance;
         function initOverview(db) {
             const stats = calculateClassOverview(db);
-            
+
             document.getElementById('network-density').innerText = stats.density;
             document.getElementById('rise-above-rate').innerText = stats.raRate + '%';
             document.getElementById('current-date-display').innerText = new Date().toLocaleDateString();
-            
+
             const totalNotesEl = document.getElementById('total-notes-count');
             const totalNotesCard = document.getElementById('card-total-notes');
             const totalNotesBadge = document.getElementById('badge-total-notes');
             const totalNotesIcon = document.getElementById('icon-total-notes');
-            
+
             if (totalNotesEl) {
                 totalNotesEl.innerText = stats.totalNotes;
                 if (stats.totalNotes === 0) {
@@ -1379,19 +1383,19 @@ async function geminiFetch(key, init) {
                     riskCard.className = 'card border-l-4 border-red-500';
                     riskEl.className = 'text-3xl font-bold text-red-500 mt-1';
                     riskIcon.className = 'fas fa-exclamation-triangle text-red-200 text-3xl';
-                    
+
                     riskLink.className = 'mt-2 flex flex-col gap-1';
                     const badges = stats.riskStudentsList.slice(0, 4).map(name => `<span class="bg-red-50 text-red-700 px-1.5 py-0.5 rounded text-[10px] truncate max-w-[75px] inline-block border border-red-200" title="${name}">${name}</span>`).join(' ');
                     const more = stats.riskStudentsList.length > 4 ? `<span class="text-[10px] text-red-500 font-bold ml-1">+${stats.riskStudentsList.length - 4}</span>` : '';
-                    
+
                     riskLink.innerHTML = `
                         <div class="flex flex-wrap items-center gap-1">${badges}${more}</div>
                         <div class="text-[10px] text-red-600 cursor-pointer hover:underline mt-1 font-bold" onclick="switchView('students')">查看個別診斷 ></div>
                     `;
-                    riskLink.onclick = null; 
+                    riskLink.onclick = null;
                 }
             }
-            
+
             const container = document.getElementById('overview-network-container');
             if(overviewNetwork) { overviewNetwork.destroy(); overviewNetwork = null; }
             const colorPalette = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'];
@@ -1419,7 +1423,7 @@ async function geminiFetch(key, init) {
             const stopSnaPhysics = () => { if (overviewNetwork) overviewNetwork.setOptions({ physics: false }); };
             overviewNetwork.once('stabilizationIterationsDone', stopSnaPhysics);
             setTimeout(stopSnaPhysics, 2500);
-            kbAttachPlayer({ id: 'sna', container: container, network: overviewNetwork, nodesDS: snaNodesDS, edgesDS: snaEdgesDS, labels: snaDays.labels, build: snaBuild });            
+            kbAttachPlayer({ id: 'sna', container: container, network: overviewNetwork, nodesDS: snaNodesDS, edgesDS: snaEdgesDS, labels: snaDays.labels, build: snaBuild });
             const ctx1 = document.getElementById('principlesChart').getContext('2d');
             const typeCounts = { question:0, extend:0, improve:0, counter:0, riseabove:0 };
             stats.nodes.forEach(n => { if (typeCounts[n.type] !== undefined) typeCounts[n.type]++; });
@@ -1427,7 +1431,7 @@ async function geminiFetch(key, init) {
             principlesChartInstance = new Chart(ctx1, { type: 'doughnut', data: { labels: ['提問', '延伸', '改進', '反駁', '整合'], datasets: [{ data: Object.values(typeCounts), backgroundColor: ['#3b82f6', '#eab308', '#22c55e', '#ef4444', '#a855f7'] }] }, options: { responsive: true, maintainAspectRatio: false } });
 
           // --- ⭐ KB 12原則雷達圖：全班/小組動態精準切換版 ---
-            const tCount = stats.totalNotes > 0 ? stats.totalNotes : 1; 
+            const tCount = stats.totalNotes > 0 ? stats.totalNotes : 1;
 
             // 1. 智慧獲取中英文鷹架數量
             const getCount = (keywords) => {
@@ -1436,25 +1440,25 @@ async function geminiFetch(key, init) {
                     return sum;
                 }, 0);
             };
-            const qCount = getCount(['question', '問題', '提問', '疑問']); 
-            const eCount = getCount(['extend', '補充', '資料', '權威', 'reference', '知識']); 
-            const iCount = getCount(['improve', 'counter', 'riseabove', '反駁', '反對', '改進', '總結', '整合', '提升', '不同意']); 
+            const qCount = getCount(['question', '問題', '提問', '疑問']);
+            const eCount = getCount(['extend', '補充', '資料', '權威', 'reference', '知識']);
+            const iCount = getCount(['improve', 'counter', 'riseabove', '反駁', '反對', '改進', '總結', '整合', '提升', '不同意']);
 
             // ==========================================
             // ⭐ 核心修正區：動態切割全班與小組的基準數據
             // ==========================================
             // 判斷目前是否在看全班 (若當前文章數 >= 全班總數的95%，視為全班模式)
             const isWholeClass = (typeof globalClassStats !== 'undefined') && (stats.totalNotes >= (globalClassStats.totalNotes || 0) * 0.95);
-            
+
             // 抓出「該範圍內」實際有發言的作者名單
             const activeAuthors = new Set(stats.nodes.filter(n => n.author).map(n => String(n.author)));
-            
+
             // ⭐ 分母修正：如果是全班，用全班人數；如果是小組，用「實際參與該小組的人數」當分母
             const targetStudentCount = isWholeClass ? stats.studentCount : Math.max(1, activeAuthors.size);
 
             // ⭐ 民主化修正：重新計算「專屬小組」的 Gini 貧富差距
             let localGini = parseFloat(stats.gini) || 0;
-            let participationRate = isWholeClass ? (activeAuthors.size / stats.studentCount) * 100 : 100; 
+            let participationRate = isWholeClass ? (activeAuthors.size / stats.studentCount) * 100 : 100;
 
             if (!isWholeClass && activeAuthors.size > 0) {
                 // 只拿該小組成員的發言量來互相比較，把全班其他沒參與的人剔除！
@@ -1496,13 +1500,13 @@ async function geminiFetch(key, init) {
             // --------------------------------------------------------
             const ctx2 = document.getElementById('kbPrinciplesChart').getContext('2d');
             if(kbPrinciplesChartInstance) kbPrinciplesChartInstance.destroy();
-            kbPrinciplesChartInstance = new Chart(ctx2, { 
-                type: 'radar', 
-                data: { 
-                    labels: ['觀點多樣性', '集體責任', '真實問題', '權威資料', '觀點改進', '民主化'], 
-                    datasets: [{ label: '本班落實度', data: [diversityScore, responsibilityScore, problemScore, dataScore, improvableScore, democratizeScore], backgroundColor: 'rgba(234, 179, 8, 0.2)', borderColor: '#eab308', pointBackgroundColor: '#eab308' }] 
-                }, 
-                options: { responsive: true, maintainAspectRatio: false, scales: { r: { suggestedMin: 0, suggestedMax: 100, ticks: { display: false } } }, plugins: { legend: { display: false } } } 
+            kbPrinciplesChartInstance = new Chart(ctx2, {
+                type: 'radar',
+                data: {
+                    labels: ['觀點多樣性', '集體責任', '真實問題', '權威資料', '觀點改進', '民主化'],
+                    datasets: [{ label: '本班落實度', data: [diversityScore, responsibilityScore, problemScore, dataScore, improvableScore, democratizeScore], backgroundColor: 'rgba(234, 179, 8, 0.2)', borderColor: '#eab308', pointBackgroundColor: '#eab308' }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, scales: { r: { suggestedMin: 0, suggestedMax: 100, ticks: { display: false } } }, plugins: { legend: { display: false } } }
             });
         }
 
@@ -1514,17 +1518,17 @@ async function geminiFetch(key, init) {
             activeNav.classList.add('active', 'bg-slate-900', 'text-white', 'border-l-4', 'border-blue-500');
             activeNav.classList.remove('text-slate-400');
 
-            if (viewName === 'quality') setTimeout(() => { 
-                initDeepLens(); 
-                initStreamChart(); 
-                initQualityNewMetrics(); 
+            if (viewName === 'quality') setTimeout(() => {
+                initDeepLens();
+                initStreamChart();
+                initQualityNewMetrics();
             }, 100);
-            else if (viewName === 'topics') setTimeout(() => { 
-                initConceptNetwork(); 
-                initLexicalChart(); 
-                initPromisingnessChart(); 
-                initEvolutionTimeline(); 
-                initTopicContentAnalysis(); 
+            else if (viewName === 'topics') setTimeout(() => {
+                initConceptNetwork();
+                initLexicalChart();
+                initPromisingnessChart();
+                initEvolutionTimeline();
+                initTopicContentAnalysis();
             }, 100);
             else if (viewName === 'academic') setTimeout(() => { initAcademicAnalysis(); }, 100);
             else if (viewName === 'overview') setTimeout(() => { initOverview(globalRawDB); }, 100);
@@ -1533,7 +1537,7 @@ async function geminiFetch(key, init) {
                 if (active) loadStudentData(active.id.replace('student-btn-', ''));
                 else { const first = document.querySelector('.student-item'); if(first) first.click(); }
             }
-            
+
             document.getElementById('main-scroll-area').scrollTop = 0;
             if(window.innerWidth < 768) toggleSidebar();
         }
@@ -1545,30 +1549,16 @@ async function geminiFetch(key, init) {
             });
 
             const dbStatus = document.getElementById('db-status-text');
+            // 登入守門:僅限老師與管理者
+            const gateUser = KBUI.requireLogin({ staff: true });
+            if (!gateUser) return;
+            KBUI.mountUserBar();
 
-            const firebaseConfig = {
-                apiKey: "AIzaSyDPjtxtf656JHVVlj1o4cLwSylo1jDBFAc",
-                authDomain: "kb-platform-1.firebaseapp.com",
-                databaseURL: "https://kb-platform-1-default-rtdb.firebaseio.com",
-                projectId: "kb-platform-1",
-                storageBucket: "kb-platform-1.firebasestorage.app",
-                messagingSenderId: "230026226847",
-                appId: "1:230026226847:web:49e6f09ddfc3de0ef046aa"
-            };
-            
-            if (!firebase.apps.length) {
-                firebase.initializeApp(firebaseConfig);
+            // 本機資料來源(kb-core.js):同一台電腦其他分頁(論壇、設定中心)有變動時即時更新
+            function feed() {
+                const c = KB.content.get();
+                return { nodes: JSON.parse(JSON.stringify(c.nodes)), topics: JSON.parse(JSON.stringify(c.topics)), userList: KB.compat.userList(gateUser.role) };
             }
-            const cloudDb = firebase.firestore();
-            cloudDb.settings({ experimentalAutoDetectLongPolling: true }); // 自動偵測網路:被擋時改用長輪詢,避免要等 10 秒才連上
-
-            dbStatus.innerText = "Syncing...";
-            dbStatus.className = "text-yellow-400 font-bold";
-
-            const DB_DOC = 'class_data_v33_cross_group'; 
-            // ⚡ 先用上次的暫存資料立刻畫出畫面,同時等雲端最新資料;雲端資料一到就以雲端為準(同步不受影響)
-            const CACHE_KEY = 'kb_dash_cache_' + DB_DOC;
-            let lastRaw = null;
             function applyCloudData(data) {
                 window.state = {
                     nodes: data.nodes || [],
@@ -1580,37 +1570,15 @@ async function geminiFetch(key, init) {
                     // ⭐ 先用最新資料重新計算班級統計(globalRawDB / globalAllNotes / globalClassStats),各分頁才不會用到舊資料
                     try { calculateClassOverview(currentDb); } catch (e) { console.error('重新計算失敗:', e); }
                     renderStudentSidebar(currentDb);
-                    // ⭐ 效能優化：移除重複執行的 initOverview，並記憶使用者當前停留的頁面
                     const activeView = document.querySelector('.section-view.active');
                     const viewId = activeView ? activeView.id.replace('view-', '') : 'overview';
                     switchView(viewId);
                 }
             }
-            try {
-                const cached = localStorage.getItem(CACHE_KEY);
-                if (cached) { lastRaw = cached; applyCloudData(JSON.parse(cached)); }
-            } catch (e) { lastRaw = null; }
-
-            cloudDb.collection('kb_platform').doc(DB_DOC).onSnapshot((doc) => {
-                // 尚未連上雲端時,Firebase 會先回報「不存在」的離線結果,這不代表沒有資料,忽略它並繼續等待
-                if (!doc.exists && doc.metadata && doc.metadata.fromCache) return;
-                if (doc.exists) {
-                    const d = doc.data();
-                    const data = { nodes: d.nodes || [], topics: d.topics || [], userList: d.userList || {} };
-                    let raw = null;
-                    try { raw = JSON.stringify(data); localStorage.setItem(CACHE_KEY, raw); } catch (e) {}
-                    dbStatus.innerText = "Cloud Online";
-                    dbStatus.className = "text-green-400 font-bold";
-                    // 與剛才顯示的暫存資料完全相同就不重畫,避免畫面閃動
-                    if (raw !== null && raw === lastRaw) return;
-                    lastRaw = raw;
-                    applyCloudData(data);
-                } else {
-                    try { localStorage.removeItem(CACHE_KEY); } catch (e) {}
-                    dbStatus.innerText = "NO DATA";
-                    dbStatus.className = "text-red-400 font-bold";
-                }
-            });
+            dbStatus.innerText = "Local Storage";
+            dbStatus.className = "text-cyan-400 font-bold";
+            applyCloudData(feed());
+            KB.on((keys, remote) => { if (remote && KB.auth.current()) applyCloudData(feed()); });
         };
 
         // --- Chart Helper Functions ---
@@ -1669,10 +1637,10 @@ async function geminiFetch(key, init) {
                 if (info) detailBox.innerHTML = `<div class="lens-detail-title text-black">${info.title}</div><p class="text-black">${info.text}</p><div class="example-quote"><div class="example-author">學生實例 (Student Voices)：</div>${info.example || "暫無範例"}</div>`;
             });
         }
-        
+
         let conceptNetworkInstance = null;
-        function initConceptNetwork() { 
-            const container = document.getElementById('concept-network-container'); 
+        function initConceptNetwork() {
+            const container = document.getElementById('concept-network-container');
             if(conceptNetworkInstance) { conceptNetworkInstance.destroy(); conceptNetworkInstance = null; }
             const stopWords = ['的','是','在','有','和','了','與','就','也','但','我','你','他','我們','嗎','吧','個','這','那','不','人','都','很','？','！','。','，','：','...','嗎','呢','啊','你們','他們','而','及','或','若','如果','因為','所以','可以','可能','還是','已經','不是','就是','一個','這個','那個','什麼','怎麼','為什麼','是不是','沒有','需要','應該','我覺得','覺得','然後','比較','真的','一定','其實','而是','不只','只是','但是','所有','這樣','那樣','這些','那些','自己','大家','一些','一次','一起','現在','之前','目前','後面','前面','這次','一開始','這一路','沒錯','不能','最後','清楚','同一','這種','不同'];
             const conceptSegmenter = (typeof Intl !== 'undefined' && Intl.Segmenter) ? new Intl.Segmenter('zh-TW', { granularity: 'word' }) : null;
@@ -1680,7 +1648,7 @@ async function geminiFetch(key, init) {
             globalAllNotes.forEach(n => replyCounts[n.id] = 0);
             globalAllNotes.forEach(n => { if (n.parentId && replyCounts[n.parentId] !== undefined) replyCounts[n.parentId]++; });
             const getNoteHeat = (n) => { let s = 1; if (n.type === 'riseabove') s = 4; else if (n.type === 'question') s = 3; else if (n.type === 'improve') s = 2; return s + ((replyCounts[n.id]||0) * 0.8); };
-            const keywordMap = {}; 
+            const keywordMap = {};
             globalAllNotes.forEach(n => {
                 const text = (n.title + " " + n.content).toLowerCase();
                 let tokens;
@@ -1757,10 +1725,10 @@ async function geminiFetch(key, init) {
         }
 
         let lexicalChartInstance;
-        function initLexicalChart() { 
-            const ctx = document.getElementById('lexicalChart').getContext('2d'); 
-            if (lexicalChartInstance) lexicalChartInstance.destroy(); 
-            
+        function initLexicalChart() {
+            const ctx = document.getElementById('lexicalChart').getContext('2d');
+            if (lexicalChartInstance) lexicalChartInstance.destroy();
+
             const sortedNotes = [...globalAllNotes].sort((a, b) => a.dateTime - b.dateTime);
             let labels = [];
             let dataPoints = [];
@@ -1774,7 +1742,7 @@ async function geminiFetch(key, init) {
                 dayMap.forEach(b => { cumulative += b.len; labels.push(b.label); dataPoints.push(cumulative); });
             }
 
-            lexicalChartInstance = new Chart(ctx, { type: 'line', data: { labels: labels, datasets: [{ label: '知識詞彙累積量', data: dataPoints, borderColor: '#8b5cf6', backgroundColor: 'rgba(139, 92, 246, 0.1)', fill: true, tension: 0.4 }] }, options: { responsive: true, maintainAspectRatio: false } }); 
+            lexicalChartInstance = new Chart(ctx, { type: 'line', data: { labels: labels, datasets: [{ label: '知識詞彙累積量', data: dataPoints, borderColor: '#8b5cf6', backgroundColor: 'rgba(139, 92, 246, 0.1)', fill: true, tension: 0.4 }] }, options: { responsive: true, maintainAspectRatio: false } });
         }
 
         function initPromisingnessChart() {
@@ -1837,12 +1805,12 @@ async function geminiFetch(key, init) {
 
              resultDiv.classList.remove('hidden');
              resultDiv.innerHTML = '<div class="flex items-center text-indigo-600 font-bold"><i class="fas fa-spinner fa-spin mr-2"></i>AI 正在深入閱讀並提煉共識，請稍候...</div>';
-             
+
              const notesToAnalyze = globalAllNotes.slice(0, 30).map(n => `[${kbTypeMap[n.type]||'一般'}] ${n.title}: ${n.content}`).join('\n');
              const prompt = `請以知識建構(Knowledge Building)專家角度，總結以下學生的討論內容（限 150 字以內）。請精煉指出：1. 目前達成的核心共識 2. 值得深究的衝突或迷思 3. 給老師的下一步引導建議。\n\n討論內容：\n${notesToAnalyze}`;
 
              const aiResult = await callGeminiAPI(prompt);
-             
+
              const formattedHtml = `
                 <div class="flex justify-between items-start mb-2">
                     <strong class="text-indigo-800"><i class="fas fa-robot mr-1"></i> AI 深度總結</strong>
@@ -1850,15 +1818,15 @@ async function geminiFetch(key, init) {
                 </div>
                 <div class="text-slate-700 leading-relaxed">${marked.parse(aiResult)}</div>
              `;
-             
-             aiCache.topics[topicId] = formattedHtml; 
+
+             aiCache.topics[topicId] = formattedHtml;
              resultDiv.innerHTML = formattedHtml;
         }
 
         function initTopicContentAnalysis() {
             const logContainer = document.getElementById('topic-content-log'); const kwContainer = document.getElementById('topic-extracted-keywords'); const topUsersContainer = document.getElementById('topic-top-users'); const statusLabel = document.getElementById('content-log-status');
-            logContainer.innerHTML = ''; kwContainer.innerHTML = ''; topUsersContainer.innerHTML = ''; 
-            
+            logContainer.innerHTML = ''; kwContainer.innerHTML = ''; topUsersContainer.innerHTML = '';
+
             if (globalAllNotes.length === 0) { logContainer.innerHTML = '<div class="text-center text-slate-400 text-sm mt-10">此主題尚無資料</div>'; statusLabel.innerText = "0 篇"; document.getElementById('topic-total-chars').innerText = "0"; document.getElementById('topic-avg-len').innerText = "0"; return; }
             statusLabel.innerText = `${globalAllNotes.length} 篇`;
             let totalChars = 0; let allText = ""; let userActivity = {}; const stopWords = ['的','是','在','有','和','了','與','就','也','但','我','你','他','我們','嗎','吧','個','這','那','不','人','都','很'];
@@ -1878,8 +1846,8 @@ async function geminiFetch(key, init) {
         }
 
         let streamChart;
-        function initStreamChart() { 
-            const ctx = document.getElementById('streamChart').getContext('2d'); if (streamChart) streamChart.destroy(); 
+        function initStreamChart() {
+            const ctx = document.getElementById('streamChart').getContext('2d'); if (streamChart) streamChart.destroy();
             if (globalAllNotes.length === 0) return;
             const sortedNotes = [...globalAllNotes].sort((a, b) => a.dateTime - b.dateTime); if(sortedNotes.length === 0) return;
             const bucketMap = buildDayBuckets(sortedNotes, () => ({ counts: { question: 0, extend: 0, improve: 0, riseabove: 0 }, notes: { question: [], extend: [], improve: [], riseabove: [] } }));
@@ -1898,19 +1866,19 @@ async function geminiFetch(key, init) {
                     currentY += b.counts[type];
                 });
             });
-            streamChart = new Chart(ctx, { 
-                data: { 
-                    labels: labels, 
+            streamChart = new Chart(ctx, {
+                data: {
+                    labels: labels,
                     datasets: [
                         { type: 'line', label: '整合', data: buckets.map(b => b.counts.riseabove), backgroundColor: 'rgba(168, 85, 247, 0.75)', borderColor: '#a855f7', borderWidth: 1.5, fill: 'origin', tension: 0.4, pointRadius: 0 },
                         { type: 'line', label: '深化', data: buckets.map(b => b.counts.improve), backgroundColor: 'rgba(34, 197, 94, 0.75)', borderColor: '#22c55e', borderWidth: 1.5, fill: '-1', tension: 0.4, pointRadius: 0 },
                         { type: 'line', label: '延伸', data: buckets.map(b => b.counts.extend), backgroundColor: 'rgba(59, 130, 246, 0.75)', borderColor: '#3b82f6', borderWidth: 1.5, fill: '-1', tension: 0.4, pointRadius: 0 },
                         { type: 'line', label: '提問', data: buckets.map(b => b.counts.question), backgroundColor: 'rgba(239, 68, 68, 0.75)', borderColor: '#ef4444', borderWidth: 1.5, fill: '-1', tension: 0.4, pointRadius: 0 },
                         { type: 'scatter', label: '關鍵發言', data: scatterPoints, backgroundColor: 'white', borderColor: '#475569', borderWidth: 2, pointRadius: 6, order: -1 }
-                    ] 
-                }, 
-                options: { responsive: true, maintainAspectRatio: false, scales: { y: { stacked: true, beginAtZero: true } }, onClick: (e, activeEls) => { if (activeEls.length > 0) { const ds = streamChart.data.datasets[activeEls[0].datasetIndex]; if(ds.type === 'scatter') { const noteId = ds.data[activeEls[0].index].noteId; if(noteId) viewNote(noteId); } } } } 
-            }); 
+                    ]
+                },
+                options: { responsive: true, maintainAspectRatio: false, scales: { y: { stacked: true, beginAtZero: true } }, onClick: (e, activeEls) => { if (activeEls.length > 0) { const ds = streamChart.data.datasets[activeEls[0].datasetIndex]; if(ds.type === 'scatter') { const noteId = ds.data[activeEls[0].index].noteId; if(noteId) viewNote(noteId); } } } }
+            });
         }
 
         // ⭐ KB 原則共用判斷工具
@@ -1950,8 +1918,9 @@ async function geminiFetch(key, init) {
                     if (EA_EXP.test(tx)) E++;
                 });
                 const k = my.length, ri = I / k, rm = M / k, re = E / k;
-                const score = (Math.min(1, ri / 0.25) + Math.min(1, rm / 0.5) + Math.min(1, re / 0.3)) / 3;
-                per.push({ id, name: u.name, ri, rm, re, score, pass: score >= 0.7 });
+                const AC = KB.settings.get().analysis;
+                const score = (Math.min(1, ri / AC.agencyTargets.init) + Math.min(1, rm / AC.agencyTargets.mon) + Math.min(1, re / AC.agencyTargets.exp)) / 3;
+                per.push({ id, name: u.name, ri, rm, re, score, pass: score >= AC.agencyPass });
             });
             const total = per.length, passCount = per.filter(p => p.pass).length;
             const avg = key => total ? per.reduce((a, p) => a + p[key], 0) / total : 0;
@@ -1967,7 +1936,7 @@ async function geminiFetch(key, init) {
                 if (userStats[authorId]) { userStats[authorId].notesCreated++; let type = n.type === 'counter' ? 'improve' : n.type; if(userStats[authorId].scaffolds[type] !== undefined) userStats[authorId].scaffolds[type]++; }
                 if (n.parentId) { const p = globalAllNotes.find(x => x.id === n.parentId); if (p && String(p.author) !== authorId && userStats[String(p.author)]) userStats[String(p.author)].repliesReceived++; }
             });
-            
+
             const allX = users.map(u => userStats[u.id].notesCreated);
             const allY = users.map(u => userStats[u.id].repliesReceived);
             const avgX = allX.length ? allX.reduce((a,b)=>a+b,0) / allX.length : 0;
@@ -1976,10 +1945,10 @@ async function geminiFetch(key, init) {
             const q1 = [], q2 = [], q3 = [], q4 = [];
             users.forEach(u => {
                 const pt = { x: userStats[u.id].notesCreated, y: userStats[u.id].repliesReceived, name: u.name };
-                if (pt.x >= avgX && pt.y >= avgY) q1.push(pt);      
-                else if (pt.x < avgX && pt.y >= avgY) q2.push(pt);  
-                else if (pt.x >= avgX && pt.y < avgY) q3.push(pt);  
-                else q4.push(pt);                                   
+                if (pt.x >= avgX && pt.y >= avgY) q1.push(pt);
+                else if (pt.x < avgX && pt.y >= avgY) q2.push(pt);
+                else if (pt.x >= avgX && pt.y < avgY) q3.push(pt);
+                else q4.push(pt);
             });
 
             const datasets = [
@@ -1990,21 +1959,21 @@ async function geminiFetch(key, init) {
             ];
 
             const ctx1 = document.getElementById('impactScatterChart').getContext('2d'); if (impactScatterChart) impactScatterChart.destroy();
-            impactScatterChart = new Chart(ctx1, { 
-                type: 'scatter', 
-                data: { datasets: datasets }, 
-                options: { 
-                    responsive: true, 
-                    maintainAspectRatio: false, 
-                    plugins: { 
+            impactScatterChart = new Chart(ctx1, {
+                type: 'scatter',
+                data: { datasets: datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
                         legend: { position: 'bottom', labels: { boxWidth: 12, padding: 10, font: {size: 11} } },
-                        tooltip: { callbacks: { label: (ctx) => `${ctx.raw.name}: (產出:${ctx.raw.x}, 影響:${ctx.raw.y})` } } 
+                        tooltip: { callbacks: { label: (ctx) => `${ctx.raw.name}: (產出:${ctx.raw.x}, 影響:${ctx.raw.y})` } }
                     },
                     scales: {
                         x: { title: { display: true, text: '發文產出 (Notes Created)' } },
                         y: { title: { display: true, text: '社群影響 (Replies Received)' } }
                     }
-                } 
+                }
             });
 
             const sortedUsers = Object.values(userStats).filter(u => u.notesCreated > 0).sort((a,b) => b.notesCreated - a.notesCreated).slice(0, 5); // 只列出目前範圍內有發文的學生
@@ -2027,9 +1996,10 @@ async function geminiFetch(key, init) {
             const dataR = [normalize(classAll.riseabove, classAllCount), ...sortedUsers.map(u => normalize(u.scaffolds.riseabove, u.notesCreated))];
             const ctx2 = document.getElementById('scaffoldProfileChart').getContext('2d'); if (scaffoldProfileChart) scaffoldProfileChart.destroy();
             scaffoldProfileChart = new Chart(ctx2, { type: 'bar', data: { labels: labels, datasets: [{ label: '提問', data: dataQ, backgroundColor: '#3b82f6' }, { label: '延伸', data: dataE, backgroundColor: '#eab308' }, { label: '改進', data: dataI, backgroundColor: '#22c55e' }, { label: '整合', data: dataR, backgroundColor: '#a855f7' }] }, options: { responsive: true, maintainAspectRatio: false, scales: { x: { stacked: true }, y: { stacked: true, max: 100 } } } });
-            
+
             const checklistContainer = document.getElementById('kb12-check-list');
             const notes = globalAllNotes;
+            const AN = KB.settings.get().analysis; // 門檻可在「設定中心 → 分析設定」調整
             const ea = computeEpistemicAgency(notes, users);
             const nz = globalNoteCount || 1;
             const pct = v => (v * 100).toFixed(0) + '%';
@@ -2047,15 +2017,15 @@ async function geminiFetch(key, init) {
             const giniVal = parseFloat(globalClassStats.gini) || 0;
             const uCnt = users.length || 1;
             const checks = [
-                { key: 'kb12_real', title: 'Real Ideas, Authentic Problems', pass: globalNoteCount > 0 && (qishCount / nz) >= 0.15 && perStudent >= 3,
+                { key: 'kb12_real', title: 'Real Ideas, Authentic Problems', pass: globalNoteCount > 0 && (qishCount / nz) >= AN.kbQuestion && perStudent >= 3,
                   desc: '是否有真實的疑問驅動討論(提問/疑問型貼文 ≥ 15%,且人均 ≥ 3 篇)',
                   val: `疑問型貼文 ${pct(qishCount / nz)}(${qishCount} 篇);人均 ${perStudent.toFixed(1)} 篇`,
                   meaning: '知識建構從學生「真的想知道」的問題開始。疑問型貼文太少,代表討論可能只是在完成任務,而不是在解決自己想搞懂的問題。老師可以鼓勵學生把卡住的地方直接寫成問題。' },
-                { key: 'kb12_diversity', title: 'Idea Diversity', pass: users.length > 0 && (activeStudents / users.length) >= 0.8 && (contrastCount / nz) >= 0.30,
+                { key: 'kb12_diversity', title: 'Idea Diversity', pass: users.length > 0 && (activeStudents / users.length) >= 0.8 && (contrastCount / nz) >= AN.kbDiversityContrast,
                   desc: '是否有多元觀點(參與率 ≥ 80%,且提問/改進/反駁等對照性想法 ≥ 30%)',
                   val: `${activeStudents}/${users.length} 人參與;對照性想法 ${pct(contrastCount / nz)}`,
                   meaning: '多元觀點不是人多就好,還要有不同想法互相碰撞。如果大家都在附和延伸,看起來很和諧,但想法其實沒有被挑戰。老師可以請學生針對同學的說法提出「如果不是這樣呢?」。' },
-                { key: 'kb12_agency', title: 'Epistemic Agency', pass: ea.total > 0 && ea.rate >= 0.6,
+                { key: 'kb12_agency', title: 'Epistemic Agency', pass: ea.total > 0 && ea.rate >= AN.agencyRate,
                   desc: '學生是否主動設定方向、自我修正、提出解釋(三面向綜合判定,不只看提問)',
                   val: ea.total > 0 ? `${ea.passCount}/${ea.total} 位學生達標,平均指數 ${ea.avgScore.toFixed(2)}(主動發起 ${pct(ea.avgI)}、自我修正 ${pct(ea.avgM)}、提出解釋 ${pct(ea.avgE)})` : '尚無資料',
                   meaning: 'Epistemic Agency 是學生自己負責推進知識,而不是等老師指定。三個面向裡哪一項偏低,就是最需要引導的地方:發起低代表學生等待指令,修正低代表想法一次就定案,解釋低代表只說結論不說原因。' },
@@ -2071,7 +2041,7 @@ async function geminiFetch(key, init) {
                   desc: '是否把分散想法整合成更高層次的結論(昇華率 ≥ 5%,且 ≥ 30% 學生寫過整合)',
                   val: `昇華率 ${(totalScaffolds.riseabove / nz * 100).toFixed(1)}%;${raAuthors}/${users.length} 人寫過整合`,
                   meaning: '昇華是把零散想法收斂成更高層次的結論。如果整合都由少數人(例如組長)負責,其他人可能只是在供應素材。老師可以輪流讓不同學生做整合。' },
-                { key: 'kb12_sources', title: 'Constructive Uses of Authoritative Sources', pass: (srcCount / nz) >= 0.05,
+                { key: 'kb12_sources', title: 'Constructive Uses of Authoritative Sources', pass: (srcCount / nz) >= AN.kbSources,
                   desc: '是否有建設性地引用文獻、官方資料或實測紀錄(貼文占比 ≥ 5%)',
                   val: `引用資料的貼文 ${pct(srcCount / nz)}(${srcCount} 篇)`,
                   meaning: '權威資料要用來「支撐或挑戰想法」,而不是直接貼上答案。占比太低代表討論多半靠個人想像;太高則要確認學生是否真的消化資料。此項以關鍵字判斷,僅供參考。' },
@@ -2090,66 +2060,66 @@ async function geminiFetch(key, init) {
             if (!db || !db.userList) return null;
             const uIdStr = String(userId);
             const user = Object.values(db.userList).find(u => String(u.id) === uIdStr); if (!user) return null;
-            
+
             const myNodes = globalAllNotes.filter(n => String(n.author) === uIdStr);
             const noteCount = myNodes.length;
             const scaffoldCounts = { question:0, extend:0, improve:0, counter:0, riseabove:0, other: 0 };
-            
-            let myTextContent = ""; 
-            myNodes.forEach(n => { 
+
+            let myTextContent = "";
+            myNodes.forEach(n => {
                 const t = n.type;
-                if (scaffoldCounts[t] !== undefined) scaffoldCounts[t]++; 
+                if (scaffoldCounts[t] !== undefined) scaffoldCounts[t]++;
                 else scaffoldCounts.other++;
-                myTextContent += (n.title || "") + " " + (n.content || "") + " "; 
+                myTextContent += (n.title || "") + " " + (n.content || "") + " ";
             });
 
-            const egoNodes = new Set(); const egoEdges = []; egoNodes.add(uIdStr); 
+            const egoNodes = new Set(); const egoEdges = []; egoNodes.add(uIdStr);
             let inDegree = 0; let outDegree = 0;
-            
-            myNodes.forEach(n => { 
-                if(n.parentId) { 
-                    const p = globalAllNotes.find(x => x.id === n.parentId); 
-                    if(p && String(p.author) !== uIdStr) { 
-                        egoNodes.add(String(p.author)); 
-                        egoEdges.push({from: uIdStr, to: String(p.author), t: n.dateTime}); 
-                        outDegree++; 
-                    } 
-                } 
+
+            myNodes.forEach(n => {
+                if(n.parentId) {
+                    const p = globalAllNotes.find(x => x.id === n.parentId);
+                    if(p && String(p.author) !== uIdStr) {
+                        egoNodes.add(String(p.author));
+                        egoEdges.push({from: uIdStr, to: String(p.author), t: n.dateTime});
+                        outDegree++;
+                    }
+                }
             });
-            globalAllNotes.forEach(n => { 
-                if(n.parentId) { 
-                    const p = globalAllNotes.find(x => x.id === n.parentId); 
-                    if(p && String(p.author) === uIdStr && String(n.author) !== uIdStr) { 
-                        egoNodes.add(String(n.author)); 
-                        egoEdges.push({from: String(n.author), to: uIdStr, t: n.dateTime}); 
-                        inDegree++; 
-                    } 
-                } 
+            globalAllNotes.forEach(n => {
+                if(n.parentId) {
+                    const p = globalAllNotes.find(x => x.id === n.parentId);
+                    if(p && String(p.author) === uIdStr && String(n.author) !== uIdStr) {
+                        egoNodes.add(String(n.author));
+                        egoEdges.push({from: String(n.author), to: uIdStr, t: n.dateTime});
+                        inDegree++;
+                    }
+                }
             });
 
-            const visNodes = Array.from(egoNodes).map(uid => { 
-                const u = Object.values(db.userList).find(x => String(x.id) === String(uid)); 
-                const isMe = String(uid) === uIdStr; 
-                return { id: uid, label: u ? (u.name || '?') : '?', color: isMe ? '#3b82f6' : '#94a3b8', size: isMe ? 25 : 15, font: { color: isMe ? 'white' : 'black' } }; 
+            const visNodes = Array.from(egoNodes).map(uid => {
+                const u = Object.values(db.userList).find(x => String(x.id) === String(uid));
+                const isMe = String(uid) === uIdStr;
+                return { id: uid, label: u ? (u.name || '?') : '?', color: isMe ? '#3b82f6' : '#94a3b8', size: isMe ? 25 : 15, font: { color: isMe ? 'white' : 'black' } };
             });
 
             let role = "參與者"; let badgeColor = "bg-gray-100 text-gray-500 border-gray-200";
             if (noteCount > 0) {
                 const qRatio = scaffoldCounts.question / noteCount; const rRatio = scaffoldCounts.riseabove / noteCount; const iRatio = (scaffoldCounts.improve + scaffoldCounts.counter) / noteCount;
-                if (rRatio > 0.05) { role = "整合者"; badgeColor = "bg-purple-100 text-purple-600 border-purple-200"; } 
-                else if (qRatio > 0.2) { role = "提問者"; badgeColor = "bg-blue-100 text-blue-600 border-blue-200"; } 
-                else if (iRatio > 0.3) { role = "深化者"; badgeColor = "bg-green-100 text-green-600 border-green-200"; } 
+                if (rRatio > 0.05) { role = "整合者"; badgeColor = "bg-purple-100 text-purple-600 border-purple-200"; }
+                else if (qRatio > 0.2) { role = "提問者"; badgeColor = "bg-blue-100 text-blue-600 border-blue-200"; }
+                else if (iRatio > 0.3) { role = "深化者"; badgeColor = "bg-green-100 text-green-600 border-green-200"; }
                 else if (outDegree > 3) { role = "連結者"; badgeColor = "bg-yellow-100 text-yellow-600 border-yellow-200"; }
             }
 
-            const stopWords = ['的','是','在','有','和','了','與','就','也','但','我','你','他','我們','嗎','吧','個','這','那','不','人','都','很']; 
-            const tokens = myTextContent.toLowerCase().split(/[\s,，.。:：!?！？"”'’()（）]+/); 
+            const stopWords = ['的','是','在','有','和','了','與','就','也','但','我','你','他','我們','嗎','吧','個','這','那','不','人','都','很'];
+            const tokens = myTextContent.toLowerCase().split(/[\s,，.。:：!?！？"”'’()（）]+/);
             const freq = {}; tokens.forEach(w => { if(w.length > 1 && !stopWords.includes(w) && isNaN(w)) freq[w] = (freq[w] || 0) + 1; });
             const topKeywords = Object.entries(freq).sort((a,b) => b[1] - a[1]).slice(0, 8).map(k => `${k[0]} (${k[1]})`);
-            
+
             // 自己發起 = 提問、開新話題,或提出下一步/假設的貼文(舊算法只算「沒有上層文章」,但討論串本來就是一條接一條,幾乎沒有人算得到)
-            const initiateCount = myNodes.filter(n => n.type === 'question' || !n.parentId || EA_PLAN.test((n.title || '') + ' ' + (n.content || ''))).length; 
-            const collaborateCount = noteCount - initiateCount; 
+            const initiateCount = myNodes.filter(n => n.type === 'question' || !n.parentId || EA_PLAN.test((n.title || '') + ' ' + (n.content || ''))).length;
+            const collaborateCount = noteCount - initiateCount;
             const balanceData = [initiateCount, collaborateCount];
 
             // KB 核心能力五項改用「比例」計算(達到目標比例即滿分)。
@@ -2174,7 +2144,7 @@ async function geminiFetch(key, init) {
             const inquiryScore = noteCount > 0 ? cap100((allDays.size ? myDays.size / allDays.size : 0) * 50 + Math.min(1, (inDegree / nN) / 0.8) * 50) : 0;
 
             const radarData = [agencyScore, communityScore, ideaImpScore, synthesisScore, inquiryScore];
-            const depthTrend = [Math.min(20, inquiryScore/4), Math.min(40, agencyScore/2), Math.min(60, ideaImpScore/1.2), Math.min(80, synthesisScore), inquiryScore]; 
+            const depthTrend = [Math.min(20, inquiryScore/4), Math.min(40, agencyScore/2), Math.min(60, ideaImpScore/1.2), Math.min(80, synthesisScore), inquiryScore];
 
             return { user, noteCount, scaffoldCounts, visNodes, visEdges: egoEdges, depthTrend, radarData, role, badgeColor, topKeywords, balanceData, inDegree, outDegree };
         }
@@ -2186,6 +2156,27 @@ async function geminiFetch(key, init) {
         // ===========================================
         // HTML 跳脫(避免 AI 或資料中的特殊字元破壞頁面)
         function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]; }); }
+        // 姓名去識別:把貼文文字中出現的「真實姓名、名字、學號」一次性換成代號(S01…),
+        // 以暫時符號分兩步替換,避免替換後的代號又被當成姓名再次替換。
+        function kbMakeScrub(users, codeOf) {
+            const A = String.fromCharCode(1), Z = String.fromCharCode(2);
+            const list = [];
+            users.forEach(u => {
+                const c = codeOf[String(u.id)];
+                const info = (typeof KB !== 'undefined' && KB.users.get(u.id)) || {};
+                const real = String(info.realName || ''), label = String(u.name || '');
+                if (real.length >= 2) list.push({ nm: real, c: c });
+                if (real.length >= 3) { const g = real.slice(-2); if (g.charCodeAt(0) > 127) list.push({ nm: g, c: c }); }
+                if (label.length >= 2) list.push({ nm: label, c: c });
+            });
+            list.sort((a, b) => b.nm.length - a.nm.length);
+            return txt => {
+                let o = String(txt || '');
+                list.forEach((p, i) => { o = o.split(p.nm).join(A + i + Z); });
+                list.forEach((p, i) => { o = o.split(A + i + Z).join(p.c); });
+                return o;
+            };
+        }
         aiCache.diagnosis = aiCache.diagnosis || {};
         function diagDataSig() {
             const last = globalAllNotes.length ? globalAllNotes[globalAllNotes.length - 1].id : '';
@@ -2237,7 +2228,7 @@ async function geminiFetch(key, init) {
             const pick = [];
             ['riseabove', 'question', 'counter', 'improve'].forEach(tp => { notes.filter(n => n.type === tp).slice(-3).forEach(n => pick.push(n)); });
             // 貼文內容若提到同學姓名(全名或名字),也一律換成代號,避免姓名傳給 AI
-            const scrub = txt => { let o = String(txt || ''); users.forEach(u => { const c = codeOf[String(u.id)]; const nm = String(u.name || ''); if (nm.length >= 2) o = o.split(nm).join(c); if (nm.length >= 3) o = o.split(nm.slice(-2)).join(c); }); return o; };
+            const scrub = kbMakeScrub(users, codeOf);
             const sample = pick.map(n => '- [' + (kbTypeMap[n.type] || n.type) + '|' + (codeOf[String(n.author)] || '?') + '] ' + scrub(n.title) + ':' + scrub(String(n.content || '').slice(0, 80))).join('\n');
 
             const s = globalClassStats;
@@ -2320,32 +2311,32 @@ async function geminiFetch(key, init) {
             if(!sData) return;
 
             sugBox.innerHTML = `<div class="p-3 bg-blue-50 border-l-4 border-blue-400 text-sm text-blue-800 rounded-r shadow-sm"><i class="fas fa-spinner fa-spin mr-2"></i>正在呼叫 AI 進行深入的個別化分析...</div>`;
-            
+
             const prompt = `
             請扮演教育數據分析專家，針對這位學生的「知識建構(Knowledge Building)」表現，給予老師一段具體且精煉的診斷與引導建議（限 150 字以內）。
-            
+
             [學生客觀數據]
             - 發言篇數：${sData.noteCount}
             - 收到回覆數：${sData.inDegree} / 主動回覆數：${sData.outDegree}
             - 五力雷達分數：主體性 ${sData.radarData[0]}, 社群互動 ${sData.radarData[1]}, 觀點改進 ${sData.radarData[2]}, 昇華整合 ${sData.radarData[3]}, 持續探究 ${sData.radarData[4]}
             - 常用概念詞：${sData.topKeywords.join(', ') || '無'}
-            
+
             [請輸出]
             1. 該生的強項或當前學習特徵。
             2. 給老師的一項具體引導行動建議 (例如：如何幫他突破瓶頸或帶動同儕)。
             `;
 
             const aiResult = await callGeminiAPI(prompt);
-            
+
             const formattedHtml = `
                 <div class="p-3 bg-indigo-50 border-l-4 border-indigo-500 text-sm text-slate-700 rounded-r shadow-sm relative">
                     <button onclick="fetchStudentAIInsight('${userId}', true)" class="absolute top-2 right-2 text-[10px] bg-indigo-100 text-indigo-600 hover:bg-indigo-200 px-2 py-0.5 rounded transition"><i class="fas fa-sync-alt"></i></button>
                     <div class="leading-relaxed pr-6">${marked.parse(aiResult)}</div>
                 </div>
             `;
-            
-            aiCache.students[studentIdKey] = formattedHtml; 
-            
+
+            aiCache.students[studentIdKey] = formattedHtml;
+
             if(document.getElementById(`student-btn-${userId}`)?.classList.contains('active-student')) {
                 sugBox.innerHTML = formattedHtml;
             }
@@ -2358,13 +2349,13 @@ async function geminiFetch(key, init) {
             if (!data) return;
             document.querySelectorAll('.student-item').forEach(el => el.classList.remove('active-student', 'bg-indigo-50', 'border-indigo-200'));
             const btn = document.getElementById(`student-btn-${userId}`); if(btn) btn.classList.add('active-student', 'bg-indigo-50', 'border-indigo-200');
-            
+
             const displayName = data.user.name || 'Unknown User';
-            document.getElementById('profile-name').innerText = displayName; 
-            document.getElementById('profile-id').innerText = data.user.id; 
-            document.getElementById('profile-notes-count').innerText = data.noteCount; 
+            document.getElementById('profile-name').innerText = displayName;
+            document.getElementById('profile-id').innerText = data.user.id;
+            document.getElementById('profile-notes-count').innerText = data.noteCount;
             document.getElementById('profile-avatar').innerText = displayName[0];
-            
+
             const badge = document.getElementById('kb-role-badge'); badge.innerText = data.role; badge.className = `text-[10px] px-2 py-0.5 rounded-full border font-bold tracking-wide ${data.badgeColor}`; badge.classList.remove('hidden');
             document.getElementById('student-keywords-container').innerHTML = data.topKeywords.length > 0 ? data.topKeywords.map(k => `<span class="bg-amber-50 text-amber-700 border border-amber-200 px-2 py-1 rounded text-xs">${k}</span>`).join('') : '<span class="text-xs text-slate-400">無詞彙</span>';
             const ctxR = document.getElementById('radarChart').getContext('2d'); if(radarChartInstance) radarChartInstance.destroy(); radarChartInstance = new Chart(ctxR, { type: 'radar', data: { labels: ['主體性','社群互動','觀點改進','昇華整合','持續探究'], datasets: [{ label: displayName, data: data.radarData, backgroundColor:'rgba(59,130,246,0.2)', borderColor:'#3B82F6' }] }, options: { responsive:true, maintainAspectRatio:false, scales: { r: { suggestedMin: 0, suggestedMax: 100, ticks:{display:false} } } } });
@@ -2380,13 +2371,13 @@ async function geminiFetch(key, init) {
             egoNetworkInstance.once('stabilizationIterationsDone', stopEgoPhysics);
             setTimeout(stopEgoPhysics, 2500);
             kbAttachPlayer({ id: 'ego-t', container: container, anchor: container.parentElement, network: egoNetworkInstance, nodesDS: egoNodesDS, edgesDS: egoEdgesDS, labels: egoDays.labels, build: egoBuild });
-            const ctxB = document.getElementById('balanceChart').getContext('2d'); if(balanceChartInstance) balanceChartInstance.destroy(); 
+            const ctxB = document.getElementById('balanceChart').getContext('2d'); if(balanceChartInstance) balanceChartInstance.destroy();
             const totalBal = data.balanceData[0] + data.balanceData[1];
-            document.getElementById('bal-init').innerText = totalBal > 0 ? Math.round(data.balanceData[0]/totalBal*100) + '%' : '0%'; 
+            document.getElementById('bal-init').innerText = totalBal > 0 ? Math.round(data.balanceData[0]/totalBal*100) + '%' : '0%';
             document.getElementById('bal-build').innerText = totalBal > 0 ? Math.round(data.balanceData[1]/totalBal*100) + '%' : '0%';
             balanceChartInstance = new Chart(ctxB, { type: 'doughnut', data: { labels: ['自主', '協作'], datasets: [{ data: data.balanceData, backgroundColor: ['#3b82f6', '#22c55e'] }] }, options: { responsive: true, cutout: '70%', plugins: { legend: { display: false } } } });
             const ctxD = document.getElementById('studentDepthChart').getContext('2d'); if(studentDepthChartInstance) studentDepthChartInstance.destroy(); studentDepthChartInstance = new Chart(ctxD, { type: 'line', data: { labels: ['階段1','階段2','階段3','階段4','當前'], datasets: [{ label:'深度發展', data: data.depthTrend, borderColor:'#8B5CF6', backgroundColor: 'rgba(139, 92, 246, 0.1)', fill: true, tension: 0.3 }] }, options: { responsive:true, maintainAspectRatio:false, scales: { y: { beginAtZero: true, max: 100 } } } });
-            
+
             fetchStudentAIInsight(userId, false);
         }
 
@@ -2397,7 +2388,7 @@ async function geminiFetch(key, init) {
             if (users.length === 0) { container.innerHTML = '<div class="text-center text-slate-400 py-4 text-xs">暫無資料</div>'; return; }
             users.forEach(s => {
                 const el = document.createElement('div'); el.className = 'student-item p-3 rounded-lg cursor-pointer border border-transparent hover:bg-slate-50 transition mb-2'; el.id = `student-btn-${s.id}`; el.onclick = () => loadStudentData(s.id);
-                
+
                 const displayName = s.name || 'Unknown';
                 const initial = displayName[0];
 
@@ -2422,7 +2413,7 @@ async function geminiFetch(key, init) {
                     else if(text.includes('哇') || text.includes('原來') || text.includes('竟然') || text.includes('！') || text.includes('!')) emotions['驚訝 (Surprise)']++;
                     else emotions['中性 (Neutral)']++;
                 });
-                
+
                 Object.keys(emotions).forEach(k => emotions[k] += 1);
 
                 emotionChartInstance = new Chart(ctxE.getContext('2d'), {
@@ -2441,7 +2432,7 @@ async function geminiFetch(key, init) {
             const ctxL = document.getElementById('lexicalGrowthChart');
             if(ctxL) {
                 if(lexicalGrowthChartInstance) lexicalGrowthChartInstance.destroy();
-                
+
                 const sortedNotes = [...globalAllNotes].sort((a, b) => a.dateTime - b.dateTime);
                 let labelsL = []; let academicData = []; let commonData = [];
 
@@ -2460,7 +2451,7 @@ async function geminiFetch(key, init) {
                             const text = (n.content || "") + (n.title || "");
                             academicKeywords.forEach(k => { if(text.includes(k)) bucket.academic++; });
                             commonKeywords.forEach(k => { if(text.includes(k)) bucket.common++; });
-                            
+
                             if(bucket.academic === 0 && text.length > 30) bucket.academic += 1;
                             if(bucket.common === 0) bucket.common += Math.ceil(text.length / 50);
                         }
@@ -2511,7 +2502,7 @@ async function geminiFetch(key, init) {
                 types.forEach(t2 => {
                     const val = matrix[t1][t2];
                     const alpha = (val / maxVal).toFixed(2);
-                    const bg = `rgba(245, 158, 11, ${Math.max(0.1, alpha)})`; 
+                    const bg = `rgba(245, 158, 11, ${Math.max(0.1, alpha)})`;
                     html += `<td class="p-1"><div style="background-color:${bg};" class="rounded py-2 font-bold ${alpha > 0.5 ? 'text-white' : 'text-slate-700'}">${val}</div></td>`;
                 });
                 html += `</tr>`;
@@ -2534,7 +2525,7 @@ function buildRefContext(key, studentId) {
     const codeOf = {}, nameOf = {};
     users.forEach((u, i) => { const c = 'S' + String(i + 1).padStart(2, '0'); codeOf[String(u.id)] = c; nameOf[c] = u.name || '未命名'; });
     const code = id => codeOf[String(id)] || '?';
-    const scrub = txt => { let o = String(txt || ''); users.forEach(u => { const c = codeOf[String(u.id)]; const nm = String(u.name || ''); if (nm.length >= 2) o = o.split(nm).join(c); if (nm.length >= 3) o = o.split(nm.slice(-2)).join(c); }); return o; };
+    const scrub = kbMakeScrub(users, codeOf);
     const notes = globalAllNotes;
     const N = notes.length || 1;
     const pct = v => (v * 100).toFixed(0) + '%';
@@ -2703,232 +2694,232 @@ async function fetchRefAIInsight(key, aiPrompt, currentVal, currentStatus, force
 }
 
         const refContent = {
-            'total_notes': { 
-                title: '總發文數', 
-                theory: '社會互動論：量變是質變的基礎。足夠的對話量是社群知識建構的前提。', 
-                source: 'Scardamalia, M., & Bereiter, C. (2006). Knowledge building: Theory, pedagogy, and technology. In The Cambridge Handbook of the Learning Sciences (pp. 97-115).', 
-                ai_prompt: '如何激勵低參與度的學生發言？' 
+            'total_notes': {
+                title: '總發文數',
+                theory: '社會互動論：量變是質變的基礎。足夠的對話量是社群知識建構的前提。',
+                source: 'Scardamalia, M., & Bereiter, C. (2006). Knowledge building: Theory, pedagogy, and technology. In The Cambridge Handbook of the Learning Sciences (pp. 97-115).',
+                ai_prompt: '如何激勵低參與度的學生發言？'
             },
-            'density': { 
-                title: '社群密度', 
-                theory: '社會網絡分析 (SNA)：反映了群體內部的資訊流通效率與凝聚力。', 
-                source: 'Zhang, J., Scardamalia, M., Reeve, R., & Messina, R. (2009). Designs for collective cognitive responsibility in knowledge-building communities. Journal of the Learning Sciences, 18(1), 7-46.', 
-                ai_prompt: '如何提升班級的對話互動密度？' 
+            'density': {
+                title: '社群密度',
+                theory: '社會網絡分析 (SNA)：反映了群體內部的資訊流通效率與凝聚力。',
+                source: 'Zhang, J., Scardamalia, M., Reeve, R., & Messina, R. (2009). Designs for collective cognitive responsibility in knowledge-building communities. Journal of the Learning Sciences, 18(1), 7-46.',
+                ai_prompt: '如何提升班級的對話互動密度？'
             },
-            'rise_above': { 
-                title: '知識昇華率', 
-                theory: 'Rise-above 代表觀點的整合與昇華，是知識創造的關鍵指標。', 
-                source: 'Scardamalia, M. (2002). Collective cognitive responsibility for the advancement of knowledge. Liberal Education in a Knowledge Society, 97, 67-98.', 
-                ai_prompt: '如何引導學生進行觀點整合與昇華？' 
+            'rise_above': {
+                title: '知識昇華率',
+                theory: 'Rise-above 代表觀點的整合與昇華，是知識創造的關鍵指標。',
+                source: 'Scardamalia, M. (2002). Collective cognitive responsibility for the advancement of knowledge. Liberal Education in a Knowledge Society, 97, 67-98.',
+                ai_prompt: '如何引導學生進行觀點整合與昇華？'
             },
-            'risk': { 
-                title: '需引導名單', 
-                theory: '學習落後預警機制：及早識別邊緣參與者，避免馬太效應。', 
-                source: 'Wenger, E. (1998). Communities of practice: Learning, meaning, and identity. Cambridge University Press.', 
-                ai_prompt: '針對低參與度學生的介入策略？' 
+            'risk': {
+                title: '需引導名單',
+                theory: '學習落後預警機制：及早識別邊緣參與者，避免馬太效應。',
+                source: 'Wenger, E. (1998). Communities of practice: Learning, meaning, and identity. Cambridge University Press.',
+                ai_prompt: '針對低參與度學生的介入策略？'
             },
-            'gini': { 
-                title: '參與平等性', 
-                theory: '洛倫茲曲線：測量發言權分配的不平等程度。', 
-                source: 'Gini, C. (1912). Variabilità e mutabilità [Variability and Mutability]. C. Cuppini.', 
-                ai_prompt: '如何平衡班級內的發言權結構？' 
+            'gini': {
+                title: '參與平等性',
+                theory: '洛倫茲曲線：測量發言權分配的不平等程度。',
+                source: 'Gini, C. (1912). Variabilità e mutabilità [Variability and Mutability]. C. Cuppini.',
+                ai_prompt: '如何平衡班級內的發言權結構？'
             },
-            'thread_depth': { 
-                title: '對話深度', 
-                theory: '持續性探究 (Sustained Inquiry)：深度代表對話的延續性。', 
-                source: 'Hakkarainen, K. (2003). Emergence of progressive inquiry culture in computer-supported collaborative learning. Learning Environments Research, 6(2), 199-220.', 
-                ai_prompt: '如何設計問題以引發更深層的對話？' 
+            'thread_depth': {
+                title: '對話深度',
+                theory: '持續性探究 (Sustained Inquiry)：深度代表對話的延續性。',
+                source: 'Hakkarainen, K. (2003). Emergence of progressive inquiry culture in computer-supported collaborative learning. Learning Environments Research, 6(2), 199-220.',
+                ai_prompt: '如何設計問題以引發更深層的對話？'
             },
-            'class_diagnosis': { 
-                title: '全班深度診斷', 
-                theory: '學習分析自動化：透過數據歸納社群當前狀態與缺口。', 
-                source: 'Siemens, G., & Long, P. (2011). Penetrating the fog: Analytics in learning and education. EDUCAUSE Review, 46(5), 30.', 
-                ai_prompt: '根據這些總體數據，我下一堂課最該做什麼？' 
+            'class_diagnosis': {
+                title: '全班深度診斷',
+                theory: '學習分析自動化：透過數據歸納社群當前狀態與缺口。',
+                source: 'Siemens, G., & Long, P. (2011). Penetrating the fog: Analytics in learning and education. EDUCAUSE Review, 46(5), 30.',
+                ai_prompt: '根據這些總體數據，我下一堂課最該做什麼？'
             },
-            'kb_trajectory': { 
-                title: '知識推進軌跡', 
-                theory: '觀察問題與理論解釋的交替增長趨勢。', 
-                source: 'Scardamalia, M., & Bereiter, C. (2014). Knowledge building and knowledge creation: Theory, pedagogy and technology.', 
-                ai_prompt: '如何引導學生把問題轉化為理論？' 
+            'kb_trajectory': {
+                title: '知識推進軌跡',
+                theory: '觀察問題與理論解釋的交替增長趨勢。',
+                source: 'Scardamalia, M., & Bereiter, C. (2014). Knowledge building and knowledge creation: Theory, pedagogy and technology.',
+                ai_prompt: '如何引導學生把問題轉化為理論？'
             },
-            'lag_sequence': { 
-                title: '言談序列轉移', 
-                theory: '行為模式分析，探討發言之間的因果關聯。', 
-                source: 'Jeong, A. (2003). The sequential analysis of group interaction and critical thinking in online threaded discussions. The American Journal of Distance Education, 17(1), 25-43.', 
-                ai_prompt: '如何打破無效的討論循環？' 
+            'lag_sequence': {
+                title: '言談序列轉移',
+                theory: '行為模式分析，探討發言之間的因果關聯。',
+                source: 'Jeong, A. (2003). The sequential analysis of group interaction and critical thinking in online threaded discussions. The American Journal of Distance Education, 17(1), 25-43.',
+                ai_prompt: '如何打破無效的討論循環？'
             },
-            'brokers': { 
-                title: '知識經紀人', 
-                theory: '社會網絡中的中介中心性 (Betweenness Centrality)。', 
-                source: 'Wasserman, S., & Faust, K. (1994). Social network analysis: Methods and applications. Cambridge University Press.', 
-                ai_prompt: '如何培養更多知識經紀人？' 
+            'brokers': {
+                title: '知識經紀人',
+                theory: '社會網絡中的中介中心性 (Betweenness Centrality)。',
+                source: 'Wasserman, S., & Faust, K. (1994). Social network analysis: Methods and applications. Cambridge University Press.',
+                ai_prompt: '如何培養更多知識經紀人？'
             },
-            'sna': { 
-                title: '社群互動結構', 
-                theory: '社會網絡結構視覺化，觀察核心與邊緣。', 
-                source: 'Grunspan, D. Z., et al. (2014). Understanding classrooms through social network analysis: A primer for social network analysis in education research. CBE—Life Sciences Education, 13(2), 167-178.', 
-                ai_prompt: '如何幫助邊緣成員融入核心？' 
+            'sna': {
+                title: '社群互動結構',
+                theory: '社會網絡結構視覺化，觀察核心與邊緣。',
+                source: 'Grunspan, D. Z., et al. (2014). Understanding classrooms through social network analysis: A primer for social network analysis in education research. CBE—Life Sciences Education, 13(2), 167-178.',
+                ai_prompt: '如何幫助邊緣成員融入核心？'
             },
-            'principles': { 
-                title: '鷹架分佈分析', 
-                theory: '檢核各類認知活動（如提問、改進、整合）的比例。', 
-                source: 'Scardamalia, M. (2002). Collective cognitive responsibility for the advancement of knowledge. Liberal Education in a Knowledge Society, 67-98.', 
-                ai_prompt: '如何提高「改進」與「整合」的比例？' 
+            'principles': {
+                title: '鷹架分佈分析',
+                theory: '檢核各類認知活動（如提問、改進、整合）的比例。',
+                source: 'Scardamalia, M. (2002). Collective cognitive responsibility for the advancement of knowledge. Liberal Education in a Knowledge Society, 67-98.',
+                ai_prompt: '如何提高「改進」與「整合」的比例？'
             },
-            'kb12': { 
-                title: 'KB 12原則落實', 
-                theory: '以 12 項原則作為知識建構社群的最高指導方針。其中 Epistemic Agency(認知能動性)指學生自己負責推進知識,本檢核以「主動發起、自我修正、提出解釋」三面向綜合判定(文字面向為關鍵字啟發式,僅供輔助)。', 
-                source: 'Scardamalia, M. (2002). Collective cognitive responsibility for the advancement of knowledge. Liberal Education in a Knowledge Society, 97, 67-98.', 
-                ai_prompt: '如何讓班級符合更多 KB 原則？' 
+            'kb12': {
+                title: 'KB 12原則落實',
+                theory: '以 12 項原則作為知識建構社群的最高指導方針。其中 Epistemic Agency(認知能動性)指學生自己負責推進知識,本檢核以「主動發起、自我修正、提出解釋」三面向綜合判定(文字面向為關鍵字啟發式,僅供輔助)。',
+                source: 'Scardamalia, M. (2002). Collective cognitive responsibility for the advancement of knowledge. Liberal Education in a Knowledge Society, 97, 67-98.',
+                ai_prompt: '如何讓班級符合更多 KB 原則？'
             },
-            'kb12_real': { 
-                title: 'Real Ideas, Authentic Problems', 
-                theory: '真實想法與真實問題:知識建構從學生真正想解決的問題出發,而不是練習題或老師預設的答案。', 
-                source: 'Scardamalia, M. (2002). Collective cognitive responsibility for the advancement of knowledge. In B. Smith (Ed.), Liberal education in a knowledge society (pp. 67-98). Open Court.', 
-                ai_prompt: '學生的討論缺少真實疑問時,老師該怎麼引導?' 
+            'kb12_real': {
+                title: 'Real Ideas, Authentic Problems',
+                theory: '真實想法與真實問題:知識建構從學生真正想解決的問題出發,而不是練習題或老師預設的答案。',
+                source: 'Scardamalia, M. (2002). Collective cognitive responsibility for the advancement of knowledge. In B. Smith (Ed.), Liberal education in a knowledge society (pp. 67-98). Open Court.',
+                ai_prompt: '學生的討論缺少真實疑問時,老師該怎麼引導?'
             },
-            'kb12_diversity': { 
-                title: 'Idea Diversity', 
-                theory: '觀點多樣性:要真正理解一個想法,必須接觸與它不同、甚至對立的想法;多樣性是想法進步的動力。', 
-                source: 'Scardamalia, M. (2002). Collective cognitive responsibility for the advancement of knowledge. In B. Smith (Ed.), Liberal education in a knowledge society (pp. 67-98). Open Court.', 
-                ai_prompt: '如何讓班上出現更多不同的觀點而不只是互相附和?' 
+            'kb12_diversity': {
+                title: 'Idea Diversity',
+                theory: '觀點多樣性:要真正理解一個想法,必須接觸與它不同、甚至對立的想法;多樣性是想法進步的動力。',
+                source: 'Scardamalia, M. (2002). Collective cognitive responsibility for the advancement of knowledge. In B. Smith (Ed.), Liberal education in a knowledge society (pp. 67-98). Open Court.',
+                ai_prompt: '如何讓班上出現更多不同的觀點而不只是互相附和?'
             },
-            'kb12_agency': { 
-                title: 'Epistemic Agency', 
-                theory: '認知能動性:學生自己設定目標、規劃、監控並修正自己的學習與想法,負起推進知識的責任。', 
-                source: 'Scardamalia, M. (2002). Collective cognitive responsibility for the advancement of knowledge. In B. Smith (Ed.), Liberal education in a knowledge society (pp. 67-98). Open Court. / Scardamalia, M., & Bereiter, C. (2006). Knowledge building. In The Cambridge Handbook of the Learning Sciences.', 
-                ai_prompt: '如何提升學生的認知能動性,讓他們更主動負責自己的知識推進?' 
+            'kb12_agency': {
+                title: 'Epistemic Agency',
+                theory: '認知能動性:學生自己設定目標、規劃、監控並修正自己的學習與想法,負起推進知識的責任。',
+                source: 'Scardamalia, M. (2002). Collective cognitive responsibility for the advancement of knowledge. In B. Smith (Ed.), Liberal education in a knowledge society (pp. 67-98). Open Court. / Scardamalia, M., & Bereiter, C. (2006). Knowledge building. In The Cambridge Handbook of the Learning Sciences.',
+                ai_prompt: '如何提升學生的認知能動性,讓他們更主動負責自己的知識推進?'
             },
-            'kb12_community': { 
-                title: 'Community Knowledge, Collective Responsibility', 
-                theory: '社群知識與集體責任:知識是社群共同擁有的,每個人都有責任貢獻並推進全班的理解。', 
-                source: 'Scardamalia, M. (2002). Collective cognitive responsibility for the advancement of knowledge. In B. Smith (Ed.), Liberal education in a knowledge society (pp. 67-98). Open Court.', 
-                ai_prompt: '如何讓學生更願意回應同學、為全班知識負責?' 
+            'kb12_community': {
+                title: 'Community Knowledge, Collective Responsibility',
+                theory: '社群知識與集體責任:知識是社群共同擁有的,每個人都有責任貢獻並推進全班的理解。',
+                source: 'Scardamalia, M. (2002). Collective cognitive responsibility for the advancement of knowledge. In B. Smith (Ed.), Liberal education in a knowledge society (pp. 67-98). Open Court.',
+                ai_prompt: '如何讓學生更願意回應同學、為全班知識負責?'
             },
-            'kb12_improve': { 
-                title: 'Improvable Ideas', 
-                theory: '可改進的想法:所有想法都是「還可以更好」的,社群持續檢驗、修正與改良,才會產生進步。', 
-                source: 'Scardamalia, M. (2002). Collective cognitive responsibility for the advancement of knowledge. In B. Smith (Ed.), Liberal education in a knowledge society (pp. 67-98). Open Court.', 
-                ai_prompt: '如何引導學生更多地改進與挑戰彼此的想法?' 
+            'kb12_improve': {
+                title: 'Improvable Ideas',
+                theory: '可改進的想法:所有想法都是「還可以更好」的,社群持續檢驗、修正與改良,才會產生進步。',
+                source: 'Scardamalia, M. (2002). Collective cognitive responsibility for the advancement of knowledge. In B. Smith (Ed.), Liberal education in a knowledge society (pp. 67-98). Open Court.',
+                ai_prompt: '如何引導學生更多地改進與挑戰彼此的想法?'
             },
-            'kb12_riseabove': { 
-                title: 'Rise Above', 
-                theory: '昇華:把分散的想法整合,提出更高層次、涵蓋更廣的解釋,是知識建構的核心動作。', 
-                source: 'Scardamalia, M. (2002). Collective cognitive responsibility for the advancement of knowledge. In B. Smith (Ed.), Liberal education in a knowledge society (pp. 67-98). Open Court.', 
-                ai_prompt: '如何讓更多學生(而不只是組長)參與觀點整合與昇華?' 
+            'kb12_riseabove': {
+                title: 'Rise Above',
+                theory: '昇華:把分散的想法整合,提出更高層次、涵蓋更廣的解釋,是知識建構的核心動作。',
+                source: 'Scardamalia, M. (2002). Collective cognitive responsibility for the advancement of knowledge. In B. Smith (Ed.), Liberal education in a knowledge society (pp. 67-98). Open Court.',
+                ai_prompt: '如何讓更多學生(而不只是組長)參與觀點整合與昇華?'
             },
-            'kb12_sources': { 
-                title: 'Constructive Uses of Authoritative Sources', 
-                theory: '權威資料的建設性使用:引用專家與文獻不是為了取代思考,而是用來支撐、挑戰或深化社群的想法。', 
-                source: 'Scardamalia, M. (2002). Collective cognitive responsibility for the advancement of knowledge. In B. Smith (Ed.), Liberal education in a knowledge society (pp. 67-98). Open Court.', 
-                ai_prompt: '如何引導學生建設性地使用文獻與外部資料?' 
+            'kb12_sources': {
+                title: 'Constructive Uses of Authoritative Sources',
+                theory: '權威資料的建設性使用:引用專家與文獻不是為了取代思考,而是用來支撐、挑戰或深化社群的想法。',
+                source: 'Scardamalia, M. (2002). Collective cognitive responsibility for the advancement of knowledge. In B. Smith (Ed.), Liberal education in a knowledge society (pp. 67-98). Open Court.',
+                ai_prompt: '如何引導學生建設性地使用文獻與外部資料?'
             },
-            'kb12_democratize': { 
-                title: 'Democratizing Knowledge', 
-                theory: '知識民主化:所有成員(不分能力或地位)都有權貢獻並被聽見,不是少數人主導。', 
-                source: 'Scardamalia, M. (2002). Collective cognitive responsibility for the advancement of knowledge. In B. Smith (Ed.), Liberal education in a knowledge society (pp. 67-98). Open Court.', 
-                ai_prompt: '如何避免少數人主導討論,讓更多人發言?' 
+            'kb12_democratize': {
+                title: 'Democratizing Knowledge',
+                theory: '知識民主化:所有成員(不分能力或地位)都有權貢獻並被聽見,不是少數人主導。',
+                source: 'Scardamalia, M. (2002). Collective cognitive responsibility for the advancement of knowledge. In B. Smith (Ed.), Liberal education in a knowledge society (pp. 67-98). Open Court.',
+                ai_prompt: '如何避免少數人主導討論,讓更多人發言?'
             },
-            'impact_scatter': { 
-                title: '互動影響力', 
-                theory: '產出-影響力矩陣 (Socio-cognitive dynamics)。', 
-                source: 'Zhang, J., Scardamalia, M., Lamon, M., Messina, R., & Reeve, R. (2007). Socio-cognitive dynamics of knowledge building in the work of 9-and 10-year-olds. Educational Technology Research and Development, 55(2), 117-145.', 
-                ai_prompt: '如何幫助高產出但低影響的學生？' 
+            'impact_scatter': {
+                title: '互動影響力',
+                theory: '產出-影響力矩陣 (Socio-cognitive dynamics)。',
+                source: 'Zhang, J., Scardamalia, M., Lamon, M., Messina, R., & Reeve, R. (2007). Socio-cognitive dynamics of knowledge building in the work of 9-and 10-year-olds. Educational Technology Research and Development, 55(2), 117-145.',
+                ai_prompt: '如何幫助高產出但低影響的學生？'
             },
-            'scaffold_profile': { 
-                title: '認知鷹架指紋', 
-                theory: '個人化的學習策略與認知風格。', 
-                source: 'Kolb, D. A. (1984). Experiential learning: Experience as the source of learning and development. Prentice-Hall.', 
-                ai_prompt: '如何引導單一風格的學生嘗試其他認知活動？' 
+            'scaffold_profile': {
+                title: '認知鷹架指紋',
+                theory: '個人化的學習策略與認知風格。',
+                source: 'Kolb, D. A. (1984). Experiential learning: Experience as the source of learning and development. Prentice-Hall.',
+                ai_prompt: '如何引導單一風格的學生嘗試其他認知活動？'
             },
-            'promisingness': { 
-                title: '潛力觀點分析', 
-                theory: '精華觀點挖掘，尋找有發展價值的想法。', 
-                source: 'Chen, B., Scardamalia, M., & Bereiter, C. (2015). Advancing knowledge-building discourse through judgments of promising ideas. International Journal of Computer-Supported Collaborative Learning, 10(4), 345-366.', 
-                ai_prompt: '如何利用潛力觀點設計下一堂課？' 
+            'promisingness': {
+                title: '潛力觀點分析',
+                theory: '精華觀點挖掘，尋找有發展價值的想法。',
+                source: 'Chen, B., Scardamalia, M., & Bereiter, C. (2015). Advancing knowledge-building discourse through judgments of promising ideas. International Journal of Computer-Supported Collaborative Learning, 10(4), 345-366.',
+                ai_prompt: '如何利用潛力觀點設計下一堂課？'
             },
-            'concept_network': { 
-                title: '概念網絡分析', 
-                theory: '語義共現網絡，追蹤思考焦點。', 
-                source: 'Landauer, T. K., Foltz, P. W., & Laham, D. (1998). An introduction to latent semantic analysis. Discourse Processes, 25(2-3), 259-284.', 
-                ai_prompt: '如何引導學生連結圖中尚未相連的概念？' 
+            'concept_network': {
+                title: '概念網絡分析',
+                theory: '語義共現網絡，追蹤思考焦點。',
+                source: 'Landauer, T. K., Foltz, P. W., & Laham, D. (1998). An introduction to latent semantic analysis. Discourse Processes, 25(2-3), 259-284.',
+                ai_prompt: '如何引導學生連結圖中尚未相連的概念？'
             },
-            'lexical_growth': { 
-                title: '學術詞彙成長', 
-                theory: '知識深度的累積與專業語彙發展。', 
-                source: 'Duff, P. A. (2010). Language socialization into academic discourse communities. Annual Review of Applied Linguistics, 30, 169-192.', 
-                ai_prompt: '如何透過閱讀材料增加學生的詞彙量？' 
+            'lexical_growth': {
+                title: '學術詞彙成長',
+                theory: '知識深度的累積與專業語彙發展。',
+                source: 'Duff, P. A. (2010). Language socialization into academic discourse communities. Annual Review of Applied Linguistics, 30, 169-192.',
+                ai_prompt: '如何透過閱讀材料增加學生的詞彙量？'
             },
-            'lens': { 
-                title: '深度對話透視', 
-                theory: '區分事實陳述 (Fact) 與理論建構 (Theory/Explanation)。', 
-                source: 'Bloom, B. S. (1956). Taxonomy of educational objectives: The classification of educational goals. Longmans, Green.', 
-                ai_prompt: '如何引導學生從描述事實轉向解釋理論？' 
+            'lens': {
+                title: '深度對話透視',
+                theory: '區分事實陳述 (Fact) 與理論建構 (Theory/Explanation)。',
+                source: 'Bloom, B. S. (1956). Taxonomy of educational objectives: The classification of educational goals. Longmans, Green.',
+                ai_prompt: '如何引導學生從描述事實轉向解釋理論？'
             },
-            'stream': { 
-                title: '關鍵對話流', 
-                theory: '觀察討論熱度隨時間的變化模式。', 
-                source: 'Reimann, P. (2009). Time is precious: Variable-and event-centred approaches to process analysis in CSCL research. International Journal of Computer-Supported Collaborative Learning, 4(3), 239-257.', 
-                ai_prompt: '如何維持長期的討論熱度？' 
+            'stream': {
+                title: '關鍵對話流',
+                theory: '觀察討論熱度隨時間的變化模式。',
+                source: 'Reimann, P. (2009). Time is precious: Variable-and event-centred approaches to process analysis in CSCL research. International Journal of Computer-Supported Collaborative Learning, 4(3), 239-257.',
+                ai_prompt: '如何維持長期的討論熱度？'
             },
-            'emotion': { 
-                title: '認知情緒溫譜', 
-                theory: '好奇、困惑、驚訝是推動探究的內在動力。', 
-                source: 'Pekrun, R., Vogl, E., Muis, K. R., & Sinatra, G. M. (2017). Measuring emotions during epistemic activities: The Epistemologically-Related Emotions Scales. Cognition and Emotion, 31(8), 1268-1276.', 
-                ai_prompt: '如何設計引發認知衝突與驚訝的教學活動？' 
+            'emotion': {
+                title: '認知情緒溫譜',
+                theory: '好奇、困惑、驚訝是推動探究的內在動力。',
+                source: 'Pekrun, R., Vogl, E., Muis, K. R., & Sinatra, G. M. (2017). Measuring emotions during epistemic activities: The Epistemologically-Related Emotions Scales. Cognition and Emotion, 31(8), 1268-1276.',
+                ai_prompt: '如何設計引發認知衝突與驚訝的教學活動？'
             },
-            'lexical_growth_index': { 
-                title: '生活 vs 學術語言', 
-                theory: '從生活語言轉向該領域的專業社群語言。', 
-                source: 'Snow, C. E. (2010). Academic language and the challenge of reading for learning about science. Science, 328(5977), 450-452.', 
-                ai_prompt: '如何透過鷹架提升學生的學術詞彙使用？' 
+            'lexical_growth_index': {
+                title: '生活 vs 學術語言',
+                theory: '從生活語言轉向該領域的專業社群語言。',
+                source: 'Snow, C. E. (2010). Academic language and the challenge of reading for learning about science. Science, 328(5977), 450-452.',
+                ai_prompt: '如何透過鷹架提升學生的學術詞彙使用？'
             },
-            'scaffold_transition': { 
-                title: '鷹架回應模式', 
-                theory: '分析言談行動的序列關係與對話流動。', 
-                source: 'Jeong, A. (2005). A guide to analyzing message-response sequences and group interaction patterns in computer-mediated communication. Distance Education, 19(2), 225-240.', 
-                ai_prompt: '如何優化班級的對話回應模式？' 
+            'scaffold_transition': {
+                title: '鷹架回應模式',
+                theory: '分析言談行動的序列關係與對話流動。',
+                source: 'Jeong, A. (2005). A guide to analyzing message-response sequences and group interaction patterns in computer-mediated communication. Distance Education, 19(2), 225-240.',
+                ai_prompt: '如何優化班級的對話回應模式？'
             },
-            'radar': { 
-                title: 'KB 五力雷達圖', 
-                theory: '多維度的學生綜合能力評估。', 
-                source: 'Griffin, P., McGaw, B., & Care, E. (Eds.). (2012). Assessment and teaching of 21st century skills. Springer.', 
-                ai_prompt: '如何幫助學生補足雷達圖上的弱項？' 
+            'radar': {
+                title: 'KB 五力雷達圖',
+                theory: '多維度的學生綜合能力評估。',
+                source: 'Griffin, P., McGaw, B., & Care, E. (Eds.). (2012). Assessment and teaching of 21st century skills. Springer.',
+                ai_prompt: '如何幫助學生補足雷達圖上的弱項？'
             },
-            'ego': { 
-                title: '自我互動圈', 
-                theory: '衡量個人社交資本與人際連帶。', 
-                source: 'Crossley, N., Bellotti, E., Edwards, G., Everett, M. G., Koskinen, J., & Tranmer, M. (2015). Social network analysis for ego-nets. Sage.', 
-                ai_prompt: '如何鼓勵孤立的學生擴大互動圈？' 
+            'ego': {
+                title: '自我互動圈',
+                theory: '衡量個人社交資本與人際連帶。',
+                source: 'Crossley, N., Bellotti, E., Edwards, G., Everett, M. G., Koskinen, J., & Tranmer, M. (2015). Social network analysis for ego-nets. Sage.',
+                ai_prompt: '如何鼓勵孤立的學生擴大互動圈？'
             },
-            'balance': { 
-                title: '自主協作平衡', 
-                theory: '發起話題與回應他人的比例平衡。', 
-                source: 'Dillenbourg, P. (1999). What do you mean by collaborative learning?. Collaborative-learning: Cognitive and Computational Approaches, 1-19.', 
-                ai_prompt: '如何引導愛發起話題的學生多去回應別人？' 
+            'balance': {
+                title: '自主協作平衡',
+                theory: '發起話題與回應他人的比例平衡。',
+                source: 'Dillenbourg, P. (1999). What do you mean by collaborative learning?. Collaborative-learning: Cognitive and Computational Approaches, 1-19.',
+                ai_prompt: '如何引導愛發起話題的學生多去回應別人？'
             },
-            'depth_trajectory': { 
-                title: '深度演化軌跡', 
-                theory: '個人思維層次的歷時性發展曲線。', 
-                source: 'Piaget, J. (1972). The psychology of intelligence. Totowa, NJ: Littlefield.', 
-                ai_prompt: '如何幫助深度停滯的學生突破瓶頸？' 
+            'depth_trajectory': {
+                title: '深度演化軌跡',
+                theory: '個人思維層次的歷時性發展曲線。',
+                source: 'Piaget, J. (1972). The psychology of intelligence. Totowa, NJ: Littlefield.',
+                ai_prompt: '如何幫助深度停滯的學生突破瓶頸？'
             },
-            'lexical_fingerprint': { 
-                title: '個人詞彙指紋', 
-                theory: '透過高頻詞彙分析個人的關注焦點。', 
-                source: 'Feldman, R., & Sanger, J. (2007). The text mining handbook: advanced approaches in analyzing unstructured data. Cambridge University Press.', 
-                ai_prompt: '如何引導學生擴展其關注的詞彙領域？' 
+            'lexical_fingerprint': {
+                title: '個人詞彙指紋',
+                theory: '透過高頻詞彙分析個人的關注焦點。',
+                source: 'Feldman, R., & Sanger, J. (2007). The text mining handbook: advanced approaches in analyzing unstructured data. Cambridge University Press.',
+                ai_prompt: '如何引導學生擴展其關注的詞彙領域？'
             }
         };
 
         function openRef(key) {
-            
+
             if (key === 'depth') key = 'rise_above';
 
             const modal = document.getElementById('ref-modal');
             const body = document.getElementById('ref-modal-body');
             const content = refContent[key] || { title: '指標分析', theory: '學習數據分析。', source: 'System', ai_prompt: '給老師的建議是？' };
-            
+
        let dynamicVal = "請參閱圖表";
             let dynamicStatus = "分析完成";
             let meaningText = "";
@@ -2941,29 +2932,29 @@ async function fetchRefAIInsight(key, aiPrompt, currentVal, currentStatus, force
                 meaningText = d < 0.2 ? '班上多數同學都在「自言自語」，沒有互相回覆。建議老師可以指派「必須回覆兩位同學」的任務來破冰。'
                             : (d > 0.5 ? '太棒了！班上已經形成密集的討論網，資訊流通非常快。老師現在可以準備引導他們把四散的想法做個總結了。'
                             : '小圈圈正在成形，互動慢慢變多，請繼續鼓勵同學互相看對方的想法。');
-            } 
+            }
             else if (key === 'rise_above') {
                 const r = globalClassStats.raRate || 0;
                 dynamicVal = r + '%';
                 dynamicStatus = r >= 5 ? '具備昇華能力' : '停留在表層補充';
                 meaningText = r >= 5 ? '學生不再只是拋想法，還懂得把大家零散的意見「收斂」成一個更好的大結論！這是非常高級的學習表現。'
                             : '目前的討論都是「你說A、我說B」，缺乏統整。老師可以挑兩篇互相衝突的文章，在課堂上帶著大家練習怎麼「融合成C」。';
-            } 
+            }
             else if (key === 'total_notes') {
                 const t = globalClassStats.totalNotes || 0;
                 dynamicVal = t + ' 篇';
                 dynamicStatus = '點子累積中';
                 const sc = globalClassStats.studentCount || 1;
-                meaningText = t > (sc * 3) ? '班級整體的發言量很充足！大家已經把大量的想法丟到平台上了，有足夠的素材可以進行下一步的深入探究。' 
+                meaningText = t > (sc * 3) ? '班級整體的發言量很充足！大家已經把大量的想法丟到平台上了，有足夠的素材可以進行下一步的深入探究。'
                             : '目前發言量有點少。在知識建構的初期，我們需要大量的「粗糙想法」來當作素材。建議老師先鼓勵學生「想到什麼就寫什麼，不用怕錯」。';
-            } 
+            }
             else if (key === 'risk') {
                 const r = globalClassStats.riskCount || 0;
                 dynamicVal = r + ' 人';
                 dynamicStatus = r > 0 ? '需教師拉一把' : '全員參與中';
-                meaningText = r > 0 ? `有 ${r} 位學生很少發言，或是發文了都沒人理。他們正在失去參與感。老師可以偷偷當「暗樁」去回覆他們，或在課堂上稱讚他們的想法。` 
+                meaningText = r > 0 ? `有 ${r} 位學生很少發言，或是發文了都沒人理。他們正在失去參與感。老師可以偷偷當「暗樁」去回覆他們，或在課堂上稱讚他們的想法。`
                             : '班上沒有人被邊緣化，大家都有在參與討論，這是非常健康的班級生態！';
-            } 
+            }
             else if (key === 'gini') {
                 const g = parseFloat(globalClassStats.gini || 0);
                 dynamicVal = g.toFixed(2);
@@ -2971,7 +2962,7 @@ async function fetchRefAIInsight(key, aiPrompt, currentVal, currentStatus, force
                 meaningText = g < 0.4 ? '班上的發言量分佈得很均勻，代表這是一個大家都願意開口的安全環境。'
                             : (g > 0.6 ? '注意！討論被少數幾個超級活躍的學生「霸佔」了。老師可以給這些高手新的任務：請他們不要自己發文，而是去「提問」引導其他同學說話。'
                             : '有幾個帶頭羊在主導話題，這很正常，但可以適時點名其他同學發表看法。');
-            } 
+            }
             else if (key === 'thread_depth') {
                 const td = parseFloat(globalClassStats.threadDepth || 0);
                 dynamicVal = td.toFixed(1) + ' 層';
@@ -3079,22 +3070,22 @@ async function fetchRefAIInsight(key, aiPrompt, currentVal, currentStatus, force
                     const uid = activeStudentEl.id.replace('student-btn-', '');
                     currentUid = uid;
                     const db = getRealData();
-                    const studentData = calculateStudentMetrics(db, uid); 
-                    
+                    const studentData = calculateStudentMetrics(db, uid);
+
                     if (!studentData) {
                         dynamicVal = '--';
                         dynamicStatus = '資料讀取錯誤';
                         meaningText = '無法載入該學生的數據，請重整頁面。';
                     } else if (key === 'radar') {
-                        const scores = studentData.radarData; 
+                        const scores = studentData.radarData;
                         const maxIdx = scores.indexOf(Math.max(...scores));
                         const labels = ['主體性', '社群互動', '觀點改進', '昇華整合', '持續探究'];
                         dynamicVal = `優勢: ${labels[maxIdx]}`;
                         dynamicStatus = '個人的雷達能力值';
-                        meaningText = `這位學生在「${labels[maxIdx]}」表現最為突出。` + 
-                                      (maxIdx === 3 ? '他很會把大家零散的想法整理出一個大結論。' : 
-                                       maxIdx === 1 ? '他是個交際花，很會去回覆別人，幫班上炒熱氣氛。' : 
-                                       maxIdx === 0 ? '他很有主見，常是那個拋出新問題、帶起新話題的人。' : 
+                        meaningText = `這位學生在「${labels[maxIdx]}」表現最為突出。` +
+                                      (maxIdx === 3 ? '他很會把大家零散的想法整理出一個大結論。' :
+                                       maxIdx === 1 ? '他是個交際花，很會去回覆別人，幫班上炒熱氣氛。' :
+                                       maxIdx === 0 ? '他很有主見，常是那個拋出新問題、帶起新話題的人。' :
                                        '他很會抓別人想法裡的漏洞，並給出很棒的改良建議。');
                     } else if (key === 'balance') {
                         const init = studentData.balanceData[0];
@@ -3103,8 +3094,8 @@ async function fetchRefAIInsight(key, aiPrompt, currentVal, currentStatus, force
                         const initPct = total > 0 ? Math.round(init/total*100) : 0;
                         dynamicVal = `自己發起 ${initPct}% : 回應別人 ${100-initPct}%`;
                         dynamicStatus = initPct > 60 ? '偏愛開新話題' : (initPct < 40 ? '偏愛回應別人' : '攻守均衡');
-                        meaningText = initPct > 60 ? '他很愛「開新話題」，但少去別人的文章留言。老師可以提醒他：「你的點子很棒，要不要去看看別人的文章，給點建議？」' 
-                                    : (initPct < 40 ? '他很少自己當主揪，但很習慣去別人文章底下「蓋樓補充」。這是很好的團隊協作者。' 
+                        meaningText = initPct > 60 ? '他很愛「開新話題」，但少去別人的文章留言。老師可以提醒他：「你的點子很棒，要不要去看看別人的文章，給點建議？」'
+                                    : (initPct < 40 ? '他很少自己當主揪，但很習慣去別人文章底下「蓋樓補充」。這是很好的團隊協作者。'
                                     : '他在「提出新想法」和「幫別人改進」之間抓到了完美的平衡，是班上的模範生！');
                     } else if (key === 'ego') {
                         const outD = studentData.outDegree;
@@ -3135,7 +3126,7 @@ async function fetchRefAIInsight(key, aiPrompt, currentVal, currentStatus, force
                             <span class="text-xs md:text-sm font-bold text-emerald-600 bg-white px-3 py-1 rounded shadow-sm">${dynamicVal}</span>
                         </div>
                         <div class="mb-3 text-emerald-800">
-                            <span class="font-bold">當前狀態判定：</span> 
+                            <span class="font-bold">當前狀態判定：</span>
                             <span class="bg-emerald-100 px-2 py-0.5 rounded">${dynamicStatus}</span>
                         </div>
                         <div class="mt-3 pt-3 border-t border-emerald-200">
@@ -3168,7 +3159,7 @@ async function fetchRefAIInsight(key, aiPrompt, currentVal, currentStatus, force
                     <div class="ref-section-title ref-source-title"><i class="fas fa-graduation-cap mr-2"></i> 參考文獻</div>
                     <div class="ref-source-box text-xs">${content.source || 'Scardamalia, M., & Bereiter, C. (2006). Knowledge Building.'}</div>
                 </div>
-                
+
                 <div class="mt-6 pt-4 border-t border-slate-100">
                     <button onclick="closeModal()" class="w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-lg transition text-base shadow-sm"><i class="fas fa-times mr-2"></i>關閉說明</button>
                 </div>

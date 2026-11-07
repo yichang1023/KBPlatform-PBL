@@ -3,8 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>我的知識羅盤 | My KB Journey v3.12 Pro-UX</title>
-    
+    <title>我的知識羅盤 | KB 知識建構平台</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#4f46e5">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Crect width=%2764%27 height=%2764%27 rx=%2714%27 fill=%27%234f46e5%27/%3E%3Ctext x=%2732%27 y=%2743%27 font-family=%27sans-serif%27 font-size=%2728%27 font-weight=%27700%27 fill=%27white%27 text-anchor=%27middle%27%3EKB%3C/text%3E%3C/svg%3E">
+
     <!-- 🔥 1. 引入 Firebase SDK -->
         <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
     <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
@@ -112,8 +115,12 @@
   window.kbPlayers = players;
 })();
 </script>
-<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+<script src="kb-config.js"></script>
+<script src="kb-core.js"></script>
+<script src="kb-cloud.js"></script>
+    <script src="kb-ui.js"></script>
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.6.1"></script>
@@ -123,16 +130,16 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700;900&display=swap');
-        
+
         body { font-family: 'Noto Sans TC', sans-serif; background-color: #f8fafc; padding-top: 28px; color: #334155; }
-        
+
         /* 現代化卡片設計 */
-        .card { 
-            background: #ffffff; 
-            border-radius: 16px; 
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03); 
+        .card {
+            background: #ffffff;
+            border-radius: 16px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
             border: 1px solid #f1f5f9;
-            padding: 1.5rem; 
+            padding: 1.5rem;
             transition: all 0.3s ease;
         }
         .card:hover { box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04); }
@@ -149,20 +156,20 @@
             background: linear-gradient(to bottom, #e2e8f0 80%, transparent); z-index: 0;
         }
         .evolution-item:last-child .evolution-line { display: none; }
-        
+
         /* 漣漪動畫效果 */
         @keyframes ripple {
             0% { box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.3); }
             100% { box-shadow: 0 0 0 15px rgba(79, 70, 229, 0); }
         }
         .ripple-effect { animation: ripple 2s infinite; }
-        
+
         .fade-in { animation: fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
 
         /* 標題共用樣式 */
         .section-title { font-size: 0.875rem; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 1rem; display: flex; align-items: center;}
-        
+
         /* Modal Styles */
         .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); align-items: center; justify-content: center; padding: 1rem; }
         .modal-content { background-color: #ffffff; margin: auto; padding: 0; border-radius: 16px; width: 100%; max-width: 500px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); animation: modalFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1); max-height: 90vh; display: flex; flex-direction: column; overflow: hidden;}
@@ -182,7 +189,7 @@
         .legend-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 4px; }
         .word-tag { display: inline-block; padding: 4px 10px; border-radius: 999px; margin: 3px; font-weight: 500; transition: transform 0.2s;}
         .word-tag:hover { transform: translateY(-1px); }
-        
+
         .eureka-chart-container { position: relative; height: 180px; width: 100%; }
         .lineage-tree { border-left: 2px dashed #cbd5e1; margin-left: 12px; padding-left: 16px; }
 
@@ -200,13 +207,13 @@
             80% { opacity: 1; }
             100% { transform: translateY(60px) rotate(90deg) scale(1); opacity: 0; }
         }
-        .sakura-petal { 
-            position: absolute; 
-            background: linear-gradient(135deg, #fbcfe8 0%, #f472b6 100%); 
-            border-radius: 15px 2px 15px 2px; 
-            width: 10px; height: 10px; 
-            animation: falling-petal 3s infinite linear; 
-            opacity: 0; 
+        .sakura-petal {
+            position: absolute;
+            background: linear-gradient(135deg, #fbcfe8 0%, #f472b6 100%);
+            border-radius: 15px 2px 15px 2px;
+            width: 10px; height: 10px;
+            animation: falling-petal 3s infinite linear;
+            opacity: 0;
             box-shadow: 0 2px 4px rgba(244, 114, 182, 0.3);
         }
     </style>
@@ -229,8 +236,8 @@
         <div class="container mx-auto px-4 sm:px-6 py-3 flex flex-col sm:flex-row justify-between items-center gap-3">
             <div class="flex items-center space-x-3 w-full sm:w-auto justify-center sm:justify-start">
 
-                
- 
+
+
                 <div>
                     <h1 class="text-lg font-bold tracking-wide">知識羅盤 <span class="font-normal opacity-80 text-sm">| 學習者洞察</span></h1>
                 </div>
@@ -239,6 +246,8 @@
                 <div class="flex items-center gap-2 mr-2">
                     <a href="index.html" class="bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-md text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap"><i class="fas fa-home"></i> <span class="hidden sm:inline">首頁</span></a>
 <a href="Knowledge Building Forum.html" class="bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-md text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap"><i class="fas fa-comments"></i> <span class="hidden sm:inline">論壇</span></a>
+                    <a href="ANALYTICS-teacher.html" id="nav-teacher-link" style="display:none" class="bg-amber-400/90 hover:bg-amber-400 text-slate-900 px-3 py-1.5 rounded-md text-xs font-bold transition items-center gap-1.5 whitespace-nowrap"><i class="fas fa-chart-line"></i> <span class="hidden sm:inline">老師分析</span></a>
+                    <a href="setup.html" id="nav-setup-link" style="display:none" class="bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-md text-xs font-bold transition items-center gap-1.5 whitespace-nowrap"><i class="fas fa-gear"></i> <span class="hidden sm:inline">設定中心</span></a>
                     <button onclick="syncData()" id="sync-btn" class="bg-emerald-500/80 hover:bg-emerald-500 px-3 py-1.5 rounded-md text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap"><i class="fas fa-sync-alt"></i> <span class="hidden sm:inline">更新資料</span></button>
                 </div>
                 <div class="text-right hidden md:block">
@@ -254,21 +263,21 @@
     <main class="container mx-auto px-4 sm:px-6 py-8 space-y-8 fade-in pb-20">
 
         <!-- ==========================================
-             第一層：總覽與成就 (Hero Section) 
+             第一層：總覽與成就 (Hero Section)
         =========================================== -->
         <section class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            
+
             <!-- 左側：角色身分卡 (佔 5 格) -->
             <div class="card lg:col-span-5 bg-gradient-to-br from-white to-indigo-50/50 relative overflow-hidden flex flex-col justify-between">
                 <!-- 背景裝飾 -->
                 <div class="absolute -right-10 -top-10 w-48 h-48 bg-indigo-100 rounded-full opacity-30 blur-3xl pointer-events-none"></div>
-                
+
                 <div class="relative z-10 mb-6">
                     <div class="flex items-center justify-between mb-4">
                         <h2 class="section-title mb-0"><i class="fas fa-id-badge text-indigo-500 mr-2"></i> 我的知識角色</h2>
                         <button onclick="openRefModal('roles')" class="ref-btn" title="了解角色定義"><i class="fas fa-info mr-1"></i> Ref.</button>
                     </div>
-                    
+
                     <div class="flex items-center gap-5 mt-2">
                         <div class="w-20 h-20 bg-indigo-600 rounded-2xl flex items-center justify-center text-white text-3xl shadow-lg ripple-effect flex-shrink-0 transform rotate-3">
                             <div id="user-avatar-large" class="font-bold -rotate-3">?</div>
@@ -331,7 +340,7 @@
              第二層：行為特徵 (Behavior)
         =========================================== -->
         <section class="grid grid-cols-1 md:grid-cols-3 gap-6">
-            
+
             <!-- 知識五力分析 -->
             <div class="card flex flex-col">
                 <div class="flex justify-between items-center mb-2">
@@ -379,7 +388,7 @@
              第三層：軌跡與網絡 (Timeline & Network)
         =========================================== -->
         <section class="grid grid-cols-1 lg:grid-cols-5 gap-6">
-            
+
             <!-- 最近思考軌跡 (Span 3) -->
             <div class="card lg:col-span-3 flex flex-col">
                 <div class="flex justify-between items-center mb-4 border-b border-slate-100 pb-3">
@@ -400,13 +409,13 @@
                     <h3 class="section-title mb-0"><i class="fas fa-project-diagram text-blue-500 mr-2"></i> 互動圈 (Ego Network)</h3>
                     <button onclick="openRefModal('interaction_circle')" class="ref-btn"><i class="fas fa-info"></i>Ref.</button>
                 </div>
-                
+
                 <div class="flex justify-center gap-3 text-[10px] mb-2 px-1 flex-shrink-0 text-slate-500 font-medium relative z-10 bg-white/80 rounded-full py-1">
                     <span class="flex items-center"><span class="legend-dot" style="background:#3b82f6"></span>提問</span>
                     <span class="flex items-center"><span class="legend-dot" style="background:#22c55e"></span>改進</span>
                     <span class="flex items-center"><span class="legend-dot" style="background:#a855f7"></span>整合</span>
                 </div>
-                
+
                 <div id="ego-network-container" class="w-full flex-1 min-h-[300px] bg-slate-50/50 rounded-xl border border-slate-100 relative z-0"></div>
             </div>
         </section>
@@ -419,7 +428,7 @@
                 <i class="fas fa-star text-amber-400 mr-2"></i> 核心認知突破指標
             </h2>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                
+
                 <!-- 1. 觀點多樣性 (獨立卡片) -->
                 <div class="card bg-white hover:border-sky-300 transition group cursor-pointer" onclick="openRefModal('diversity')">
                     <div class="flex justify-between items-center mb-3">
@@ -482,7 +491,7 @@
                 <i class="fas fa-brain text-slate-400 mr-2"></i> 前瞻知識動態分析 (Advanced Dynamics)
             </h2>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                
+
                 <!-- A. 概念演化雲 (專屬區塊) -->
                 <div class="card hover:border-teal-200 transition col-span-1 md:col-span-2 lg:col-span-1">
                     <div class="flex justify-between items-center mb-4 border-b border-slate-100 pb-3">
@@ -496,7 +505,7 @@
                             <div class="text-[10px] font-bold text-slate-400 mb-2 uppercase tracking-widest flex items-center"><i class="fas fa-history mr-1"></i> 前期關注 (Early)</div>
                             <div id="word-cloud-early" class="flex flex-wrap text-sm text-slate-600 gap-2"><span class="italic text-xs">擷取中...</span></div>
                         </div>
-                        
+
                         <div class="flex justify-center -my-3 relative z-10 text-slate-300">
                             <i class="fas fa-arrow-down text-xl"></i>
                         </div>
@@ -514,7 +523,7 @@
                         <h3 class="section-title mb-0"><i class="fas fa-hammer text-orange-500 mr-2"></i> 跨溫層破壁指數 (Echo-Chamber)</h3>
                         <button onclick="openRefModal('echo_chamber')" class="ref-btn"><i class="fas fa-info"></i>Ref.</button>
                     </div>
-                    
+
                     <div class="flex items-center gap-6 py-4">
                         <div class="w-24 h-24 rounded-full flex items-center justify-center relative flex-shrink-0">
                             <svg class="absolute w-full h-full transform -rotate-90 drop-shadow-sm">
@@ -595,14 +604,14 @@
                     <h4 class="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2 flex items-center"><i class="fas fa-graduation-cap mr-2"></i> 理論背景 (Theory)</h4>
                     <div class="text-sm text-slate-600 bg-slate-50 p-3 rounded-lg border border-slate-200 leading-relaxed" id="modalTheory"></div>
                 </div>
-                
+
                 <div class="border-t border-slate-100 pt-4">
                     <h4 class="text-[12px] font-bold text-indigo-600 uppercase tracking-widest mb-3 flex items-center"><i class="fas fa-magic mr-2"></i> 專屬 AI 數據診斷 (Insights)</h4>
                     <div id="modalInsight" class="w-full">
                         <!-- AI 動態生成 Why / What / How -->
                     </div>
                 </div>
-                
+
                 <div class="pt-2 border-t border-slate-100">
                     <p class="text-[10px] text-slate-400 italic" id="modalRef"></p>
                 </div>
@@ -611,35 +620,21 @@
     </div>
 
     <script>
-    // 🔥 2. Firebase Initialization (Cloud Core)
-    const firebaseConfig = {
-        apiKey: "AIzaSyDPjtxtf656JHVVlj1o4cLwSylo1jDBFAc",
-        authDomain: "kb-platform-1.firebaseapp.com",
-        databaseURL: "https://kb-platform-1-default-rtdb.firebaseio.com",
-        projectId: "kb-platform-1",
-        storageBucket: "kb-platform-1.firebasestorage.app",
-        messagingSenderId: "230026226847",
-        appId: "1:230026226847:web:49e6f09ddfc3de0ef046aa"
-    };
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
-    db.settings({ experimentalAutoDetectLongPolling: true }); // 自動偵測網路:被擋時改用長輪詢,避免要等 10 秒才連上
-    const DB_COLLECTION = 'kb_platform';
-    const DB_DOC = 'class_data_v33_cross_group';
-    const SETTINGS_DOC = db.collection('kb_platform').doc('settings');
+    // 測試版:資料與登入由 kb-core.js 提供(不再連線 Firebase)
+    let gateUser = null; // 目前登入者
 
     // --- Global State ---
     let currentUserId = '';
-    let globalData = {}; 
+    let globalData = {};
     let radarChartInstance = null;
-    let currentUserStats = null; 
-    let egoNetworkInstance = null; 
-    let eurekaChartInstance = null; 
+    let currentUserStats = null;
+    let egoNetworkInstance = null;
+    let eurekaChartInstance = null;
     let insightCache = {}; // 🔥 新增：儲存 AI 分析結果的快取
 
     // ✅ Gemini AI Configuration
     // ✅ Gemini AI Configuration
-let apiKey = ""; 
+let apiKey = "";
 // Gemini 模型自動選擇:向 Google 查詢這把金鑰「實際可用」的模型,挑出版本最新的 flash 模型;
 // 查不到時依序嘗試 gemini-3.8-flash、gemini-2.5-flash(遇到 404 自動換下一個)。
 async function geminiPickModels(key) {
@@ -669,7 +664,9 @@ async function geminiFetch(key, init) {
     let stored = ''; try { stored = localStorage.getItem('kb_ai_model') || ''; } catch (e) {}
     const discovered = await geminiPickModels(key);
     // 優先使用查詢到的最新模型;上次成功的模型與固定備援排在後面
-    const models = [].concat(discovered, [stored], ['gemini-3.8-flash', 'gemini-2.5-flash']).filter((m, i, arr) => m && arr.indexOf(m) === i);
+    let pref = ''; try { pref = ((KB.settings.get().ai || {}).model) || ''; } catch (e) {} if (pref === 'auto') pref = '';
+    // 設定中心指定的模型最優先;沒指定(自動)時,用查詢到的最新 flash 模型
+    const models = [].concat(pref ? [pref] : [], discovered, [stored], ['gemini-3.8-flash', 'gemini-2.5-flash']).filter((m, i, arr) => m && arr.indexOf(m) === i);
     let last;
     for (const m of models) {
         const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + m + ':generateContent?key=' + key, init);
@@ -687,23 +684,12 @@ let aiModelUrl = "";
 async function initApiKey() {
     // 1. 優先嘗試從本機端 Local Storage 讀取 (老師端或先前設定過的裝置)
     const localKey = localStorage.getItem('kb_ai_key');
-    
+
     if (localKey) {
         apiKey = localKey;
         console.log("[AI System] 已從 LocalStorage 載入 API Key");
     } else {
-        // 2. 若本機端沒有，則嘗試從 Firebase 讀取 (讓學生端直接繼承，免重複輸入)
-        try {
-            const doc = await SETTINGS_DOC.get();
-            if (doc.exists && doc.data().gemini_api_key) {
-                apiKey = doc.data().gemini_api_key;
-                console.log("[AI System] 已從 Firebase 載入共享 API Key");
-            } else {
-                console.warn("[AI System] 尚未設定 API Key，AI 導師將無法運作");
-            }
-        } catch (e) {
-            console.error("[AI System] 讀取雲端 API Key 失敗:", e);
-        }
+        console.warn("[AI System] 尚未設定 API Key,AI 導師將無法運作(請老師在首頁或設定中心輸入金鑰)");
     }
 
     // 動態組合模型 API URL (為了穩定性，這裡統一對齊 index.html 使用 gemini-2.5-flash)
@@ -742,7 +728,7 @@ async function initApiKey() {
         const data = refData[key] || { title: '數據指標', theory: '正在讀取...', cite: '' };
         const modal = document.getElementById('refModal');
         const s = currentUserStats;
-        
+
         document.getElementById('modalTitle').innerText = data.title;
         document.getElementById('modalTheory').innerText = data.theory;
         document.getElementById('modalRef').innerText = data.cite;
@@ -776,7 +762,7 @@ async function initApiKey() {
 
 // 呼叫 Gemini AI 生成獨一無二的診斷
     async function generateModalAIInsight(key, stats) {
-        
+
         // 👇 請在這裡貼上這段防呆機制 👇
         if (!apiKey) {
             alert("請先至系統首頁輸入並儲存 Gemini API Key，才能啟動 AI 導師功能！");
@@ -784,7 +770,7 @@ async function initApiKey() {
             return;
         }
         // 👆 貼到這裡結束 👆
-        
+
         const insightContainer = document.getElementById('modalInsight');
         const metricName = refData[key].title;
         const studentName = document.getElementById('user-name').innerText;
@@ -847,10 +833,10 @@ ${specificData}
 請用繁體中文回覆，語氣要充滿鼓勵。不要輸出多餘的開場白，直接給予 Markdown 內容。`;
 
         try {
-            const response = await geminiFetch(apiKey, { 
-                method: 'POST', 
-                headers: { 'Content-Type': 'application/json' }, 
-                body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }) 
+            const response = await geminiFetch(apiKey, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
             });
             const data = await response.json();
             const textContent = data.candidates?.[0]?.content?.parts?.[0]?.text;
@@ -871,12 +857,12 @@ ${specificData}
             } else {
                 throw new Error("Empty AI Response");
             }
-        } catch (e) { 
+        } catch (e) {
             console.error("AI Insight Error:", e);
             insightContainer.innerHTML = `
                 <div class="text-sm text-amber-600 bg-amber-50 p-4 rounded-xl border border-amber-200">
                     <i class="fas fa-exclamation-triangle mr-2"></i>AI 分析導師目前忙線中，請稍後再試一次。
-                </div>`; 
+                </div>`;
         }
     }
 
@@ -884,7 +870,7 @@ ${specificData}
     window.forceReanalyze = function(key) {
         const s = currentUserStats;
         if (!s) return;
-        
+
         // 刪除此項目的快取
         if (insightCache[currentUserId] && insightCache[currentUserId][key]) {
             delete insightCache[currentUserId][key];
@@ -920,81 +906,70 @@ ${specificData}
    // --- Core Cloud Logic ---
     async function initApp() {
         const aiStatus = document.getElementById('ai-status-indicator');
-        aiStatus.innerText = "Checking Key..."; 
+        aiStatus.innerText = "Checking Key...";
         aiStatus.className = "text-amber-400 font-bold";
 
         // 呼叫 API Key 初始化 (等待抓取金鑰)
         const keyLoaded = await initApiKey();
-        
+
         // 根據是否抓到金鑰，更新右上角的 AI 狀態燈號
         if (keyLoaded) {
-            aiStatus.innerText = "Ready (AI Embedded)"; 
+            aiStatus.innerText = "Ready (AI Embedded)";
             aiStatus.className = "text-emerald-400 font-bold";
         } else {
-            aiStatus.innerText = "Offline (No API Key)"; 
+            aiStatus.innerText = "Offline (No API Key)";
             aiStatus.className = "text-red-400 font-bold";
         }
 
-        // 監聽 Firebase 資料庫變化 (維持原本的讀取邏輯)
-        // ⚡ 先用上次的暫存資料立刻畫出畫面,雲端最新資料一到就以雲端為準(同步不受影響)
-        const CACHE_KEY = 'kb_dash_cache_' + DB_DOC;
-        let lastRaw = null;
+        // 本機資料來源(kb-core.js):同一台電腦其他分頁有變動時即時更新
+        function feed() {
+            const c = KB.content.get();
+            return { nodes: JSON.parse(JSON.stringify(c.nodes)), topics: JSON.parse(JSON.stringify(c.topics)), userList: KB.compat.userList(gateUser.role) };
+        }
         function applyData(data) {
             globalData = data;
-            insightCache = {}; // 🔥 當資料庫有真實更新時，清空全部快取以確保資料最新
+            insightCache = {};
             if (!document.getElementById('student-selector')) initUserSwitcher();
             else if (currentUserId) switchUser(currentUserId);
         }
-        try {
-            const cached = localStorage.getItem(CACHE_KEY);
-            if (cached) { lastRaw = cached; applyData(JSON.parse(cached)); }
-        } catch (e) { lastRaw = null; }
-
-        db.collection(DB_COLLECTION).doc(DB_DOC).onSnapshot((doc) => {
-            const dbStatus = document.getElementById('db-status-text');
-            // 尚未連上雲端時,Firebase 會先回報「不存在」的離線結果,這不代表沒有資料,忽略它並繼續等待
-            if (!doc.exists && doc.metadata && doc.metadata.fromCache) return;
-            if (doc.exists) {
-                const data = doc.data();
-                let raw = null;
-                try { raw = JSON.stringify(data); localStorage.setItem(CACHE_KEY, raw); } catch (e) {}
-                dbStatus.innerText = "ONLINE"; dbStatus.className = "text-emerald-400 font-bold";
-                if (raw !== null && raw === lastRaw) return;
-                lastRaw = raw;
-                applyData(data);
-            } else {
-                try { localStorage.removeItem(CACHE_KEY); } catch (e) {}
-                dbStatus.innerText = "NO DATA"; dbStatus.className = "text-red-400 font-bold";
-            }
-        });
+        const dbStatus = document.getElementById('db-status-text');
+        dbStatus.innerText = "LOCAL"; dbStatus.className = "text-cyan-400 font-bold";
+        applyData(feed());
+        KB.on((keys, remote) => { if (remote && KB.auth.current()) applyData(feed()); });
     }
 
     function initUserSwitcher() {
         const container = document.getElementById('nav-user-select-container');
         if (!container) return;
-        container.innerHTML = ''; 
-        
+        container.innerHTML = '';
+
         const select = document.createElement('select');
         select.className = "bg-white/10 text-white text-xs border border-white/20 rounded px-2 py-1.5 outline-none font-bold cursor-pointer";
         select.id = "student-selector";
-        
+
         const users = Object.values(globalData.userList || {});
-        const students = users.filter(u => u.role !== 'teacher');
+        // 學生只能看自己的分析;老師與管理者可選擇任何一位學生
+        const students = users.filter(u => u.role !== 'teacher' && (gateUser.role !== 'student' || u.id === gateUser.id));
 
         if (students.length === 0) select.innerHTML = '<option>無學生資料</option>';
         else students.forEach(u => {
             const option = document.createElement('option');
-            option.value = u.id; 
-            option.text = u.name; 
-            option.style.color = "#334155"; 
+            option.value = u.id;
+            option.text = u.name;
+            option.style.color = "#334155";
             option.style.backgroundColor = "#ffffff";
             select.appendChild(option);
         });
-        
+
         select.onchange = function() { switchUser(this.value); };
         container.appendChild(select);
 
         let targetId = students.length > 0 ? students[0].id : null;
+        // 從設定中心的使用者清單點進來:?student=學號(僅老師與管理者有效,學生只能看自己)
+        try {
+            const want = new URLSearchParams(location.search).get('student');
+            if (want && gateUser.role !== 'student' && students.some(u => u.id === want)) targetId = want;
+        } catch (e) {}
         if (targetId) { select.value = targetId; switchUser(targetId); }
     }
 
@@ -1039,16 +1014,16 @@ ${specificData}
         const scaffoldCounts = { 'question': 0, 'extend': 0, 'improve': 0, 'counter': 0, 'riseabove': 0 };
         myNotes.forEach(n => { if (scaffoldCounts[n.type] !== undefined) scaffoldCounts[n.type]++; });
 
-        const linksCount = myNotes.filter(n => n.parentId).length; 
+        const linksCount = myNotes.filter(n => n.parentId).length;
         const topicsSet = new Set(); let totalDepth = 0;
-        
+
         myNotes.forEach(n => {
             const info = getRootAndDepth(n.id, nodesMap);
             topicsSet.add(info.rootId); totalDepth += info.depth;
         });
 
         const sortedNotes = myNotes.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-        
+
         const interactants = new Set();
         nodes.forEach(n => {
             if(n.parentId) {
@@ -1059,7 +1034,7 @@ ${specificData}
                 }
             }
         });
-        
+
         const avgDepth = myNotes.length > 0 ? (totalDepth / myNotes.length) : 0;
         const initiateCount = myNotes.filter(n => n.type === 'question' || !n.parentId || SP_PLAN.test((n.title || '') + ' ' + (n.content || ''))).length;
         const crossCount = myNotes.filter(n => { const p = n.parentId ? nodesMap[n.parentId] : null; return p && p.author !== userId; }).length;
@@ -1073,15 +1048,15 @@ ${specificData}
         const allText = myNotes.map(n => n.content + " " + n.title).join(" ");
         const academicWords = ['理論', '機制', '證明', '總結', '分析', '影響', '核心', '結構', '觀點', '現象', '顯示', '實證', '概念', '解釋'];
         const logicWords = ['因為', '所以', '導致', '推論', '假設', '可能', '同意', '雖然', '但是', '原因', '發現', '關聯', '結果'];
-        
+
         let acCount = 0; let lgCount = 0;
         academicWords.forEach(w => acCount += (allText.split(w).length - 1));
         logicWords.forEach(w => lgCount += (allText.split(w).length - 1));
 
         let lexicalLevel = "LV.0", lexicalTitle = "LV.0 尚未開始";
-        if (myNotes.length > 0 && (acCount / myNotes.length >= 0.25 || roleMetrics.synthesizer > 60)) { 
+        if (myNotes.length > 0 && (acCount / myNotes.length >= 0.25 || roleMetrics.synthesizer > 60)) {
             lexicalLevel = "LV.3"; lexicalTitle = "LV.3 學術建構";
-        } else if (myNotes.length > 0 && (lgCount / myNotes.length >= 0.2 || roleMetrics.builder > 60)) { 
+        } else if (myNotes.length > 0 && (lgCount / myNotes.length >= 0.2 || roleMetrics.builder > 60)) {
             lexicalLevel = "LV.2"; lexicalTitle = "LV.2 邏輯推演";
         } else if (myNotes.length > 0) {
             lexicalLevel = "LV.1"; lexicalTitle = "LV.1 日常探索";
@@ -1139,7 +1114,7 @@ ${specificData}
         document.getElementById('user-avatar-large').innerText = user.name[0];
 
         const stats = analyzeStudentData(userId);
-        currentUserStats = stats; 
+        currentUserStats = stats;
 
         // 動態角色 UI
         const setBar = (id, val) => { document.getElementById(id+'-val').innerText = val+'%'; document.getElementById(id+'-bar').style.width = val+'%'; };
@@ -1151,9 +1126,9 @@ ${specificData}
         const m = stats.roleMetrics;
         let ft = "綜合探索型", fd = "各項能力均衡發展，持續摸索最佳的知識建構模式。";
         let bestRole = '探索者', roleSub = "The Explorer";
-        
+
         const maxStat = Math.max(m.initiator, m.builder, m.synthesizer, m.sustainer);
-        
+
         if (maxStat === 0 || stats.totalNotes === 0) {
             ft = "知識新手"; fd = "剛踏入社群，準備開始你的知識旅程。";
             bestRole = '新手'; roleSub = 'Newcomer';
@@ -1177,15 +1152,15 @@ ${specificData}
 
         document.getElementById('topic-count-val').innerText = stats.uniqueTopicsCount;
         const topicBar = document.getElementById('topic-diversity-bar');
-        if(topicBar) topicBar.style.width = `${Math.min(stats.uniqueTopicsCount * 10, 100)}%`; 
-        
+        if(topicBar) topicBar.style.width = `${Math.min(stats.uniqueTopicsCount * 10, 100)}%`;
+
         document.getElementById('avg-depth-val').innerText = stats.avgDepth.toFixed(1);
-        
+
         const depthContainer = document.getElementById('path-length-visual');
         if (depthContainer) {
             let visualHtml = '';
             const maxNodes = 5;
-            const currentNodes = Math.max(Math.round(stats.avgDepth), 1); 
+            const currentNodes = Math.max(Math.round(stats.avgDepth), 1);
             for(let i=1; i<=maxNodes; i++) {
                let color = i <= currentNodes ? 'bg-indigo-500' : 'bg-slate-200';
                if(i>1) visualHtml += `<div class="h-1 w-6 ${color} transition-colors duration-500"></div>`;
@@ -1214,7 +1189,7 @@ ${specificData}
 
         renderTimeline(stats.recentNotes, globalData.nodes);
         renderScaffoldBars(stats.scaffoldCounts);
-        
+
         renderRadarChart([
             stats.roleMetrics.initiator,
             stats.roleMetrics.builder,
@@ -1222,14 +1197,14 @@ ${specificData}
             stats.roleMetrics.sustainer,
             Math.min((stats.repliedCount * 15) + 10, 100)
         ]);
-        
+
         renderEgoNetwork(userId);
         renderConceptEvolution(stats.recentNotes);
-        renderEchoChamber(stats); 
-        
+        renderEchoChamber(stats);
+
         // 🔥 修改：傳入 userId, 全域節點 與 全域使用者名單，以繪製完整的成長歷程
         renderIdeaLineage(userId, globalData.nodes, globalData.userList);
-        
+
         renderEurekaArc(userId, globalData.nodes);
 
         document.getElementById('ai-feedback').innerHTML = `
@@ -1268,9 +1243,9 @@ ${specificData}
     function renderEchoChamber(stats) {
         let score = stats.echoStats.score;
         let title = "同溫層探索者", desc = "你目前大多與固定幾位同學互動。";
-        let colorClass = "text-orange-500"; 
-        
-        if (score >= 80) { title = "社群破壁者 🏆"; desc = "太棒了！你廣泛地與不同同學交流。"; colorClass = "text-emerald-500"; } 
+        let colorClass = "text-orange-500";
+
+        if (score >= 80) { title = "社群破壁者 🏆"; desc = "太棒了！你廣泛地與不同同學交流。"; colorClass = "text-emerald-500"; }
         else if (score >= 40) { title = "知識橋樑"; desc = "你開始跨群體連結，繼續保持！"; colorClass = "text-sky-500"; }
 
         document.getElementById('echo-score').innerText = score;
@@ -1278,7 +1253,7 @@ ${specificData}
         document.getElementById('echo-title').innerText = title;
         document.getElementById('echo-title').className = `inline-block px-2 py-1 text-[10px] font-bold rounded mb-1 border ${score>=80?'bg-emerald-100 text-emerald-700 border-emerald-200':(score>=40?'bg-sky-100 text-sky-700 border-sky-200':'bg-orange-100 text-orange-700 border-orange-200')}`;
         document.getElementById('echo-desc').innerText = desc;
-        
+
         const circle = document.getElementById('echo-circle');
         if(circle) {
             circle.style.strokeDashoffset = 264 - (264 * score) / 100;
@@ -1295,7 +1270,7 @@ ${specificData}
             let count = 0, maxD = 0;
             let descList = [];
             const children = allNodes.filter(n => n.parentId === nodeId);
-            
+
             // 根據日期排序子節點，確保時間序
             children.sort((a,b) => new Date(a.date) - new Date(b.date));
 
@@ -1311,7 +1286,7 @@ ${specificData}
         };
 
         let bestNote = null, bestInfo = { count: -1, maxDepth: 0, descList: [] };
-        
+
         // 尋找衍生出最多後代的那篇「初始筆記」
         allNodes.filter(n => n.author === userId).forEach(n => {
             const info = getDescendants(n.id, 1);
@@ -1338,7 +1313,7 @@ ${specificData}
         // 狀態二：已有灌溉紀錄的櫻花樹
         let line1Color = bestInfo.maxDepth >= 1 ? 'bg-pink-300' : 'bg-slate-200';
         let line2Color = bestInfo.maxDepth >= 2 ? 'bg-pink-400' : 'bg-slate-200';
-        
+
         let petalsHtml = bestInfo.maxDepth >= 2 ? `
             <div class="sakura-petal" style="left: 15%; animation-delay: 0s;"></div>
             <div class="sakura-petal" style="left: 85%; animation-delay: 1.2s; transform: scale(0.8);"></div>
@@ -1366,11 +1341,11 @@ ${specificData}
             let stageTitle = depth === 1 ? "第 1 層：初步質疑與補充" :
                              depth === 2 ? "第 2 層：深度延伸與反駁" :
                              `第 ${depth} 層：觀點收斂與昇華`;
-            
+
             let stageIcon = depth === 1 ? "fa-seedling text-green-500" :
                             depth === 2 ? "fa-leaf text-teal-500" :
                             "fa-fan text-pink-400"; // 使用扇形代表花瓣盛開階段
-            
+
             // 預設展開第1層與第2層，更深層的先折疊起來保持畫面乾淨
             const isOpen = depth <= 2;
             const hiddenClass = isOpen ? '' : 'hidden';
@@ -1394,11 +1369,11 @@ ${specificData}
                 const authorInfo = Object.values(users).find(u => u.id === desc.author);
                 const authorName = authorInfo ? authorInfo.name : '匿名';
                 const avatar = authorInfo ? (authorInfo.avatar || `https://ui-avatars.com/api/?name=${authorName}&background=random`) : `https://ui-avatars.com/api/?name=User&background=random`;
-                
+
                 let badgeStyle = 'bg-slate-100 text-slate-600 border-slate-200';
                 let icon = 'fa-comment';
                 let typeName = '一般';
-                
+
                 if (desc.type === 'question') { badgeStyle = 'bg-blue-50 text-blue-600 border-blue-200'; icon = 'fa-question'; typeName = '提問'; }
                 if (desc.type === 'improve') { badgeStyle = 'bg-green-50 text-green-600 border-green-200'; icon = 'fa-arrow-up'; typeName = '改進'; }
                 if (desc.type === 'extend') { badgeStyle = 'bg-yellow-50 text-yellow-600 border-yellow-200'; icon = 'fa-plus'; typeName = '延伸'; }
@@ -1429,10 +1404,10 @@ ${specificData}
                     </div>
                 `;
             });
-            
+
             logHtml += `</div></div>`; // 結束該階段的內容區塊與面板
         });
-        
+
         logHtml += `</div>`;
 
         // 組裝包含「源頭筆記」、「摘要動畫」與「灌溉紀錄列表」的完整 UI
@@ -1445,24 +1420,24 @@ ${specificData}
                 </div>
                 <div class="font-bold text-xs text-slate-800 truncate">${bestNote.title || '無標題'}</div>
             </div>
-            
+
             <div class="flex justify-between items-center bg-gradient-to-r from-pink-50/50 to-rose-50/50 rounded-xl p-3 mb-2 border border-pink-100 relative overflow-hidden shadow-inner shrink-0">
                 ${petalsHtml}
                 <div class="text-center flex-1 relative z-10">
                     <div class="text-2xl mb-0.5 ${bestInfo.maxDepth >= 0 ? 'drop-shadow-md' : 'opacity-40 grayscale'} transition-all duration-500">🌱</div>
                 </div>
                 <div class="w-8 h-1 rounded-full ${line1Color} transition-colors duration-500 relative z-10"></div>
-                
+
                 <div class="text-center flex-1 relative z-10">
                     <div class="text-2xl mb-0.5 ${bestInfo.maxDepth >= 1 ? 'drop-shadow-md' : 'opacity-40 grayscale'} transition-all duration-500">🌿</div>
                 </div>
                 <div class="w-8 h-1 rounded-full ${line2Color} transition-colors duration-500 relative z-10"></div>
-                
+
                 <div class="text-center flex-1 relative z-10">
                     <div class="text-3xl mb-0.5 ${bestInfo.maxDepth >= 2 ? 'drop-shadow-lg scale-110 transform -translate-y-1' : 'opacity-40 grayscale'} transition-all duration-500">🌸</div>
                 </div>
             </div>
-            
+
             <div class="flex flex-col flex-1 overflow-hidden">
                 <div class="text-[10px] font-bold text-pink-500 border-b border-pink-100 pb-1.5 flex justify-between items-center shrink-0">
                     <span><i class="fas fa-tint mr-1"></i> 歷程灌溉紀錄 (${bestInfo.count})</span>
@@ -1476,15 +1451,15 @@ ${specificData}
     function renderEurekaArc(userId, allNodes) {
         const myNotes = allNodes.filter(n => n.author === userId).sort((a,b) => new Date(a.date) - new Date(b.date));
         let acc = 0; const labels = [], data = [];
-        
+
         myNotes.forEach((n, i) => {
             labels.push(`N${i+1}`);
             acc += 1;
             let fluctuation = 0;
-            if (n.type === 'question' || n.type === 'counter') fluctuation = -0.5; 
-            else if (n.type === 'improve') fluctuation = 0.5; 
-            else if (n.type === 'riseabove') fluctuation = 2; 
-            
+            if (n.type === 'question' || n.type === 'counter') fluctuation = -0.5;
+            else if (n.type === 'improve') fluctuation = 0.5;
+            else if (n.type === 'riseabove') fluctuation = 2;
+
             data.push(acc + fluctuation);
         });
 
@@ -1512,7 +1487,7 @@ ${specificData}
                 responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
                 scales: {
                     x: { display: false },
-                    y: { 
+                    y: {
                         display: true, suggestedMin: 0, suggestedMax: Math.max(...data, 4),
                         grid: { color: '#f1f5f9' }, border: { dash: [4, 4] },
                         ticks: { font: { size: 10 }, color: '#94a3b8', callback: function(val) { return val % 2 === 0 ? val : ''; } }
@@ -1535,10 +1510,10 @@ ${specificData}
                     pointBorderColor: '#fff', borderWidth: 2
                 }]
             },
-            options: { 
-                responsive: true, maintainAspectRatio: false, 
-                scales: { r: { ticks: { display: false }, suggestedMin: 0, suggestedMax: 100, pointLabels: { font: { size: 11, family: "'Noto Sans TC', sans-serif", weight: 'bold' }, color: '#475569' }, grid: { color: '#e2e8f0' }, angleLines: { color: '#e2e8f0' } } }, 
-                plugins: { legend: { display: false } } 
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                scales: { r: { ticks: { display: false }, suggestedMin: 0, suggestedMax: 100, pointLabels: { font: { size: 11, family: "'Noto Sans TC', sans-serif", weight: 'bold' }, color: '#475569' }, grid: { color: '#e2e8f0' }, angleLines: { color: '#e2e8f0' } } },
+                plugins: { legend: { display: false } }
             }
         });
     }
@@ -1587,9 +1562,9 @@ ${specificData}
     }
 
     function renderTimeline(notes, dbNodes) {
-        const container = document.getElementById('evolution-timeline'); container.innerHTML = ''; 
+        const container = document.getElementById('evolution-timeline'); container.innerHTML = '';
         if (notes.length === 0) { container.innerHTML = '<div class="text-center py-10 text-slate-400 text-sm">尚無活動紀錄</div>'; return; }
-        
+
         const line = document.createElement('div'); line.className = 'evolution-line'; container.appendChild(line);
 
         notes.forEach(note => {
@@ -1597,7 +1572,7 @@ ${specificData}
             if (note.type === 'question') { tc = 'bg-blue-50 text-blue-500 border-blue-200'; ti = 'fa-question'; }
             if (note.type === 'improve') { tc = 'bg-green-50 text-green-500 border-green-200'; ti = 'fa-arrow-up'; }
             if (note.type === 'riseabove') { tc = 'bg-purple-50 text-purple-500 border-purple-200'; ti = 'fa-layer-group'; }
-            
+
             let ctxHtml = '';
             if (note.parentId) {
                 const parent = dbNodes.find(n => n.id === note.parentId);
@@ -1632,10 +1607,10 @@ ${specificData}
         const note = globalData.nodes.find(n => n.id === noteId); if(!note) return;
         document.getElementById('nd-title').innerText = note.title || '無標題';
         document.getElementById('nd-content').innerText = note.content;
-        
+
         // 🔥 修改這裡：將 toLocaleString 改為 toLocaleDateString，徹底移除時分秒
         document.getElementById('nd-date').innerText = new Date(note.date).toLocaleDateString('zh-TW');
-        
+
         document.getElementById('nd-type').innerText = note.type;
         const author = Object.values(globalData.userList).find(u => u.id === note.author);
         document.getElementById('nd-author').innerText = author ? author.name : note.author;
@@ -1669,28 +1644,28 @@ ${specificData}
         // 👆 貼到這裡結束 👆
         const btn = mode === 'advice' ? document.querySelector('button[onclick="triggerAIAnalysis(\'advice\')"]') : document.querySelector('button[onclick="triggerAIAnalysis(\'portfolio\')"]');
         const feedbackContainer = document.getElementById('ai-feedback');
-        
+
         const originalText = btn.innerHTML; btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 思考中...';
         const s = currentUserStats, ctx = `角色:${document.getElementById('role-title').innerText}。發文:${s.totalNotes},回覆:${s.linksCount},被引:${s.repliedCount}。鷹架:${s.scaffoldCounts.question}/${s.scaffoldCounts.extend}/${s.scaffoldCounts.improve}/${s.scaffoldCounts.riseabove}。`;
         const promptText = mode === 'advice' ? `根據數據：${ctx} 給予該學生3點具體的知識建構改進建議 (繁體中文，語氣鼓勵，限150字內)。` : `根據數據：${ctx} 為學生撰寫一份「學習歷程檔案」的自我反思草稿 (Reflection Draft)。第一人稱，學術且真誠，限200字內。`;
 
         try {
-            const response = await geminiFetch(apiKey, { 
-                method: 'POST', 
-                headers: { 'Content-Type': 'application/json' }, 
-                body: JSON.stringify({ contents: [{ parts: [{ text: promptText }] }] }) 
+            const response = await geminiFetch(apiKey, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ contents: [{ parts: [{ text: promptText }] }] })
             });
             const data = await response.json();
-            
+
             // Extract the result text
             const textContent = data.candidates?.[0]?.content?.parts?.[0]?.text || "無法生成回應，請稍後再試。";
-            
+
             feedbackContainer.innerHTML = `<div class="p-3 bg-white/60 rounded-lg border border-indigo-50/50">${marked.parse(textContent)}</div>`;
-        } catch (e) { 
+        } catch (e) {
             console.error("AI Analysis error:", e);
-            feedbackContainer.innerHTML = '<span class="text-red-500">AI 分析失敗，請檢查網路連線或稍後再試。</span>'; 
+            feedbackContainer.innerHTML = '<span class="text-red-500">AI 分析失敗，請檢查網路連線或稍後再試。</span>';
         }
-        
+
         btn.disabled = false; btn.innerHTML = originalText;
     }
 
@@ -1698,7 +1673,19 @@ ${specificData}
         window.addEventListener('keydown', function(event) {
             if (event.key === "Escape") { document.getElementById('refModal').style.display = "none"; document.getElementById('note-detail-modal').style.display = "none"; }
         });
-        initApp(); Chart.defaults.font.family = "'Noto Sans TC', sans-serif";
+        gateUser = KBUI.requireLogin({ roles: ['master', 'teacher', 'student'] });
+        if (gateUser) {
+            // 右上角只顯示:管理者 / 老師 / 學號
+            const oldName = document.getElementById('user-name'); if (oldName) oldName.parentElement.style.display = 'none';
+            const oldAv = document.getElementById('current-user-avatar'); if (oldAv) oldAv.style.display = 'none';
+            const host = document.getElementById('nav-user-select-container');
+            KBUI.mountUserBar({ container: host ? host.parentElement : null });
+            // 老師與管理者:可直接回到老師分析與設定中心;學生看不到這兩個按鈕
+            if (KB.can('analytics.teacher')) { const tl = document.getElementById('nav-teacher-link'); if (tl) tl.style.display = 'flex'; }
+            if (KB.can('setup.access')) { const sl = document.getElementById('nav-setup-link'); if (sl) sl.style.display = 'flex'; }
+            initApp();
+        }
+        Chart.defaults.font.family = "'Noto Sans TC', sans-serif";
     };
     </script>
 </body>
