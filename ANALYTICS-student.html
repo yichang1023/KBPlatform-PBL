@@ -146,6 +146,7 @@
     <script src="kb-ui.js"></script>
 <script src="kb-replay.js"></script>
 <script src="kb-ai-story.js"></script>
+<script src="kb-forest.js"></script>
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.6.1"></script>
@@ -518,7 +519,7 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
 
                 <!-- A. 概念演化雲 (專屬區塊) -->
-                <div class="card hover:border-teal-200 transition col-span-1 md:col-span-2 lg:col-span-1">
+                <div class="card hover:border-teal-200 transition col-span-1 md:col-span-2">
                     <div class="flex justify-between items-center mb-4 border-b border-slate-100 pb-3">
                         <h3 class="section-title mb-0"><i class="fas fa-cloud text-teal-500 mr-2"></i> 概念演化雲 (Concept Evolution)</h3>
                         <button onclick="openRefModal('concept_evolution')" class="ref-btn"><i class="fas fa-info"></i>Ref.</button>
@@ -564,22 +565,7 @@
                         </div>
                     </div>
                 </div>
-
-                <!-- C. 想法的存活與繁衍樹 (🔥 櫻花版) -->
-                <div class="card hover:border-pink-300 transition relative overflow-hidden flex flex-col">
-                    <div class="absolute -bottom-8 -right-8 text-9xl opacity-10 pointer-events-none filter blur-[2px] transform -rotate-12">🌸</div>
-                    <div class="flex justify-between items-center mb-4 border-b border-slate-100 pb-3 relative z-10">
-                        <h3 class="section-title mb-0"><i class="fas fa-tree text-pink-400 mr-2"></i> 想法櫻花樹 (Idea Lineage)</h3>
-                        <button onclick="openRefModal('idea_lineage')" class="ref-btn"><i class="fas fa-info"></i>Ref.</button>
-                    </div>
-                    <p class="text-[10px] text-slate-500 mb-2 relative z-10">追蹤你種下的哪一顆「知識種子」，在社群中綻放成最美的櫻花。</p>
-                    <div id="lineage-content" class="relative z-10 flex-1 flex flex-col justify-center">
-                        <!-- 動態生成櫻花樹 -->
-                    </div>
-                </div>
-
-                <!-- D. 認知掙扎與頓悟軌跡 -->
-                <div class="card hover:border-rose-200 transition flex flex-col">
+<div class="card hover:border-rose-200 transition flex flex-col">
                     <div class="flex justify-between items-center mb-2 border-b border-slate-100 pb-3">
                         <h3 class="section-title mb-0"><i class="fas fa-bolt text-rose-500 mr-2"></i> 認知頓悟軌跡 (Eureka Arc)</h3>
                         <button onclick="openRefModal('eureka_arc')" class="ref-btn"><i class="fas fa-info"></i>Ref.</button>
@@ -589,6 +575,39 @@
                         <canvas id="eurekaChart"></canvas>
                     </div>
                 </div>
+            <!-- 念念成櫻:實體的櫻花樹(從一顆種子慢慢長成一樹繁花)+ 歷程演進說明 -->
+            <div class="md:col-span-2 grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="card hover:border-pink-300 transition relative overflow-hidden flex flex-col lg:col-span-1">
+                    <div class="absolute -bottom-8 -right-8 text-9xl opacity-10 pointer-events-none filter blur-[2px] transform -rotate-12">🌸</div>
+                    <div class="flex justify-between items-center mb-4 border-b border-slate-100 pb-3 relative z-10">
+                        <h3 class="section-title mb-0"><i class="fas fa-tree text-pink-400 mr-2"></i> 念念成櫻 (Idea Lineage)</h3>
+                        <button onclick="openRefModal('idea_lineage')" class="ref-btn"><i class="fas fa-info"></i>Ref.</button>
+                    </div>
+                    <p class="text-[10px] text-slate-500 mb-2 relative z-10">追蹤你種下的哪一顆「知識種子」，在社群中綻放成最美的櫻花。</p>
+                    <div id="lineage-content" class="relative z-10 flex-1 flex flex-col justify-center">
+                        <!-- 動態生成櫻花樹 -->
+                    </div>
+                </div>
+                <div class="card lg:col-span-2 hover:border-pink-300 transition" id="nn-card" style="background:linear-gradient(180deg,#fff9fc,#ffffff)">
+                    <div class="flex items-start justify-between gap-3 mb-3">
+                        <div>
+                            <h3 class="section-title mb-0"><i class="fas fa-seedling text-pink-500 mr-2"></i> 念念成櫻</h3>
+                            <p class="text-[13px] text-pink-700/80 font-medium mt-1 leading-relaxed">每一個念頭，都有機會成為一朵櫻花；當想法被回應、被改進，便漸漸開成一樹繁花。</p>
+                        </div>
+                        <button onclick="openRefModal('idea_lineage')" class="ref-btn"><i class="fas fa-info"></i>Ref.</button>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-5 gap-4 items-start">
+                        <div class="md:col-span-3 min-w-0"><div id="nn-tree-box"></div></div>
+                        <div class="md:col-span-2 min-w-0"><div id="nn-log" style="--kf-log-h:560px"></div></div>
+                    </div>
+                </div>
+            </div>
+
+                <!-- C. 想法的存活與繁衍樹 (🔥 櫻花版) -->
+                
+
+                <!-- D. 認知掙扎與頓悟軌跡 -->
+                
 
             </div>
         </section>
@@ -742,7 +761,7 @@ async function initApiKey() {
         'lexical': { title: '語義與詞彙深度 (Lexical Depth)', theory: '追蹤學生從使用「日常語言」轉向精確的「學術術語」，反映了概念理解的深化與專業化過程。', cite: 'Resendes, M., et al. (2015).' },
         'concept_evolution': { title: '概念演化軌跡 (Concept Evolution Map)', theory: '萃取你發文的關鍵字，具象化你從前期關注表層現象，到後期探討深層機制的詞彙質變過程。', cite: 'Oshima, J., et al. (2012).' },
         'echo_chamber': { title: '跨溫層破壁指數 (Echo-Chamber Breaking)', theory: '分析你是否主掌握打破同溫層，去回應極少互動的同學。成功破壁者能促進觀點多樣性，成為社群的知識橋樑 (Broker)。', cite: 'Matsuzawa, Y., et al. (2012).' },
-        'idea_lineage': { title: '想法櫻花樹 (Idea Lineage)', theory: '追蹤你拋出的單一觀點如何被他人質疑、補充並收斂。體現了「集體認知責任」。', cite: 'Scardamalia, M., & Bereiter, C. (2006).' },
+        'idea_lineage': { title: '念念成櫻 (Idea Lineage)', theory: '追蹤你拋出的單一觀點如何被他人質疑、補充並收斂。體現了「集體認知責任」。', cite: 'Scardamalia, M., & Bereiter, C. (2006).' },
         'eureka_arc': { title: '認知頓悟軌跡 (Eureka Arc)', theory: '追蹤你經歷「認知衝突 (提問/反駁)」後，最終走向「昇華 (Rise-above)」的歷程。', cite: 'D’Mello, S., et al. (2014).' },
         'diversity': { title: '觀點多樣性 (Idea Diversity)', theory: '衡量參與不同主題討論的廣度。', cite: 'Scardamalia, M. (2002).' },
         'path_length': { title: '認知路徑長度 (Path Length)', theory: '衡量討論串的延續深度。', cite: 'Zhang, J., et al. (2007).' }
@@ -898,7 +917,7 @@ async function initApiKey() {
         generateModalAIInsight(key, s);
     };
 
-    // 🔥 新增：用於控制「想法櫻花樹」各階段的展開與收合
+    // 🔥 新增：用於控制「念念成櫻」各階段的展開與收合
     window.toggleLineageStage = function(contentId, headerEl) {
         const content = document.getElementById(contentId);
         const icon = headerEl.querySelector('.fa-chevron-down');
@@ -1220,12 +1239,39 @@ async function initApiKey() {
 
         renderEurekaArc(userId, globalData.nodes);
         try { attachStudentReplays(userId, stats); } catch (e) { console.error(e); }
+        try { renderNianNian(userId); } catch (e) { console.error(e); }
 
         document.getElementById('ai-feedback').innerHTML = `
             <div class="flex flex-col items-center justify-center h-full opacity-60 text-center">
                 <i class="fas fa-magic text-2xl mb-2 text-indigo-300"></i>
                 <p class="text-xs">點擊更新按鈕，獲取專屬學習建議。</p>
             </div>`;
+    }
+
+    // ===== 念念成櫻:把「自己衍生最多後續討論的那個想法」畫成一棵會長大的櫻花樹 =====
+    function renderNianNian(userId) {
+        const box = document.getElementById('nn-tree-box'), logEl = document.getElementById('nn-log');
+        if (!box || !logEl || typeof KBForest === 'undefined') return;
+        const nodes = globalData.nodes || [], kids = {}, memo = {};
+        nodes.forEach(n => { if (n.parentId) (kids[n.parentId] = kids[n.parentId] || []).push(n); });
+        const sizeOf = id => { if (memo[id] !== undefined) return memo[id]; let c = 0; (kids[id] || []).forEach(k => { c += 1 + sizeOf(k.id); }); return (memo[id] = c); };
+        let best = null, bs = -1;
+        nodes.filter(n => n.author === userId).forEach(n => { const sz = sizeOf(n.id); if (sz > bs) { bs = sz; best = n; } });
+        if (!best) {
+            box.innerHTML = '<div class="text-sm text-slate-500 p-8 text-center leading-relaxed">你還沒有發文。<br>發出第一個想法,就是種下第一顆種子 🌰</div>';
+            logEl.innerHTML = ''; logEl.classList.remove('kf-log'); return;
+        }
+        // 收集這個想法底下所有的回應(整棵子樹)
+        const sub = [], stack = [best];
+        while (stack.length) { const n = stack.pop(); sub.push(n); (kids[n.id] || []).forEach(k => stack.push(k)); }
+        const data = sub.map(n => ({ id: n.id, topicId: 'nn', author: String(n.author), parentId: n.id === best.id ? null : n.parentId, type: n.type, title: n.title, date: new Date(n.date).getTime() }));
+        const nameOf = id => { const u = Object.values(globalData.userList || {}).find(x => String(x.id) === String(id)); return (u && u.name) || String(id); };
+        const ident = window.__kbIdent || (window.__kbIdent = kbAiIdent(globalData.userList));
+        const ctl = KBForest.mount(box, { nodes: data, topics: [{ id: 'nn', name: '我的念念成櫻' }], userList: globalData.userList, nameOf, single: true, youId: userId, mode: 'tree', logEl, treeTitle: '我的念念成櫻' });
+        const pl = kbAttachReplay({ id: 'nn', anchor: box, labels: ctl.labels, explainTitle: '我的念念成櫻(一個念頭如何長成一樹繁花)的成長過程', stepper: true, slow: true, jump: 3, baseDelay: 850, dayPause: { every: 3, ms: 2000 },
+            render: step => ctl.setStep(step), values: step => ctl.valuesAt(step, ident.scrub) });
+        if (pl) ctl.onJump = k => pl.goto(k);
+        return ctl;
     }
 
     // 每個項目各自有播放鈕:從「起點」(尚無貼文)開始,依發文日逐日累積,只更新那一項
@@ -1289,10 +1335,10 @@ async function initApiKey() {
             const badge = document.getElementById('lexical-level-badge'); badge.className = 'px-3 py-1 rounded-full text-xs font-bold border ' + bc; badge.innerText = lv.title;
             document.getElementById('lexical-initial-box').innerHTML = '"' + iW + '"'; document.getElementById('lexical-current-box').innerHTML = '"' + cW + '"';
         }, st => { const lv = S(st).lexicalStats; return lv.title + '(學術詞 ' + lv.acCount + '、邏輯詞 ' + lv.lgCount + ')'; });
-        // 概念演化雲、跨溫層破壁指數、想法櫻花樹
+        // 概念演化雲、跨溫層破壁指數、念念成櫻
         R('s-concept', card('word-cloud-early'), true, '我的概念演化雲(早期與近期常用詞的變化)', st => renderConceptEvolution(S(st).recentNotes), st => '累計 ' + S(st).totalNotes + ' 篇貼文');
         R('s-echo', card('echo-score'), true, '我的跨溫層破壁指數(跟多少不同同學互動)', st => renderEchoChamber(S(st)), st => { const e = S(st).echoStats; return '破壁指數 ' + e.score + '(互動過 ' + e.targets + ' 位同學、回應 ' + e.replies + ' 次)'; });
-        R('s-lineage', card('lineage-content'), true, '我的想法櫻花樹(一個想法長出多少後續討論)', (st, step) => renderIdeaLineage(userId, nodesAt(step), globalData.userList), st => { const l = S(st).lineageStats; return '最大的想法引出 ' + l.count + ' 則後續回應、最深 ' + l.maxDepth + ' 層'; });
+        R('s-lineage', card('lineage-content'), true, '我的念念成櫻(一個想法長出多少後續討論)', (st, step) => renderIdeaLineage(userId, nodesAt(step), globalData.userList), st => { const l = S(st).lineageStats; return '最大的想法引出 ' + l.count + ' 則後續回應、最深 ' + l.maxDepth + ' 層'; });
     }
 
     function renderConceptEvolution(recentNotes) {
@@ -1342,7 +1388,7 @@ async function initApiKey() {
         }
     }
 
-    // 🔥 全新升級版：支援顯示「各階段灌溉者與內容」的想法櫻花樹 (收合面板 + 僅顯示日期)
+    // 🔥 全新升級版：支援顯示「各階段灌溉者與內容」的念念成櫻 (收合面板 + 僅顯示日期)
     function renderIdeaLineage(userId, allNodes, users) {
         const container = document.getElementById('lineage-content');
 

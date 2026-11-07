@@ -932,7 +932,7 @@ async function geminiFetch(key, init) {
             card.appendChild(wrap); host.insertBefore(card, host.firstChild);
             kbAddExplain(wrap, { title: '全班的知識建構歷程(從最初到最後)', label: '📖 產生 AI 歷程故事', table: () => kbStoryText(null) }, 'story');
         }
-        // ===== 全班知識森林:每個討論區(組別)的討論串,畫成一棵會慢慢長大的想法櫻花樹 =====
+        // ===== 全班知識森林:每個討論區(組別)的討論串,畫成一棵會慢慢長大的念念成櫻 =====
         function renderForestCard() {
             const host = document.getElementById('view-overview');
             if (!host || typeof KBForest === 'undefined') return;
@@ -942,17 +942,18 @@ async function geminiFetch(key, init) {
             if (!card) {
                 card = document.createElement('div');
                 card.id = 'kb-forest-card'; card.className = 'card border-l-4 border-pink-400';
-                card.innerHTML = '<div class="flex items-center justify-between flex-wrap gap-2"><h4 class="font-bold text-sm text-slate-700"><i class="fas fa-seedling text-pink-500 mr-2"></i>全班知識森林(各組的想法櫻花樹)</h4></div><p class="text-xs text-slate-500 mt-1 mb-3">每個討論區是一棵樹:主貼文是種子與樹幹,每一則回應長出一叢櫻花,討論越熱烈、分岔越多,樹就越粗壯、越茂盛。按下面的「播放」,從一顆種子看它怎麼一步步長成盛開的櫻花樹。</p><div id="kb-forest-box"></div>';
+                card.innerHTML = '<div class="flex items-center justify-between flex-wrap gap-2"><h4 class="font-bold text-sm text-slate-700"><i class="fas fa-seedling text-pink-500 mr-2"></i>全班知識森林 · 念念成櫻</h4></div><p class="text-[13px] text-pink-700/80 font-medium mt-1">每一個念頭，都有機會成為一朵櫻花；當想法被回應、被改進，便漸漸開成一樹繁花。</p><p class="text-xs text-slate-500 mt-1 mb-3">每個討論區是一棵樹:主貼文是種子與樹幹,每一則回應長出一叢櫻花,討論越熱烈、分岔越多,樹就越粗壯、越茂盛。按下面的「播放」,從一顆種子看它怎麼一步步長成盛開的櫻花樹。</p><div class="grid grid-cols-1 xl:grid-cols-3 gap-4 items-start"><div class="xl:col-span-2 min-w-0"><div id="kb-forest-box"></div></div><div class="xl:col-span-1 min-w-0"><div id="kb-forest-log" style="--kf-log-h:640px"></div></div></div>';
                 const story = document.getElementById('kb-story-card');
                 if (story && story.parentNode === host) host.insertBefore(card, story.nextSibling); else host.insertBefore(card, host.firstChild);
             }
             const box = document.getElementById('kb-forest-box');
             const nodes = (db.nodes || []).map(n => ({ id: n.id, topicId: n.topicId, author: String(n.author), parentId: n.parentId, type: n.type, title: n.title, date: new Date(n.date).getTime() }));
             const nameOf = id => { const u = (db.userList || {})[id] || Object.values(db.userList || {}).find(x => String(x.id) === String(id)); return (u && u.name) || String(id); };
-            const ctl = KBForest.mount(box, { nodes, topics: db.topics || [], userList: db.userList || {}, nameOf, topicFilter: activeTopicFilter });
+            const ctl = KBForest.mount(box, { nodes, topics: db.topics || [], userList: db.userList || {}, nameOf, topicFilter: activeTopicFilter, mode: 'forest', logEl: document.getElementById('kb-forest-log') });
             const ident = window.__kbIdent || (window.__kbIdent = kbAiIdent(db.userList || {}));
-            kbAttachReplay({ id: 'forest', anchor: box, labels: ctl.labels, explainTitle: '全班知識森林(各組的想法如何長成一棵櫻花樹)的成長過程',
+            const pl = kbAttachReplay({ id: 'forest', anchor: box, labels: ctl.labels, explainTitle: '全班知識森林(各組的念念成櫻如何長成一棵櫻花樹)的成長過程', stepper: true, slow: true, jump: 3, baseDelay: 850, dayPause: { every: 3, ms: 2000 },
                 render: step => ctl.setStep(step), values: step => ctl.valuesAt(step, ident.scrub) });
+            if (pl) ctl.onJump = k => pl.goto(k);
             return ctl;
         }
         // ===== 各項目自己的動態播放(從「起點」開始,依發文日逐日累積;只更新那一項) =====

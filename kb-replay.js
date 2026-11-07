@@ -18,12 +18,13 @@
     wrap.setAttribute('data-kbnet', opts.id);
     wrap.addEventListener('click', function (e) { e.stopPropagation(); });
     wrap.style.cssText = opts.style || 'grid-column:1/-1;display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px;font-size:11px;color:#334155';
-    var speed = Number(lsGet('kb_net_speed', '1')); if (SPEEDS.indexOf(speed) < 0) speed = 1;
+    var SP = opts.speeds || SPEEDS, speed = Number(lsGet('kb_net_speed', '1')); if (SP.indexOf(speed) < 0) speed = 1;
     wrap.innerHTML = '<button type="button" data-a="play" style="padding:3px 10px;border-radius:6px;background:#4f46e5;color:#fff;font-weight:700;white-space:nowrap">▶ 播放</button>' +
+      (opts.stepper ? '<button type="button" data-a="prev" style="padding:3px 9px;border-radius:6px;background:#fce7f3;color:#9d174d;font-weight:700;white-space:nowrap">◀ 上一天</button><button type="button" data-a="next" style="padding:3px 9px;border-radius:6px;background:#fce7f3;color:#9d174d;font-weight:700;white-space:nowrap">下一天 ▶</button>' : '') +
       '<input type="range" data-a="seek" min="0" max="' + opts.max + '" value="' + opts.max + '" style="flex:1;min-width:90px">' +
       '<span data-a="label" style="min-width:' + (opts.labelWidth || 44) + 'px;font-weight:700;text-align:center"></span>' +
       '<label style="display:flex;align-items:center;gap:3px;white-space:nowrap">速度 <select data-a="speed" style="border:1px solid #cbd5e1;border-radius:4px;padding:1px 3px;background:#fff;color:#0f172a">' +
-      SPEEDS.map(function (s) { return '<option value="' + s + '"' + (s === speed ? ' selected' : '') + '>' + s + 'x</option>'; }).join('') + '</select></label>';
+      SP.map(function (s) { return '<option value="' + s + '"' + (s === speed ? ' selected' : '') + '>' + s + 'x</option>'; }).join('') + '</select></label>';
     return { wrap: wrap, speed: function () { return Number(wrap.querySelector('[data-a=speed]').value) || 1; }, saveSpeed: function (v) { lsSet('kb_net_speed', String(v)); } };
   }
 
@@ -82,20 +83,25 @@
     var L = o.labels.length; if (global.__kbReplaying || L < 2 || !o.anchor) return null;
     if (replayPlayers[o.id]) replayPlayers[o.id].destroy();
     var st = { k: L - 1, playing: false, timer: null, gone: false };
-    var ui = controls({ id: o.id, max: L - 1, labelWidth: 54 });
+    var ui = controls({ id: o.id, max: L - 1, labelWidth: o.labelWidth || 54, stepper: o.stepper, speeds: o.slow ? [0.25, 0.5, 1, 2, 4] : null });
     Array.prototype.forEach.call(doc.querySelectorAll('[data-kbnet="' + o.id + '"]'), function (x) { x.remove(); });
     if (o.inside) o.anchor.appendChild(ui.wrap); else o.anchor.insertAdjacentElement('afterend', ui.wrap);
     if (o.explainTitle && global.kbAddExplain) global.kbAddExplain(ui.wrap, { title: o.explainTitle, table: function () { return o.labels.map(function (lb, i) { var v = ''; try { v = o.values ? o.values(i) : ''; } catch (e) {} return lb + ':' + v; }).join(String.fromCharCode(10)); } }, o.id);
     var btn = ui.wrap.querySelector('[data-a=play]'), seek = ui.wrap.querySelector('[data-a=seek]'), label = ui.wrap.querySelector('[data-a=label]'), spSel = ui.wrap.querySelector('[data-a=speed]');
     function alive() { return !st.gone && o.anchor.isConnected !== false; }
     function render(k) { if (!alive()) return; st.k = k; try { o.render(k); } catch (e) { if (global.console) console.error(e); } seek.value = k; label.textContent = String(o.labels[k]); }
-    function delay() { return Math.max(250, Math.min(900, 15000 / L)) / ui.speed(); }
+    // 每一步停留的時間:有「歷程演進說明」的項目放慢,每天結束時再多停一下,讓人看得完說明
+    function delay() { var base = o.baseDelay || Math.max(250, Math.min(900, 15000 / L)), extra = (o.dayPause && st.k % o.dayPause.every === 0) ? o.dayPause.ms : 0; return (base + extra) / ui.speed(); }
     function setPlaying(p) { st.playing = p; btn.textContent = p ? '⏸ 暫停' : '▶ 播放'; if (!p) { clearTimeout(st.timer); st.timer = null; } }
     function tick() { if (!st.playing || !alive()) { setPlaying(false); return; } if (st.k >= L - 1) { setPlaying(false); return; } render(st.k + 1); if (st.k >= L - 1) setPlaying(false); else st.timer = setTimeout(tick, delay()); }
     function play() { if (!alive()) return; if (st.k >= L - 1) render(0); setPlaying(true); st.timer = setTimeout(tick, delay()); }
     btn.onclick = function () { if (st.playing) setPlaying(false); else play(); };
     seek.oninput = function () { setPlaying(false); render(Number(seek.value)); };
     spSel.onchange = function () { ui.saveSpeed(Number(spSel.value)); };
+    // 上一天 / 下一天(每 o.jump 步為一天)
+    var jumpN = o.jump || 1, prevB = ui.wrap.querySelector('[data-a=prev]'), nextB = ui.wrap.querySelector('[data-a=next]');
+    if (prevB) prevB.onclick = function () { setPlaying(false); var k = st.k; render(Math.max(0, k % jumpN === 0 ? k - jumpN : Math.floor(k / jumpN) * jumpN)); };
+    if (nextB) nextB.onclick = function () { setPlaying(false); render(Math.min(L - 1, (Math.floor(st.k / jumpN) + 1) * jumpN)); };
     label.textContent = String(o.labels[L - 1]);
     var api = { destroy: function () { st.gone = true; clearTimeout(st.timer); if (ui.wrap.parentNode) ui.wrap.parentNode.removeChild(ui.wrap); }, play: play, goto: render, state: st };
     replayPlayers[o.id] = api;

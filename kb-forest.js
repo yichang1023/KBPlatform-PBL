@@ -1,5 +1,5 @@
 /* =====================================================================
- *  KB Forest — 知識森林(想法櫻花樹)
+ *  KB Forest — 知識森林(念念成櫻)
  *  把每一個討論區(組別)的討論串,畫成一棵櫻花樹:
  *    - 主貼文 = 種子/樹幹;每一則回應 = 一段枝條末端的一叢櫻花;分岔越多,樹冠越茂密
  *    - 播放時從「起點」(只有一顆種子)開始,依發文日逐步長出樹苗、樹枝、花苞,最後盛開
@@ -48,6 +48,25 @@
       '.kf-fall{opacity:0}.kf-fall.on{opacity:.9;animation:kf-fall 9s linear infinite}',
       '@keyframes kf-fall{0%{transform:translate(0,-20px) rotate(0deg);opacity:0}10%{opacity:.9}100%{transform:translate(var(--dx,20px),360px) rotate(300deg);opacity:0}}',
       '.kf-seed{transition:opacity .5s}',
+      '.kf-log{background:#fff;border:1px solid #f9c9da;border-radius:16px;display:flex;flex-direction:column;max-height:var(--kf-log-h,600px);min-height:260px;box-shadow:0 10px 30px -18px rgba(190,24,93,.5);font-family:"Noto Sans TC","Microsoft JhengHei",system-ui,sans-serif}',
+      '.kf-lh{padding:12px 14px 8px;border-bottom:1px solid #fde2ec}.kf-lt{font-weight:800;font-size:15px;color:#9d174d}.kf-ls{font-size:12px;color:#7c5a69;line-height:1.6;margin-top:2px}',
+      '.kf-banner{margin:10px 12px 4px;padding:10px 12px;border-radius:12px;background:linear-gradient(135deg,#fff1f6,#fff9fb);border:1px solid #fbcfe0}',
+      '.kf-bt{display:flex;align-items:center;gap:8px;font-weight:800;font-size:15px;color:#be185d}.kf-bt .kf-em{font-size:24px;line-height:1}',
+      '.kf-bd{font-size:13px;color:#5b3a4a;line-height:1.65;margin-top:3px}',
+      '.kf-bar{height:7px;border-radius:99px;background:#fde2ec;margin-top:8px;overflow:hidden}.kf-bar i{display:block;height:100%;background:linear-gradient(90deg,#f9a8c9,#ec4899);border-radius:99px;transition:width .6s ease}',
+      '.kf-bm{font-size:12px;color:#8b6477;margin-top:4px}',
+      '.kf-lb{overflow-y:auto;padding:8px 12px 12px;flex:1;scroll-behavior:smooth}',
+      '.kf-ent{position:relative;margin:8px 0;padding:10px 12px 10px 14px;border-radius:12px;border:1px solid #fbd5e3;background:#fff;cursor:pointer;transition:background .3s,box-shadow .3s,opacity .3s}',
+      '.kf-ent:before{content:"";position:absolute;left:0;top:10px;bottom:10px;width:4px;border-radius:4px;background:#f9a8c9}',
+      '.kf-ent.past{background:#fffafc}.kf-ent.now{background:#fff0f6;border-color:#ec4899;box-shadow:0 0 0 3px rgba(236,72,153,.18)}.kf-ent.now:before{background:#ec4899}',
+      '.kf-ent.future{opacity:.5;background:#faf7f8;border-style:dashed}.kf-ent.future:before{background:#e5d5db}',
+      '.kf-ent:hover,.kf-ent:focus{outline:none;border-color:#ec4899}',
+      '.kf-eh{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.kf-ed{font-weight:800;font-size:15px;color:#9d174d}',
+      '.kf-et{font-size:11px;font-weight:800;color:#fff;background:#ec4899;border-radius:99px;padding:1px 9px}.kf-en{font-size:12px;color:#8b6477;margin-left:auto}',
+      '.kf-el{margin:6px 0 0;padding:0;list-style:none}.kf-el li{font-size:13.5px;line-height:1.7;color:#3f2a35;padding-left:2px}.kf-el li+li{margin-top:2px}',
+      '.kf-lock{font-size:12.5px;color:#9a8790;margin-top:4px}',
+      '.kf-now-tag{font-size:11px;font-weight:800;color:#be185d;background:#fde2ec;border-radius:99px;padding:1px 8px}',
+      '@media (max-width:640px){.kf-log{max-height:440px}}',
       '.kf-tip{position:fixed;z-index:10050;pointer-events:none;background:rgba(15,23,42,.92);color:#fff;border-radius:10px;padding:8px 10px;font-size:11px;line-height:1.55;max-width:240px;box-shadow:0 12px 30px -10px rgba(0,0,0,.6);display:none}',
       '.kf-legend{display:flex;flex-wrap:wrap;gap:10px;align-items:center;font-size:10px;color:#7c5a69;margin-top:8px}',
       '.kf-dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:3px;vertical-align:-1px;border:1px solid rgba(0,0,0,.08)}'
@@ -102,7 +121,7 @@
   function drawTree(host, lay, ctx) {
     var uid = 'kf' + Math.random().toString(36).slice(2, 7);
     var bs = Math.max(0.95, Math.min(1.9, Math.sqrt(1.3 * R * R * 0.85 / (Math.max(20, lay.total) * 100))));
-    var svg = el('svg', { viewBox: '0 120 ' + W + ' ' + (H - 120), class: 'kf-svg', role: 'img', 'aria-label': ctx.name + ' 的想法櫻花樹' }, host);
+    var svg = el('svg', { viewBox: '0 120 ' + W + ' ' + (H - 120), class: 'kf-svg', role: 'img', 'aria-label': ctx.name + ' 的念念成櫻' }, host);
     var defs = el('defs', null, svg);
     var gSky = el('linearGradient', { id: uid + 's', x1: '0', y1: '0', x2: '0', y2: '1' }, defs);
     el('stop', { offset: '0', 'stop-color': '#fff5f9' }, gSky); el('stop', { offset: '1', 'stop-color': '#fffdfe' }, gSky);
@@ -175,6 +194,7 @@
         var a = (k / 9) * 6.283 + r() * 0.9, d = (2.2 + r() * 4.6) * big;
         el('circle', { cx: f1(inf.x + Math.cos(a) * d), cy: f1(inf.y + Math.sin(a) * d), r: f1((2.3 + r() * 2.2) * big), fill: pal[Math.floor(r() * 3)], 'fill-opacity': f1(0.78 + r() * 0.2) }, g);
       }
+      if (ctx.youId && String(n.author) === String(ctx.youId)) el('circle', { cx: f1(inf.x), cy: f1(inf.y), r: f1(11.5 * big), fill: 'none', stroke: '#f59e0b', 'stroke-width': 1.4, 'stroke-dasharray': '2.5 2', 'stroke-opacity': '.95' }, g);
       el('circle', { cx: f1(inf.x - 1.5), cy: f1(inf.y - 1.5), r: f1(1.7 * big), fill: '#fff', 'fill-opacity': '.8' }, g);
       el('circle', { cx: f1(inf.x), cy: f1(inf.y), r: f1(1.2 * big), fill: n.type === 'riseabove' ? '#ffd54f' : '#e84a82', 'fill-opacity': '.75' }, g);
       blooms[id] = g;
@@ -221,8 +241,9 @@
       var stepOf = {}; nodes.forEach(function (n) { stepOf[n.id] = days.index(n.date, pos(n.id)); });
       var nameOf = opts.nameOf || function (id) { var u = (opts.userList || {})[id] || Object.values(opts.userList || {}).filter(function (x) { return String(x.id) === String(id); })[0]; return (u && u.name) || String(id); };
 
-      var wrap = doc.createElement('div'); wrap.className = 'kf-wrap'; container.appendChild(wrap);
+      var wrap = doc.createElement('div'); wrap.className = 'kf-wrap'; if (opts.single) wrap.style.gridTemplateColumns = '1fr'; container.appendChild(wrap);
       var tip = doc.createElement('div'); tip.className = 'kf-tip'; doc.body.appendChild(tip);
+      var mode = opts.mode || 'forest';
       var trees = [];
       topicList.forEach(function (tp) {
         var tnodes = byTopic[tp.id], rank = {};
@@ -233,7 +254,7 @@
         card.innerHTML = '<div class="kf-head"><div class="kf-name"></div><div class="kf-stage">種子</div></div><div class="kf-meta"></div>';
         card.querySelector('.kf-name').textContent = short;
         wrap.appendChild(card);
-        var d = drawTree(card, lay, { name: tp.name });
+        var d = drawTree(card, lay, { name: opts.treeTitle || tp.name, youId: opts.youId });
         var authors = {}; tnodes.forEach(function (n) { authors[n.author] = 1; });
         var t = { topic: tp, lay: lay, d: d, card: card, stageEl: card.querySelector('.kf-stage'), metaEl: card.querySelector('.kf-meta'), nodes: tnodes, people: Object.keys(authors).length, vis: 0 };
         // 子樹的大小(給枝條粗細用),由深到淺累加
@@ -252,7 +273,7 @@
       });
 
       var legend = doc.createElement('div'); legend.className = 'kf-legend';
-      legend.innerHTML = ['question', 'extend', 'improve', 'counter', 'riseabove'].map(function (k) { return '<span><i class="kf-dot" style="background:' + PALETTE[k][0] + '"></i>' + TYPE_TXT[k] + (k === 'riseabove' ? '(白櫻、金色花心)' : '') + '</span>'; }).join('') + '<span style="margin-left:auto">一朵花 = 一則貼文;分岔越多,樹冠越茂密;滑鼠移到花上可以看內容</span>';
+      legend.innerHTML = ['question', 'extend', 'improve', 'counter', 'riseabove'].map(function (k) { return '<span><i class="kf-dot" style="background:' + PALETTE[k][0] + '"></i>' + TYPE_TXT[k] + (k === 'riseabove' ? '(白櫻、金色花心)' : '') + '</span>'; }).join('') + (opts.youId ? '<span><i class="kf-dot" style="background:#fff;border:1.5px dashed #f59e0b"></i>金色虛線圈 = 你的想法</span>' : '') + '<span style="margin-left:auto">一朵花 = 一則貼文;分岔越多,樹冠越茂密;滑鼠移到花上可以看內容</span>';
       container.appendChild(legend);
 
       function setStepValue(sv) {
@@ -286,9 +307,106 @@
           t.metaEl.textContent = '貼文 ' + vis + ' / ' + total + ' 則 · ' + t.people + ' 位同學 · ' + lay.forks + ' 個分岔';
         });
       }
+      /* ========== 歷程演進說明:每個發文日一段,說明一段一段累積、不會消失 ========== */
+      var STAGE_INFO = {
+        '種子': ['🌰', '一個念頭落進土裡,還沒有人回應。'],
+        '樹苗': ['🌱', '第一批回應出現了,小小的樹苗探出頭來。'],
+        '長出枝條': ['🌿', '想法被延伸、被改進,枝條開始往不同方向伸展。'],
+        '花苞滿枝': ['🌷', '越來越多同學加入討論,花苞綴滿了枝頭。'],
+        '花開了': ['🌸', '討論愈來愈熱烈,大半棵樹都開花了。'],
+        '盛開': ['🌳', '念頭被回應、被改進,開成了一樹繁花。']
+      };
+      var PRI = { riseabove: 0, improve: 1, counter: 2, question: 3, extend: 4 }, SUBN = 3, you = opts.youId != null ? String(opts.youId) : null;
+      var dayOf = {}; nodes.forEach(function (n) { dayOf[n.id] = days.index(n.date); });
+      var END = function (d) { return d + 1e-9; };
+      function who(n) { return (you && String(n.author) === you) ? '你' : nameOf(n.author); }
+      function shortName(t) { return String(t.topic.name).replace(/\s*KF論壇[:：]?.*$/, '').replace(/^(第.組).*/, '$1') || t.topic.name; }
+      function typeSummary(ty) { return ['question', 'extend', 'improve', 'counter', 'riseabove'].filter(function (k) { return ty[k]; }).map(function (k) { return ty[k] + ' 個' + TYPE_TXT[k]; }).join('、'); }
+      function forksIn(t, sv) { var c = 0; t.nodes.forEach(function (n) { if (stepOf[n.id] > sv) return; var k = 0; t.lay.info[n.id].kids.forEach(function (x) { if (stepOf[x.id] <= sv) k++; }); if (k >= 2) c++; }); return c; }
+      function kidsAt(t, id, sv) { var k = 0; t.lay.info[id].kids.forEach(function (x) { if (stepOf[x.id] <= sv) k++; }); return k; }
+      function digest(t, d, sv) {
+        var sPrev = d - 1 + 1e-9, now = t.nodes.filter(function (n) { return dayOf[n.id] === d && stepOf[n.id] <= sv; }), seen = {}, ty = {}, au = {}, mine = 0, key = null, kk = -1;
+        t.nodes.forEach(function (n) { if (stepOf[n.id] <= sPrev) seen[n.author] = 1; });
+        now.forEach(function (n) { ty[n.type] = (ty[n.type] || 0) + 1; au[n.author] = 1; if (you && String(n.author) === you) mine++; var sc = (4 - (PRI[n.type] === undefined ? 4 : PRI[n.type])) * 100 + kidsAt(t, n.id, sv); if (sc > kk) { kk = sc; key = n; } });
+        var before = t.nodes.filter(function (n) { return stepOf[n.id] <= sPrev; }).length, total = t.lay.total;
+        return { t: t, now: now, n: now.length, ty: ty, mine: mine, authors: Object.keys(au), newPeople: Object.keys(au).filter(function (a) { return !seen[a]; }).length, key: key, keyKids: key ? kidsAt(t, key.id, sv) : 0, before: before, after: before + now.length, total: total, forks: forksIn(t, sv) - forksIn(t, sPrev), stBefore: stageOf(before, total), stAfter: stageOf(before + now.length, total) };
+      }
+      function treeLines(g, firstDay, lastDay) {
+        var L = [], t = g.t, root = t.lay.root;
+        if (g.before === 0 && g.n > 0) L.push('🌱 種子落地:' + who(root) + '提出了「' + (root.title || '(無標題)') + '」(' + (TYPE_TXT[root.type] || root.type) + '),一個念頭種進了土裡。');
+        if (g.before === 0 && g.n > 1) L.push('同一天有 ' + (g.n - 1) + ' 則想法接著長出來,樹苗冒出來了。');
+        else if (g.before > 0) {
+          L.push('🌿 新長出 ' + g.n + ' 朵花:' + typeSummary(g.ty) + '。');
+          if (you) { if (g.mine && g.n - g.mine) L.push('其中 ' + g.mine + ' 朵是你的,' + (g.n - g.mine) + ' 朵來自同學的回應。'); else if (g.mine) L.push('這天是你自己在補充想法。'); else L.push('這天是同學們在回應、延伸你的想法。'); }
+          else if (g.authors.length) L.push('有 ' + g.authors.length + ' 位同學在這天發言。');
+        }
+        if (g.key && g.before > 0) L.push('最亮眼的一朵:' + who(g.key) + '的「' + (g.key.title || '(無標題)') + '」(' + (TYPE_TXT[g.key.type] || g.key.type) + ')' + (g.keyKids ? ',引來 ' + g.keyKids + ' 則回應。' : '。'));
+        if (g.forks > 0) L.push('出現 ' + g.forks + ' 個新分岔,想法開始往不同方向生長。');
+        if (g.newPeople > 0 && g.before > 0) L.push(g.newPeople + ' 位同學第一次加入這棵樹。');
+        if (g.stAfter !== g.stBefore) L.push('✨ 長大了!進入「' + g.stAfter + '」階段。');
+        if (lastDay) L.push('🌸 盛開!共 ' + g.total + ' 朵花、' + t.lay.forks + ' 個分岔、' + t.people + ' 位同學參與。這一路,念頭被回應、被改進,開成一樹繁花。');
+        return L;
+      }
+      function forestLines(gs, firstDay, lastDay) {
+        var L = [], act = gs.filter(function (g) { return g.n > 0; }), tot = act.reduce(function (a, g) { return a + g.n; }, 0), ppl = {}, best = null, bk = -1, bt = null;
+        act.forEach(function (g) { g.authors.forEach(function (a) { ppl[a] = 1; }); if (g.key) { var sc = (4 - (PRI[g.key.type] === undefined ? 4 : PRI[g.key.type])) * 100 + g.keyKids; if (sc > bk) { bk = sc; best = g; } } });
+        if (firstDay) L.push('🌱 ' + act.length + ' 棵樹同時種下種子:' + act.map(function (g) { return shortName(g.t); }).join('、') + '。');
+        L.push('這天一共長出 ' + tot + ' 朵新花,' + Object.keys(ppl).length + ' 位同學發言。');
+        act.forEach(function (g) { L.push('・' + shortName(g.t) + ' +' + g.n + ' 朵(累計 ' + g.after + '/' + g.total + ')' + (g.stAfter !== g.stBefore ? ' ✨進入「' + g.stAfter + '」' : '') + (g.forks > 0 && g.before > 0 ? ',新增 ' + g.forks + ' 個分岔' : '')); });
+        if (best && best.key && !firstDay) L.push('最亮眼的一朵:' + shortName(best.t) + ' ' + who(best.key) + '的「' + (best.key.title || '(無標題)') + '」(' + (TYPE_TXT[best.key.type] || best.key.type) + ')' + (best.keyKids ? ',引來 ' + best.keyKids + ' 則回應。' : '。'));
+        if (lastDay) L.push('🌸 全部盛開!' + trees.length + ' 棵樹共 ' + trees.reduce(function (a, t) { return a + t.lay.total; }, 0) + ' 朵花,每一個念頭都找到了自己的位置。');
+        return L;
+      }
+      var logApi = null;
+      if (opts.logEl && trees.length) {
+        var lastDayIdx = -1, entries = [];
+        for (var dd = 0; dd < days.labels.length; dd++) { var has = trees.some(function (t) { return t.nodes.some(function (n) { return dayOf[n.id] === dd; }); }); if (has) { entries.push({ d: dd, label: days.labels[dd], done: false }); lastDayIdx = dd; } }
+        var firstDayIdx = entries.length ? entries[0].d : -1;
+        var logEl = opts.logEl; logEl.innerHTML = ''; logEl.classList.add('kf-log');
+        logEl.innerHTML = '<div class="kf-lh"><div class="kf-lt">📖 歷程演進說明</div><div class="kf-ls">這些說明會一段一段留在這裡,不會消失,可以慢慢看。點任何一段,樹就會回到那個時候。</div></div><div class="kf-banner"><div class="kf-bt"><span class="kf-em">🌰</span><span class="kf-bn">種子</span></div><div class="kf-bd"></div><div class="kf-bar"><i style="width:0%"></i></div><div class="kf-bm"></div></div><div class="kf-lb" tabindex="0" role="log" aria-live="polite"></div>';
+        var lb = logEl.querySelector('.kf-lb'), bn = logEl.querySelector('.kf-bn'), bem = logEl.querySelector('.kf-em'), bd = logEl.querySelector('.kf-bd'), bbar = logEl.querySelector('.kf-bar i'), bm = logEl.querySelector('.kf-bm');
+        var userAt = 0; ['wheel', 'touchstart', 'mousedown', 'keydown'].forEach(function (ev) { lb.addEventListener(ev, function () { userAt = Date.now(); }, { passive: true }); });
+        entries.forEach(function (e) {
+          var el2 = doc.createElement('div'); el2.className = 'kf-ent future'; el2.setAttribute('role', 'button'); el2.tabIndex = 0; el2.setAttribute('data-d', e.d);
+          var jump = function () { var i = SUBN * e.d + SUBN; if (ctl.onJump) ctl.onJump(i); else ctl.setStep(i); };
+          el2.addEventListener('click', jump); el2.addEventListener('keydown', function (ev) { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); jump(); } });
+          lb.appendChild(el2); e.el = el2;
+        });
+        var fill = function (e, sv, state) {
+          var el2 = e.el, h = doc.createElement('div'), ul = doc.createElement('ul'), isFirst = e.d === firstDayIdx, isLast = e.d === lastDayIdx;
+          el2.innerHTML = ''; h.className = 'kf-eh'; var dt = doc.createElement('b'); dt.className = 'kf-ed'; dt.textContent = e.label; h.appendChild(dt);
+          if (state === 'future') { var lk = doc.createElement('div'); lk.className = 'kf-lock'; lk.textContent = '🔒 還沒長到這裡'; el2.appendChild(h); el2.appendChild(lk); return; }
+          var gs = trees.map(function (t) { return digest(t, e.d, sv); }), lines, tag, cnt;
+          if (mode === 'tree') { var g = gs[0]; lines = treeLines(g, isFirst, isLast && sv >= END(e.d) - 1e-6 && g.after === g.total); tag = g.stAfter; cnt = '+' + g.n + ' 朵'; }
+          else { lines = forestLines(gs, isFirst, isLast && sv >= END(e.d) - 1e-6 && gs.every(function (g) { return g.after === g.total; })); var allV = gs.reduce(function (a, g) { return a + g.after; }, 0), allT = gs.reduce(function (a, g) { return a + g.total; }, 0); tag = stageOf(allV, allT); cnt = '+' + gs.reduce(function (a, g) { return a + g.n; }, 0) + ' 朵'; }
+          var et = doc.createElement('span'); et.className = 'kf-et'; et.textContent = tag; h.appendChild(et);
+          if (state === 'now') { var nt = doc.createElement('span'); nt.className = 'kf-now-tag'; nt.textContent = '正在發生'; h.appendChild(nt); }
+          var en = doc.createElement('span'); en.className = 'kf-en'; en.textContent = cnt; h.appendChild(en);
+          el2.appendChild(h); ul.className = 'kf-el'; lines.forEach(function (x) { var li = doc.createElement('li'); li.textContent = x; ul.appendChild(li); }); el2.appendChild(ul);
+        };
+        logApi = {
+          update: function (i) {
+            var sv = days.steps[Math.max(0, Math.min(days.steps.length - 1, i))], dcur = i <= 0 ? -1 : Math.floor((i - 1) / SUBN), nowEl = null;
+            entries.forEach(function (e) {
+              var st2 = e.d < dcur ? 'past' : (e.d === dcur ? 'now' : 'future');
+              e.el.className = 'kf-ent ' + st2;
+              if (st2 === 'past') { if (!e.done || e.state !== 'past') { fill(e, END(e.d), 'past'); e.done = true; } }
+              else { fill(e, Math.min(sv, END(e.d)), st2); e.done = false; }
+              e.state = st2; if (st2 === 'now') nowEl = e.el;
+            });
+            // 階段說明
+            var vis = 0, tot = 0; trees.forEach(function (t) { vis += t.nodes.filter(function (n) { return stepOf[n.id] <= sv; }).length; tot += t.lay.total; });
+            var stg = stageOf(vis, tot), info = STAGE_INFO[stg] || STAGE_INFO['種子'];
+            bem.textContent = info[0]; bn.textContent = (mode === 'tree' ? '現在的樹:' : '現在的森林:') + stg; bd.textContent = info[1];
+            bbar.style.width = (tot ? Math.round(vis / tot * 100) : 0) + '%'; bm.textContent = '已長出 ' + vis + ' / ' + tot + ' 朵花(' + (tot ? Math.round(vis / tot * 100) : 0) + '%)';
+            if (nowEl && Date.now() - userAt > 4000) { var top = nowEl.offsetTop - lb.clientHeight * 0.25; try { lb.scrollTo({ top: Math.max(0, top), behavior: 'smooth' }); } catch (e) { lb.scrollTop = Math.max(0, top); } }
+            else if (i <= 0 && Date.now() - userAt > 4000) { lb.scrollTop = 0; }
+          }
+        };
+      }
       var ctl = {
-        labels: days.stepLabels, steps: days.steps, trees: trees,
-        setStep: function (i) { setStepValue(days.steps[Math.max(0, Math.min(days.steps.length - 1, i))]); },
+        labels: days.stepLabels, steps: days.steps, trees: trees, log: logApi,
+        setStep: function (i) { var j = Math.max(0, Math.min(days.steps.length - 1, i)); setStepValue(days.steps[j]); if (logApi) logApi.update(j); },
         valuesAt: function (i, scrub) {
           var sv = days.steps[Math.max(0, Math.min(days.steps.length - 1, i))];
           return trees.map(function (t) {
