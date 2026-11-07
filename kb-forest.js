@@ -48,14 +48,15 @@
       '.kf-fall{opacity:0}.kf-fall.on{opacity:.9;animation:kf-fall 9s linear infinite}',
       '@keyframes kf-fall{0%{transform:translate(0,-20px) rotate(0deg);opacity:0}10%{opacity:.9}100%{transform:translate(var(--dx,20px),360px) rotate(300deg);opacity:0}}',
       '.kf-seed{transition:opacity .5s}',
-      '.kf-log{background:#fff;border:1px solid #f9c9da;border-radius:16px;display:flex;flex-direction:column;max-height:var(--kf-log-h,600px);min-height:260px;box-shadow:0 10px 30px -18px rgba(190,24,93,.5);font-family:"Noto Sans TC","Microsoft JhengHei",system-ui,sans-serif}',
+      '.kf-log{background:#fff;border:1px solid #f9c9da;border-radius:16px;display:flex;flex-direction:column;max-height:min(var(--kf-log-h,600px),calc(100vh - 24px));min-height:260px;box-shadow:0 10px 30px -18px rgba(190,24,93,.5);font-family:"Noto Sans TC","Microsoft JhengHei",system-ui,sans-serif}',
       '.kf-lh{padding:12px 14px 8px;border-bottom:1px solid #fde2ec}.kf-lt{font-weight:800;font-size:15px;color:#9d174d}.kf-ls{font-size:12px;color:#7c5a69;line-height:1.6;margin-top:2px}',
       '.kf-banner{margin:10px 12px 4px;padding:10px 12px;border-radius:12px;background:linear-gradient(135deg,#fff1f6,#fff9fb);border:1px solid #fbcfe0}',
       '.kf-bt{display:flex;align-items:center;gap:8px;font-weight:800;font-size:15px;color:#be185d}.kf-bt .kf-em{font-size:24px;line-height:1}',
       '.kf-bd{font-size:13px;color:#5b3a4a;line-height:1.65;margin-top:3px}',
       '.kf-bar{height:7px;border-radius:99px;background:#fde2ec;margin-top:8px;overflow:hidden}.kf-bar i{display:block;height:100%;background:linear-gradient(90deg,#f9a8c9,#ec4899);border-radius:99px;transition:width .6s ease}',
       '.kf-bm{font-size:12px;color:#8b6477;margin-top:4px}',
-      '.kf-lb{overflow-y:auto;padding:8px 12px 12px;flex:1;scroll-behavior:smooth}',
+      '.kf-lb{overflow-y:auto;padding:8px 12px 12px;flex:1}',
+      '.kf-log{position:relative}.kf-follow{position:absolute;left:50%;transform:translateX(-50%);bottom:14px;background:#be185d;color:#fff;font-weight:800;font-size:13px;border:0;border-radius:99px;padding:7px 16px;box-shadow:0 8px 20px -6px rgba(190,24,93,.7);cursor:pointer;z-index:2}',
       '.kf-ent{position:relative;margin:8px 0;padding:10px 12px 10px 14px;border-radius:12px;border:1px solid #fbd5e3;background:#fff;cursor:pointer;transition:background .3s,box-shadow .3s,opacity .3s}',
       '.kf-ent:before{content:"";position:absolute;left:0;top:10px;bottom:10px;width:4px;border-radius:4px;background:#f9a8c9}',
       '.kf-ent.past{background:#fffafc}.kf-ent.now{background:#fff0f6;border-color:#ec4899;box-shadow:0 0 0 3px rgba(236,72,153,.18)}.kf-ent.now:before{background:#ec4899}',
@@ -363,9 +364,24 @@
         for (var dd = 0; dd < days.labels.length; dd++) { var has = trees.some(function (t) { return t.nodes.some(function (n) { return dayOf[n.id] === dd; }); }); if (has) { entries.push({ d: dd, label: days.labels[dd], done: false }); lastDayIdx = dd; } }
         var firstDayIdx = entries.length ? entries[0].d : -1;
         var logEl = opts.logEl; logEl.innerHTML = ''; logEl.classList.add('kf-log');
-        logEl.innerHTML = '<div class="kf-lh"><div class="kf-lt">📖 歷程演進說明</div><div class="kf-ls">這些說明會一段一段留在這裡,不會消失,可以慢慢看。點任何一段,樹就會回到那個時候。</div></div><div class="kf-banner"><div class="kf-bt"><span class="kf-em">🌰</span><span class="kf-bn">種子</span></div><div class="kf-bd"></div><div class="kf-bar"><i style="width:0%"></i></div><div class="kf-bm"></div></div><div class="kf-lb" tabindex="0" role="log" aria-live="polite"></div>';
+        logEl.innerHTML = '<div class="kf-lh"><div class="kf-lt">📖 歷程演進說明</div><div class="kf-ls">這些說明會一段一段留在這裡,不會消失,可以慢慢看。點任何一段,樹就會回到那個時候。</div></div><div class="kf-banner"><div class="kf-bt"><span class="kf-em">🌰</span><span class="kf-bn">種子</span></div><div class="kf-bd"></div><div class="kf-bar"><i style="width:0%"></i></div><div class="kf-bm"></div></div><div class="kf-lb" tabindex="0" role="log" aria-live="polite"></div><button type="button" class="kf-follow" style="display:none">↓ 回到目前進度</button>';
         var lb = logEl.querySelector('.kf-lb'), bn = logEl.querySelector('.kf-bn'), bem = logEl.querySelector('.kf-em'), bd = logEl.querySelector('.kf-bd'), bbar = logEl.querySelector('.kf-bar i'), bm = logEl.querySelector('.kf-bm');
-        var userAt = 0; ['wheel', 'touchstart', 'mousedown', 'keydown'].forEach(function (ev) { lb.addEventListener(ev, function () { userAt = Date.now(); }, { passive: true }); });
+        // 自動跟隨:說明永遠跟著樹出現在視窗裡(使用者自己捲動時暫停 3 秒,並出現「回到目前進度」按鈕)
+        var LOCK = 3000, userAt = 0, autoUntil = 0, tw = null, curNow = null, fbtn = logEl.querySelector('.kf-follow');
+        ['wheel', 'touchmove', 'mousedown', 'keydown'].forEach(function (ev) { lb.addEventListener(ev, function () { userAt = Date.now(); if (tw) { clearInterval(tw); tw = null; } }, { passive: true }); });
+        function nowVisible() { if (!curNow) return true; var a = curNow.getBoundingClientRect(), b = lb.getBoundingClientRect(); return a.top >= b.top - 2 && Math.min(a.bottom, a.top + 120) <= b.bottom + 2; }
+        function syncBtn() { if (fbtn) fbtn.style.display = (curNow && Date.now() > autoUntil && !nowVisible()) ? 'block' : 'none'; }
+        function follow() {
+          if (!curNow) return;
+          var a = curNow.getBoundingClientRect(), b = lb.getBoundingClientRect(), top = Math.max(0, lb.scrollTop + (a.top - b.top) - 10);
+          // 自己用計時器做捲動動畫(不依賴瀏覽器的平滑捲動,背景分頁或省電模式也一定會捲到位)
+          autoUntil = Date.now() + 700; if (tw) clearInterval(tw);
+          var from = lb.scrollTop, t0 = Date.now(), DUR = 380;
+          tw = setInterval(function () { var p = Math.min(1, (Date.now() - t0) / DUR), e = 1 - Math.pow(1 - p, 3); lb.scrollTop = from + (top - from) * e; if (p >= 1) { clearInterval(tw); tw = null; lb.scrollTop = top; syncBtn(); } }, 16);
+          setTimeout(syncBtn, 800);
+        }
+        lb.addEventListener('scroll', syncBtn, { passive: true });
+        if (fbtn) fbtn.addEventListener('click', function () { userAt = 0; follow(); });
         entries.forEach(function (e) {
           var el2 = doc.createElement('div'); el2.className = 'kf-ent future'; el2.setAttribute('role', 'button'); el2.tabIndex = 0; el2.setAttribute('data-d', e.d);
           var jump = function () { var i = SUBN * e.d + SUBN; if (ctl.onJump) ctl.onJump(i); else ctl.setStep(i); };
@@ -399,8 +415,10 @@
             var stg = stageOf(vis, tot), info = STAGE_INFO[stg] || STAGE_INFO['種子'];
             bem.textContent = info[0]; bn.textContent = (mode === 'tree' ? '現在的樹:' : '現在的森林:') + stg; bd.textContent = info[1];
             bbar.style.width = (tot ? Math.round(vis / tot * 100) : 0) + '%'; bm.textContent = '已長出 ' + vis + ' / ' + tot + ' 朵花(' + (tot ? Math.round(vis / tot * 100) : 0) + '%)';
-            if (nowEl && Date.now() - userAt > 4000) { var top = nowEl.offsetTop - lb.clientHeight * 0.25; try { lb.scrollTo({ top: Math.max(0, top), behavior: 'smooth' }); } catch (e) { lb.scrollTop = Math.max(0, top); } }
-            else if (i <= 0 && Date.now() - userAt > 4000) { lb.scrollTop = 0; }
+            curNow = nowEl;
+            if (nowEl && Date.now() - userAt > LOCK) follow();
+            else if (!nowEl && i <= 0 && Date.now() - userAt > LOCK) { autoUntil = Date.now() + 700; lb.scrollTop = 0; }
+            syncBtn();
           }
         };
       }
