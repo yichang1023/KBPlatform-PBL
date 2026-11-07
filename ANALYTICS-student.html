@@ -216,7 +216,7 @@
         .word-tag { display: inline-block; padding: 4px 10px; border-radius: 999px; margin: 3px; font-weight: 500; transition: transform 0.2s;}
         .word-tag:hover { transform: translateY(-1px); }
 
-        .eureka-chart-container { position: relative; height: 180px; width: 100%; }
+        .eureka-chart-container { position: relative; height: 230px; width: 100%; }
         .lineage-tree { border-left: 2px dashed #cbd5e1; margin-left: 12px; padding-left: 16px; }
 
         /* 🔥 新增 AI 內容的 Markdown 渲染樣式 */
@@ -571,8 +571,22 @@
                         <button onclick="openRefModal('eureka_arc')" class="ref-btn"><i class="fas fa-info"></i>Ref.</button>
                     </div>
                     <p class="text-[10px] text-slate-400 mb-2 mt-2">圖表反映發言歷程中從「衝突/困惑」走向「昇華」的過程。</p>
-                    <div class="eureka-chart-container mt-auto mb-auto">
-                        <canvas id="eurekaChart"></canvas>
+                    <div class="rounded-lg bg-rose-50/60 border border-rose-100 px-3 py-2 mb-2 text-[11px] text-slate-600 leading-relaxed" id="eureka-legend">
+                        <div class="font-bold text-rose-600 mb-0.5">📖 怎麼看這張圖?</div>
+                        <div>橫軸是你的每一則發言(N1 = 第 1 則);縱軸是想法的「高度」:每發言一次就往上爬一格,線越往上,代表你的想法累積得越多。</div>
+                        <div class="mt-1.5 space-y-0.5">
+                            <div><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#f43f5e;border:2px solid #f43f5e;vertical-align:-3px;margin-right:4px"></span><b>紅色小點</b> = 一般發言。其中<b>提問、反駁</b>會讓線稍微下沉一點,表示你碰到了值得想的難題。</div>
+                            <div><span style="display:inline-block;width:11px;height:11px;border-radius:50%;background:#fbbf24;border:2px solid #d97706;vertical-align:-3px;margin-right:4px"></span><b>黃色點</b> = <b>改進</b>:把想法改得更好,多爬 0.5。</div>
+                            <div><span style="display:inline-block;width:15px;height:15px;border-radius:50%;background:#fbbf24;border:2px solid #d97706;vertical-align:-3px;margin-right:4px"></span><b>黃色大點</b> = <b>昇華</b>:把零散的想法整合成新觀點,一口氣多爬 2,是最大的進步!</div>
+                            <div class="text-slate-400">把滑鼠移到任何一個點上,會顯示那一則發言的內容。</div>
+                        </div>
+                    </div>
+                    <div id="eureka-box" class="mt-auto mb-auto">
+                        <div class="eureka-chart-container">
+                            <canvas id="eurekaChart"></canvas>
+                        </div>
+                        <div id="eureka-caption" class="mt-2 rounded-lg border border-indigo-100 bg-indigo-50/60 px-3 py-2 text-[12px] leading-relaxed text-slate-700" style="min-height:66px"></div>
+                        <div id="eureka-moments" class="mt-2 hidden"></div>
                     </div>
                 </div>
             <!-- 念念成櫻:實體的櫻花樹(從一顆種子慢慢長成一樹繁花)+ 歷程演進說明 -->
@@ -1579,6 +1593,11 @@ async function initApiKey() {
     function renderEurekaArc(userId, allNodes) {
         const myNotes = allNodes.filter(n => n.author === userId).sort((a,b) => new Date(a.date) - new Date(b.date));
         let acc = 0; const labels = [], data = [];
+        const TYPE = { question: ['提問', -0.5], counter: ['反駁', -0.5], improve: ['改進', 0.5], riseabove: ['昇華', 2], extend: ['延伸', 0] };
+        const isUp = n => n.type === 'riseabove' || n.type === 'improve';
+        const fmtD = n => new Date(n.date).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' });
+        const esc2 = t => String(t == null ? '' : t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+        const cap = document.getElementById('eureka-caption'), mom = document.getElementById('eureka-moments');
 
         myNotes.forEach((n, i) => {
             labels.push(`N${i+1}`);
@@ -1596,9 +1615,14 @@ async function initApiKey() {
 
         if (myNotes.length < 2) {
             ctx.font = "12px Noto Sans TC"; ctx.fillStyle = "#94a3b8"; ctx.textAlign = "center";
-            ctx.fillText("歷程過短，請持續參與討論以產生軌跡", 150, 90); return;
+            ctx.fillText("歷程過短，請持續參與討論以產生軌跡", 150, 90);
+            if (cap) cap.textContent = '你的發言還不多。多參與幾次討論,這裡就會畫出你的想法一步步往上爬的軌跡。';
+            return;
         }
 
+        const M = myNotes.length;
+        const baseR = myNotes.map(n => n.type === 'riseabove' ? 7.5 : (n.type === 'improve' ? 5 : 3));
+        const baseBorder = myNotes.map(n => isUp(n) ? '#d97706' : '#f43f5e');
         eurekaChartInstance = new Chart(ctx, {
             type: 'line',
             data: {
@@ -1607,12 +1631,17 @@ async function initApiKey() {
                     label: '狀態', data: data,
                     borderColor: '#f43f5e', backgroundColor: 'rgba(244, 63, 94, 0.05)',
                     borderWidth: 2, tension: 0.4, fill: true,
-                    pointBackgroundColor: myNotes.map(n => (n.type === 'riseabove' || n.type === 'improve') ? '#fbbf24' : '#f43f5e'),
-                    pointRadius: myNotes.map(n => (n.type === 'riseabove' || n.type === 'improve') ? 5 : 3),
+                    pointBackgroundColor: myNotes.map(n => isUp(n) ? '#fbbf24' : '#f43f5e'),
+                    pointRadius: baseR.slice(), pointBorderColor: baseBorder.slice(), pointBorderWidth: baseR.map(() => 1.5), pointHoverRadius: baseR.map(r => r + 3),
                 }]
             },
             options: {
-                responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { display: false }, tooltip: { callbacks: {
+                    title: items => { const i = items[0].dataIndex, n = myNotes[i]; return 'N' + (i + 1) + ' · ' + fmtD(n); },
+                    label: c => { const n = myNotes[c.dataIndex], t = TYPE[n.type] || ['一般發言', 0]; return t[0] + (t[1] > 0 ? '(多爬 ' + t[1] + ')' : t[1] < 0 ? '(稍微下沉)' : '') + ':' + (n.title || '(無標題)'); },
+                    afterLabel: c => '想法高度 ' + c.parsed.y
+                } } },
                 scales: {
                     x: { display: false },
                     y: {
@@ -1623,7 +1652,50 @@ async function initApiKey() {
                 }
             }
         });
-        try { kbAttachSeriesPlayer({ id: 'eureka', explainTitle: '我的認知頓悟軌跡(每一次發言讓想法往上走或停一下)', chart: eurekaChartInstance }); } catch (e) {}
+
+        // ---- 播放時的即時說明(停在畫面上,直到下一個點才換)+ 「想法進步的時刻」清單(只增加、不消失)----
+        const SAY = {
+            question: '你提出了一個問題。提問會讓想法暫時「卡住一下」(線稍微下沉),這很正常——代表你碰到了值得想的難題。',
+            counter: '你提出了不同的看法。反駁會讓想法先晃一下(線稍微下沉),但常常是下一次進步的起點。',
+            improve: '你把想法改得更好了!這是一次小進步(多爬 0.5)。',
+            riseabove: '你把零散的想法整合成更高一層的新觀點!這是一次大躍進(多爬 2)。',
+            extend: '你延伸、補充了想法,穩穩地往上爬一格。'
+        };
+        const nImp = myNotes.filter(n => n.type === 'improve').length, nRise = myNotes.filter(n => n.type === 'riseabove').length;
+        function paintCaption(k) {
+            if (!cap) return;
+            if (k <= 0) { cap.innerHTML = '🌰 <b>起點</b>:還沒有任何發言,想法的高度是 0。按下 ▶ 或拖動進度條,看想法怎麼一步步往上爬。'; return; }
+            const n = myNotes[k - 1], t = TYPE[n.type] || ['一般發言', 0], up = isUp(n);
+            let h = '<div><b>N' + k + ' · ' + fmtD(n) + '</b> ' + (up ? '<span style="color:#d97706">● 黃色點</span>' : '<span style="color:#f43f5e">● 紅色點</span>') + ' <span class="font-bold">' + t[0] + '</span></div>' +
+                '<div>' + (SAY[n.type] || '你發表了一則想法,往上爬一格。') + '</div>' +
+                '<div class="text-slate-500">「' + esc2(n.title || '(無標題)') + '」→ 想法高度 <b>' + data[k - 1] + '</b></div>';
+            if (k === M) h += '<div class="mt-1 font-bold text-indigo-700">🎉 播完了!共 ' + M + ' 次發言,其中 ' + nImp + ' 次改進、' + nRise + ' 次昇華。</div>';
+            cap.innerHTML = h;
+        }
+        let player = null, lastMom = -1;
+        function paintMoments(k) {
+            if (!mom) return;
+            const items = []; myNotes.forEach((n, i) => { if (i < k && isUp(n)) items.push(i); });
+            mom.classList.toggle('hidden', !items.length);
+            if (!items.length) { lastMom = -1; return; }
+            mom.innerHTML = '<div class="text-[11px] font-bold text-amber-700 mb-1">⭐ 想法進步的時刻(到目前 ' + items.length + ' 次,點一下回到那個點)</div>' +
+                '<div class="space-y-1 overflow-y-auto pr-1" style="max-height:112px">' + items.map(i => { const n = myNotes[i], t = TYPE[n.type]; return '<button type="button" data-k="' + (i + 1) + '" class="w-full text-left text-[11px] rounded-md border px-2 py-1 ' + (i === k - 1 ? 'border-amber-400 bg-amber-50' : 'border-slate-200 bg-white hover:bg-amber-50') + '"><b>N' + (i + 1) + ' · ' + fmtD(n) + '</b> ' + t[0] + '(多爬 ' + t[1] + ')「' + esc2(n.title || '(無標題)') + '」</button>'; }).join('') + '</div>';
+            const box = mom.lastElementChild; if (items.length > lastMom && lastMom >= 0) box.scrollTop = box.scrollHeight; lastMom = items.length;
+            Array.prototype.forEach.call(mom.querySelectorAll('[data-k]'), btn => { btn.onclick = () => { if (player) player.goto(Number(btn.getAttribute('data-k'))); }; });
+        }
+        paintCaption(M); if (cap) cap.innerHTML = '<div>👆 <b>按下 ▶ 播放</b>:一個點一個點看你的想法怎麼往上爬,這裡會即時說明「現在這個點代表什麼」。</div><div class="text-slate-500">整段歷程:共 ' + M + ' 次發言,其中 ' + nImp + ' 次改進、' + nRise + ' 次昇華,最後的想法高度是 ' + data[M - 1] + '。</div>';
+        paintMoments(M);
+        try {
+            player = kbAttachSeriesPlayer({ id: 'eureka', explainTitle: '我的認知頓悟軌跡(每一次發言讓想法往上走或停一下)', chart: eurekaChartInstance, anchor: document.getElementById('eureka-box'), slow: true, baseDelay: 650,
+                hold: k => { const n = myNotes[k - 1]; return n ? (n.type === 'riseabove' ? 1800 : (n.type === 'improve' ? 1200 : 0)) : 0; },
+                onStep: (k, chart) => {
+                    const ds = chart.data.datasets[0];
+                    ds.pointRadius = baseR.map((r, i) => i === k - 1 ? r + 3 : r);
+                    ds.pointBorderColor = baseBorder.map((c, i) => i === k - 1 ? '#4f46e5' : c);
+                    ds.pointBorderWidth = baseR.map((r, i) => i === k - 1 ? 3.5 : 1.5);
+                    paintCaption(k); paintMoments(k);
+                } });
+        } catch (e) { console.error(e); }
     }
 
     function renderRadarChart(data) {

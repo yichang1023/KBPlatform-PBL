@@ -54,27 +54,55 @@
     return lines;
   };
 
+  // ---- AI 解說框:標題列(高度 小/中/大、收合)+ 可捲動內容(右下角可拖曳調整高度)----
+  var SIZES = { s: 150, m: 340, l: 640 };
+  function getSize() { try { var v = global.localStorage.getItem('kb_ai_size'); return SIZES[v] ? v : 'm'; } catch (e) { return 'm'; } }
+  function setSize(v) { try { global.localStorage.setItem('kb_ai_size', v); } catch (e) {} }
+  function sizePx(v) { var vh = (global.innerHeight || 800) * 0.82; return Math.round(Math.min(SIZES[v], Math.max(150, vh))); }
+  var BTN = 'padding:1px 8px;border-radius:6px;border:1px solid #c4b5fd;background:#fff;color:#5b21b6;font-size:11px;font-weight:700;cursor:pointer;line-height:1.6';
+  function frame(panel, title) {
+    if (panel.__kbf && panel.__kbf.title === title && panel.contains(panel.__kbf.body)) return panel.__kbf;
+    panel.innerHTML = '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px"><div data-a="ti" style="font-weight:800;color:#5b21b6;flex:1;min-width:150px"></div>' +
+      '<span style="color:#7c6aa8;font-size:11px">高度</span>' +
+      '<button type="button" data-sz="s" style="' + BTN + '" title="小">小</button><button type="button" data-sz="m" style="' + BTN + '" title="中">中</button><button type="button" data-sz="l" style="' + BTN + '" title="大">大</button>' +
+      '<button type="button" data-a="fold" style="' + BTN + ';margin-left:4px" title="收合/展開解說">▾ 收合</button></div>' +
+      '<div data-a="bd" style="overflow:auto;resize:vertical;min-height:60px;max-height:92vh;padding-right:4px"></div>';
+    var F = { title: title, body: panel.querySelector('[data-a=bd]'), folded: false };
+    panel.querySelector('[data-a=ti]').textContent = '🤖 AI 解說:' + title;
+    var fold = panel.querySelector('[data-a=fold]');
+    function paint() {
+      var cur = getSize();
+      Array.prototype.forEach.call(panel.querySelectorAll('[data-sz]'), function (x) { var on = x.getAttribute('data-sz') === cur; x.style.background = on ? '#7c3aed' : '#fff'; x.style.color = on ? '#fff' : '#5b21b6'; });
+      F.body.style.display = F.folded ? 'none' : 'block'; fold.textContent = F.folded ? '▸ 展開' : '▾ 收合';
+    }
+    Array.prototype.forEach.call(panel.querySelectorAll('[data-sz]'), function (x) { x.onclick = function () { var v = x.getAttribute('data-sz'); setSize(v); F.folded = false; F.body.style.height = sizePx(v) + 'px'; paint(); }; });
+    fold.onclick = function () { F.folded = !F.folded; paint(); };
+    F.body.style.height = sizePx(getSize()) + 'px'; F.paint = paint; F.unfold = function () { F.folded = false; paint(); };
+    paint(); panel.__kbf = F; return F;
+  }
+
   function runExplain(panel, title, tableFn, force) {
     panel.style.display = 'block';
-    if (!global.kbAiAsk) { panel.innerHTML = '<span style="color:#b45309">AI 功能尚未就緒。</span>'; return; }
+    var F = frame(panel, title), body = F.body; F.unfold();
+    if (!global.kbAiAsk) { body.innerHTML = '<span style="color:#b45309">AI 功能尚未就緒。</span>'; return; }
     var table = '';
     try { table = tableFn(); } catch (e) { if (global.console) console.error(e); }
-    if (!table) { panel.innerHTML = '<span style="color:#64748b">資料不足,無法產生解說。</span>'; return; }
+    if (!table) { body.innerHTML = '<span style="color:#64748b">資料不足,無法產生解說。</span>'; return; }
     var key = title + '|' + table.length + '|' + hash(table);
     function show(txt, fromCache) {
       if (global.kbAiUnscrub) txt = global.kbAiUnscrub(txt);
-      panel.innerHTML = '<div style="font-weight:800;color:#5b21b6;margin-bottom:4px">🤖 AI 解說:' + esc(title) + '</div><div class="kb-ai-body">' + md(txt) + '</div>' +
+      body.innerHTML = '<div class="kb-ai-body">' + md(txt) + '</div>' +
         '<div style="margin-top:6px;color:#94a3b8;font-size:10px">AI 依上方資料推論,僅供教學參考;姓名已用代號取代。' + (fromCache ? '(沿用先前結果)' : '') + ' <a href="#" data-a="again" style="color:#6366f1;text-decoration:underline">重新產生</a></div>';
-      var again = panel.querySelector('[data-a=again]');
+      var again = body.querySelector('[data-a=again]');
       if (again) again.onclick = function (e) { e.preventDefault(); runExplain(panel, title, tableFn, true); };
     }
     if (aiCache[key] && !force) { show(aiCache[key], true); return; }
-    panel.innerHTML = '<span style="color:#6d28d9">⏳ AI 正在從最初讀到最後,整理這段歷程…</span>';
+    body.innerHTML = '<span style="color:#6d28d9">⏳ AI 正在從最初讀到最後,整理這段歷程…</span>';
     Promise.resolve(global.kbAiAsk(buildHead() + '【分析對象】' + title + '\n【資料(由最初到最後)】\n' + table)).then(function (txt) {
       txt = String(txt || '');
-      if (!txt || txt.indexOf('⚠️') === 0) { panel.innerHTML = '<span style="color:#b91c1c">' + esc(txt || 'AI 沒有回應,請稍後再試。') + '</span>'; return; }
+      if (!txt || txt.indexOf('⚠️') === 0) { body.innerHTML = '<span style="color:#b91c1c">' + esc(txt || 'AI 沒有回應,請稍後再試。') + '</span>'; return; }
       aiCache[key] = txt; show(txt, false);
-    }).catch(function (e) { panel.innerHTML = '<span style="color:#b91c1c">AI 解說失敗:' + esc((e && e.message) || e) + '</span>'; });
+    }).catch(function (e) { body.innerHTML = '<span style="color:#b91c1c">AI 解說失敗:' + esc((e && e.message) || e) + '</span>'; });
   }
 
   // 在播放控制列加上「AI 解說歷程」按鈕;ex = { title, table: function → 文字資料, label?: 按鈕文字 }
@@ -89,7 +117,7 @@
     var panel = doc.createElement('div');
     panel.addEventListener('click', function (e) { e.stopPropagation(); });
     panel.setAttribute('data-kbai', id || '');
-    panel.style.cssText = 'display:none;margin-top:6px;padding:10px 12px;border:1px solid #ddd6fe;background:#f5f3ff;border-radius:10px;font-size:12px;line-height:1.7;color:#334155;max-height:340px;overflow:auto;text-align:left';
+    panel.style.cssText = 'display:none;margin-top:6px;padding:10px 12px;border:1px solid #ddd6fe;background:#f5f3ff;border-radius:10px;font-size:12px;line-height:1.7;color:#334155;text-align:left';
     wrap.insertAdjacentElement('afterend', panel);
     btn.onclick = function () { runExplain(panel, ex.title, ex.table, false); };
     return { panel: panel, button: btn };

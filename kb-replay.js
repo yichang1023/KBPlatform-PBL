@@ -44,7 +44,7 @@
       Object.keys(chart.scales).forEach(function (id) { var sc = chart.scales[id]; if (sc.type === 'linear') chart.options.scales[id] = Object.assign({}, chart.options.scales[id] || {}, { min: sc.min, max: sc.max }); });
     } catch (e) {}
     var st = { k: M, playing: false, timer: null, gone: false };
-    var ui = controls({ id: o.id, max: M });
+    var ui = controls({ id: o.id, max: M, speeds: o.slow ? [0.25, 0.5, 1, 2, 4] : null });
     var anchor = o.anchor || chart.canvas.parentElement;
     Array.prototype.forEach.call(doc.querySelectorAll('[data-kbnet="' + o.id + '"]'), function (x) { x.remove(); });
     anchor.insertAdjacentElement('afterend', ui.wrap);
@@ -59,10 +59,12 @@
         if (f.length && f[0] !== null && typeof f[0] === 'object' && f[0].x !== undefined) ds.data = f.filter(function (p) { return labels.indexOf(p.x) < k; }); // 散點(關鍵發言)
         else ds.data = f.map(function (v, j) { return j < k ? v : null; });
       });
+      if (o.onStep) { try { o.onStep(k, chart); } catch (e) { if (global.console) console.error(e); } }
       chart.update('none');
       seek.value = k; label.textContent = k === 0 ? '起點' : String(labels[k - 1]);
     }
-    function delay() { return Math.max(150, Math.min(900, 16000 / M)) / ui.speed(); }
+    // 有「即時說明」的圖表放慢,遇到重點(o.hold)多停一下,讓人看得完說明
+    function delay() { var base = o.baseDelay || Math.max(150, Math.min(900, 16000 / M)), extra = 0; try { extra = o.hold ? (o.hold(st.k) || 0) : 0; } catch (e) {} return (base + extra) / ui.speed(); }
     function setPlaying(p) { st.playing = p; btn.textContent = p ? '⏸ 暫停' : '▶ 播放'; if (!p) { clearTimeout(st.timer); st.timer = null; } }
     function tick() { if (!st.playing || !alive()) { setPlaying(false); return; } if (st.k >= M) { setPlaying(false); return; } render(st.k + 1); if (st.k >= M) setPlaying(false); else st.timer = setTimeout(tick, delay()); }
     function play() { if (!alive()) return; if (st.k >= M) render(0); setPlaying(true); st.timer = setTimeout(tick, delay()); }
