@@ -1901,11 +1901,14 @@ async function initApiKey() {
 
     function animateValue(id, start, end, duration) {
         const obj = document.getElementById(id); if(!obj) return;
-        let startTimestamp = null;
+        let startTimestamp = null, last = null;
         const step = (timestamp) => {
+            // 數字被別的地方改掉了(例如使用者按了「動態播放」),就不要再把動畫的數字蓋回去
+            if (last !== null && obj.innerHTML !== String(last)) return;
             if (!startTimestamp) startTimestamp = timestamp;
             const progress = Math.min((timestamp - startTimestamp) / duration, 1);
-            obj.innerHTML = Math.floor(progress * (end - start) + start);
+            last = Math.floor(progress * (end - start) + start);
+            obj.innerHTML = last;
             if (progress < 1) window.requestAnimationFrame(step);
         };
         window.requestAnimationFrame(step);

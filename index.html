@@ -226,6 +226,10 @@
                         <i class="fa-solid fa-chart-pie group-hover:rotate-180 transition-transform duration-500"></i>
                         <span id="btn-analytics-label">前往分析中樞</span>
                     </button>
+                    <button id="btn-student-analytics" onclick="navigateTo('student')" class="hidden col-span-2 btn-glow group relative py-3 px-6 rounded-xl bg-gradient-to-r from-emerald-700/70 to-teal-700/70 hover:from-emerald-600 hover:to-teal-600 font-bold border border-emerald-400/40 items-center justify-center gap-3">
+                        <i class="fa-solid fa-user-graduate group-hover:-translate-y-0.5 transition-transform duration-300"></i>
+                        <span>前往學生分析(選一位學生,看他的知識羅盤)</span>
+                    </button>
                     <button id="btn-setup" onclick="navigateTo('setup')" class="hidden col-span-2 btn-glow group relative py-3 px-6 rounded-xl bg-gradient-to-r from-violet-700/80 to-indigo-700/80 hover:from-violet-600 hover:to-indigo-600 font-bold border border-violet-400/40 items-center justify-center gap-3">
                         <i class="fa-solid fa-gear group-hover:rotate-90 transition-transform duration-500"></i>
                         <span>前往設定中心(使用者、班級、論壇、備份…)</span>
@@ -392,6 +396,8 @@
             document.getElementById('current-user-display').textContent = cur ? (KB.display.roleLabel(cur.role) + (cur.role === 'student' ? ' · ' + cur.label : '')).toUpperCase() : 'NOT SIGNED IN';
             var lbl = document.getElementById('btn-analytics-label');
             lbl.textContent = !cur ? '前往分析中樞' : (staff ? '前往分析中樞(老師)' : (cur.role === 'student' ? '前往知識羅盤' : '分析頁(訪客不開放)'));
+            document.getElementById('btn-student-analytics').classList.toggle('hidden', !staff);
+            document.getElementById('btn-student-analytics').classList.toggle('flex', !!staff);
             document.getElementById('btn-setup').classList.toggle('hidden', !staff);
             document.getElementById('btn-setup').classList.toggle('flex', !!staff);
             document.getElementById('ai-panel').classList.toggle('hidden', !staff);
@@ -488,6 +494,9 @@ const response = await geminiFetch(key, {
             else if (dest === 'analytics') {
                 if (cur.role === 'guest') { KBUI.toast('訪客只能瀏覽論壇,不開放分析頁', 'err'); return; }
                 window.location.href = staff ? KBFILES.teacher : KBFILES.student;
+            } else if (dest === 'student') {
+                if (!staff) { KBUI.toast('學生請用「前往知識羅盤」看自己的分析', 'err'); return; }
+                window.location.href = KBFILES.student;
             } else if (dest === 'setup') {
                 if (!staff) { KBUI.toast('設定中心僅限老師與管理者', 'err'); return; }
                 window.location.href = KBFILES.setup;
