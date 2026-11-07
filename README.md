@@ -1,6 +1,6 @@
 # KB 知識建構平台
 
-知識建構論壇、老師分析、學生分析(知識羅盤)與設定中心。資料與帳號存在 Firebase Firestore(集合 `kb_v2`、`kb_v2_audit`),網頁由 Vercel 提供。
+知識建構論壇、老師分析、學生分析(知識羅盤)與設定中心。資料與帳號存在 Firebase 專案 kb-forum 的 Firestore(集合 `kb_v2`、`kb_v2_audit`),網頁由 Vercel 提供。
 
 | 頁面 | 說明 |
 |---|---|

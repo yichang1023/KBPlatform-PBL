@@ -25,13 +25,34 @@
   function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
   function dayKey(ts) { var d = new Date(ts); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); }
   // 依時間戳列表建立「發文日」時間軸
+  // 播放從「起點」開始(尚無任何互動,只有自己/空白),之後每個發文日再拆成 3 小步,連線依回覆的先後逐步長出來。
+  // 論壇只記錄「日期」沒有時分,所以同一天內的先後以討論串順序估計:先有主貼文,再有回應、回應的回應。
+  var SUB = 3;
   window.kbMakeDays = function (timestamps) {
     var seen = {}, labels = [];
     timestamps.slice().sort(function (a, b) { return a - b; }).forEach(function (ts) {
       var k = dayKey(ts);
       if (seen[k] === undefined) { var d = new Date(ts); seen[k] = labels.length; labels.push((d.getMonth() + 1) + '/' + d.getDate()); }
     });
-    return { labels: labels, index: function (ts) { var v = seen[dayKey(ts)]; return v === undefined ? 0 : v; } };
+    var steps = [-1], stepLabels = ['起點'];
+    labels.forEach(function (lb, k) { for (var j = 1; j <= SUB; j++) { steps.push(k - 1 + j / SUB + 1e-9); stepLabels.push(j < SUB ? lb + ' (' + j + '/' + SUB + ')' : lb); } });
+    return {
+      labels: labels, steps: steps, stepLabels: stepLabels,
+      // index(ts):該日結束時的位置;index(ts, pos):該日內第 pos(0~1)的位置
+      index: function (ts, pos) { var v = seen[dayKey(ts)]; if (v === undefined) return 0; return pos === undefined ? v : v - 1 + pos; }
+    };
+  };
+  // 同一天內依討論串深度(先主貼文、後回應)排序,回傳每則貼文在當天的位置(0~1)
+  window.kbThreadPos = function (nodes, tsOf) {
+    var byId = {}, depth = {}, groups = {}, pos = {};
+    nodes.forEach(function (n) { byId[n.id] = n; });
+    function dep(n) { if (depth[n.id] !== undefined) return depth[n.id]; var d = 0, cur = n, g = 0; while (cur && cur.parentId && byId[cur.parentId] && g++ < 300) { d++; cur = byId[cur.parentId]; } return (depth[n.id] = d); }
+    nodes.forEach(function (n) { var k = dayKey(tsOf(n)); (groups[k] = groups[k] || []).push(n); });
+    Object.keys(groups).forEach(function (k) {
+      var g = groups[k].slice().sort(function (a, b) { return (dep(a) - dep(b)) || (String(a.id) < String(b.id) ? -1 : 1); });
+      g.forEach(function (n, i) { pos[n.id] = (i + 1) / g.length; });
+    });
+    return function (id) { var v = pos[id]; return v === undefined ? 1 : v; };
   };
   // 連線事件 → 逐日累積的連線(同一方向合併,線越粗代表次數越多)
   window.kbEdgeFrames = function (events, colors) {
@@ -54,6 +75,7 @@
     };
   };
   window.kbAttachPlayer = function (o) {
+    if (window.__kbReplaying) return null;
     if (players[o.id]) players[o.id].destroy();
     var N = o.labels.length;
     if (N < 2) return null;
@@ -71,6 +93,7 @@
       SPEEDS.map(function (s) { return '<option value="' + s + '"' + (s === speed ? ' selected' : '') + '>' + s + 'x</option>'; }).join('') + '</select></label>' +
       '<label style="display:flex;align-items:center;gap:3px;cursor:pointer;white-space:nowrap"><input type="checkbox" data-a="auto"' + (auto ? ' checked' : '') + '> 自動播放</label>';
     (o.anchor || o.container).insertAdjacentElement('afterend', wrap);
+    if (o.explainTitle && window.kbAddExplain) window.kbAddExplain(wrap, { title: o.explainTitle, table: function () { return window.kbNetworkTable(o); } }, o.id);
     var btn = wrap.querySelector('[data-a=play]'), seek = wrap.querySelector('[data-a=seek]'), label = wrap.querySelector('[data-a=label]');
     var spSel = wrap.querySelector('[data-a=speed]'), autoCb = wrap.querySelector('[data-a=auto]');
 
@@ -80,7 +103,7 @@
     function apply(i, animate) {
       if (!alive()) return;
       st.i = i;
-      var f = o.build(i), ids, cur, rm;
+      var f = o.build(o.steps ? o.steps[i] : i), ids, cur, rm;
       ids = f.nodes.map(function (n) { return n.id; }); cur = o.nodesDS.getIds();
       rm = cur.filter(function (id) { return ids.indexOf(id) < 0; }); if (rm.length) o.nodesDS.remove(rm);
       o.nodesDS.update(f.nodes);
@@ -123,6 +146,9 @@
 <script src="kb-core.js"></script>
 <script src="kb-cloud.js"></script>
     <script src="kb-ui.js"></script>
+<script src="kb-replay.js"></script>
+<script src="kb-ai-story.js"></script>
+<script src="kb-forest.js"></script>
     <style>@media (min-width: 768px) { #main-scroll-area { padding-top: 3.6rem !important; } }</style>
 
     <!-- 核心函式庫 -->
@@ -490,7 +516,7 @@
                         </div>
                         <div class="card">
                             <div class="flex justify-between items-center mb-2"><h4 class="font-bold text-sm text-slate-700 uppercase mr-2">自我互動圈 (Ego Network)</h4><button class="ref-btn" onclick="openRef('ego')"><i class="fas fa-book"></i> Ref:</button></div>
-                            <div class="h-48 bg-slate-50 rounded border border-slate-100 relative"><div id="ego-network-container" class="absolute inset-0"></div></div>
+                            <div class="h-72 bg-slate-50 rounded border border-slate-100 relative"><div id="ego-network-container" class="absolute inset-0"></div></div>
                             <div class="text-xs text-right mt-2 text-slate-500" id="ego-metric">顯示該學生與他人的直接互動</div>
                         </div>
                     </div>
@@ -886,6 +912,78 @@ async function geminiFetch(key, init) {
         // 選了某一組(主題)時,只計算「該組成員」,不要把其他組、沒有在這個主題發言的同學算成 0 篇,
         // 否則吉尼係數、風險人數、人均篇數、象限圖平均值都會被稀釋或誇大。
         // 組別由學生帳號判斷(例如 stu_g1_xxx 屬於 t_g1);判斷不出來時,改用「在該主題有發言的人」。
+        // ===== AI 歷程解說:接上本頁的 AI 呼叫(姓名一律換成代號) =====
+        window.kbAiAudience = 'teacher';
+        window.kbAiAsk = (p) => callGeminiAPI(p);
+        function kbStoryText(userId) {
+            const db = getRealData();
+            const id = window.__kbIdent || (window.__kbIdent = kbAiIdent(db.userList));
+            return kbStoryTable({ nodes: (db.nodes || []).map(n => ({ id: n.id, author: String(n.author), parentId: n.parentId, type: n.type, title: n.title, content: n.content, date: new Date(n.date).getTime() })), userId: userId == null ? null : String(userId), codeOf: id.codeOf, scrub: id.scrub });
+        }
+        // 全班「從最初到最後」的 AI 歷程報告卡(放在總覽最上方)
+        function ensureStoryCard() {
+            const host = document.getElementById('view-overview');
+            if (!host || document.getElementById('kb-story-card')) return;
+            const card = document.createElement('div');
+            card.id = 'kb-story-card'; card.className = 'card border-l-4 border-purple-500';
+            card.innerHTML = '<div class="flex items-center justify-between flex-wrap gap-2"><h4 class="font-bold text-sm text-slate-700"><i class="fas fa-book-open text-purple-500 mr-2"></i>AI 知識建構歷程故事(從最初到最後)</h4></div><p class="text-xs text-slate-500 mt-1">AI 會依發文日期從最初一路讀到最後,用說故事的方式介紹全班的知識建構如何一步步發展(姓名已用代號取代)。</p>';
+            const wrap = document.createElement('div');
+            wrap.setAttribute('data-kbnet', 'story'); wrap.style.cssText = 'display:flex;gap:8px;margin-top:8px';
+            card.appendChild(wrap); host.insertBefore(card, host.firstChild);
+            kbAddExplain(wrap, { title: '全班的知識建構歷程(從最初到最後)', label: '📖 產生 AI 歷程故事', table: () => kbStoryText(null) }, 'story');
+        }
+        // ===== 全班知識森林:每個討論區(組別)的討論串,畫成一棵會慢慢長大的想法櫻花樹 =====
+        function renderForestCard() {
+            const host = document.getElementById('view-overview');
+            if (!host || typeof KBForest === 'undefined') return;
+            const db = getRealData();
+            if (!db || !(db.nodes || []).length) return;
+            let card = document.getElementById('kb-forest-card');
+            if (!card) {
+                card = document.createElement('div');
+                card.id = 'kb-forest-card'; card.className = 'card border-l-4 border-pink-400';
+                card.innerHTML = '<div class="flex items-center justify-between flex-wrap gap-2"><h4 class="font-bold text-sm text-slate-700"><i class="fas fa-seedling text-pink-500 mr-2"></i>全班知識森林(各組的想法櫻花樹)</h4></div><p class="text-xs text-slate-500 mt-1 mb-3">每個討論區是一棵樹:主貼文是種子與樹幹,每一則回應長出一叢櫻花,討論越熱烈、分岔越多,樹就越粗壯、越茂盛。按下面的「播放」,從一顆種子看它怎麼一步步長成盛開的櫻花樹。</p><div id="kb-forest-box"></div>';
+                const story = document.getElementById('kb-story-card');
+                if (story && story.parentNode === host) host.insertBefore(card, story.nextSibling); else host.insertBefore(card, host.firstChild);
+            }
+            const box = document.getElementById('kb-forest-box');
+            const nodes = (db.nodes || []).map(n => ({ id: n.id, topicId: n.topicId, author: String(n.author), parentId: n.parentId, type: n.type, title: n.title, date: new Date(n.date).getTime() }));
+            const nameOf = id => { const u = (db.userList || {})[id] || Object.values(db.userList || {}).find(x => String(x.id) === String(id)); return (u && u.name) || String(id); };
+            const ctl = KBForest.mount(box, { nodes, topics: db.topics || [], userList: db.userList || {}, nameOf, topicFilter: activeTopicFilter });
+            const ident = window.__kbIdent || (window.__kbIdent = kbAiIdent(db.userList || {}));
+            kbAttachReplay({ id: 'forest', anchor: box, labels: ctl.labels, explainTitle: '全班知識森林(各組的想法如何長成一棵櫻花樹)的成長過程',
+                render: step => ctl.setStep(step), values: step => ctl.valuesAt(step, ident.scrub) });
+            return ctl;
+        }
+        // ===== 各項目自己的動態播放(從「起點」開始,依發文日逐日累積;只更新那一項) =====
+        function kbTypeMixText(notes) {
+            const c = { question: 0, extend: 0, improve: 0, counter: 0, riseabove: 0 };
+            notes.forEach(n => { if (c[n.type] !== undefined) c[n.type]++; });
+            return '累計貼文 ' + notes.length + ' 篇(提問' + c.question + '、延伸' + c.extend + '、改進' + c.improve + '、反駁' + c.counter + '、整合' + c.riseabove + ');' + new Set(notes.map(n => n.author)).size + ' 位同學發言;回應型貼文 ' + notes.filter(n => n.parentId).length + ' 篇';
+        }
+        function kbRep(o) {
+            if (window.__kbReplaying || !o.anchor || !globalAllNotes.length) return null;
+            const base = globalAllNotes, sd = kbStepDays(base.map(n => n.dateTime));
+            const withStep = (step, fn) => {
+                const keep = globalAllNotes; let anim; try { anim = Chart.defaults.animation; Chart.defaults.animation = false; } catch (e) {}
+                globalAllNotes = base.filter(n => sd.idx(n.dateTime) <= step); window.__kbReplaying = true;
+                try { return fn(); } finally { globalAllNotes = keep; window.__kbReplaying = false; try { Chart.defaults.animation = anim; } catch (e) {} }
+            };
+            return kbAttachReplay({ id: o.id, anchor: o.anchor, inside: o.inside, labels: sd.labels, explainTitle: o.title,
+                render: step => withStep(step, () => o.render(step)),
+                values: step => withStep(step, () => (o.values ? o.values(step) : kbTypeMixText(globalAllNotes))) });
+        }
+        function kbKpiCalc(notes) {
+            const students = getScopedStudents(globalRawDB, globalRawDB.nodes || []);
+            const total = notes.length;
+            const counts = students.map(u => notes.filter(n => String(n.author) === String(u.id)).length).sort((a, b) => a - b);
+            return { total, dens: total ? calcNetworkDensity(notes, students).toFixed(2) : '0', ra: total ? Math.round(notes.filter(n => n.type === 'riseabove').length / total * 100) : 0, gini: calculateGini(counts).toFixed(2), depth: calculateAvgThreadDepth(notes).toFixed(1) };
+        }
+        function kbKpiSet(k) {
+            const set = (id, v) => { const el = document.getElementById(id); if (el) el.innerText = v; };
+            set('total-notes-count', k.total); set('network-density', k.dens); set('rise-above-rate', k.ra + '%'); set('gini-coefficient', k.gini); set('avg-thread-depth', k.depth);
+        }
+
         function getScopedStudents(db, nodes) {
             const all = Object.values((db && db.userList) || {}).filter(u => u.role !== 'teacher');
             if (activeTopicFilter === 'all') return all;
@@ -996,6 +1094,13 @@ async function geminiFetch(key, init) {
             renderOverviewTrajectory(filteredNodes);
             renderSequentialMatrix(filteredNodes);
             renderKnowledgeBrokers(filteredNodes, students);
+            try {
+                kbRep({ id: 'seq', anchor: document.getElementById('sequential-matrix-container'), title: '言談序列轉移(哪種貼文常接在哪種貼文後面)的累積', render: () => renderSequentialMatrix(globalAllNotes) });
+                kbRep({ id: 'brokers', anchor: document.getElementById('brokers-list-container'), title: '關鍵知識經紀人(居中串連大家的人)的出現過程', render: () => renderKnowledgeBrokers(globalAllNotes, students) });
+                const kpiCard = document.getElementById('network-density') && document.getElementById('network-density').closest('.card');
+                if (kpiCard) kbRep({ id: 'kpi', anchor: kpiCard, inside: true, title: '班級社群脈動(總貼文、網路密度、昇華率、發言平均度、討論串深度)的累積', render: () => kbKpiSet(kbKpiCalc(globalAllNotes)), values: () => { const k = kbKpiCalc(globalAllNotes); return '總貼文 ' + k.total + '、網路密度 ' + k.dens + '、昇華率 ' + k.ra + '%、發言吉尼係數 ' + k.gini + '、平均討論串深度 ' + k.depth; } });
+            } catch (e) { console.error(e); }
+            try { renderForestCard(); } catch (e) { console.error(e); }
 
             // ⭐ 終極修正：把所有獨立變數和 globalClassStats 完美合併回傳
             return {
@@ -1101,6 +1206,7 @@ async function geminiFetch(key, init) {
                     elements: { point: { radius: 0 } }
                 }
             });
+            try { kbAttachSeriesPlayer({ id: 'traj', explainTitle: '全班提出的問題與發展的理論(累積)的軌跡', chart: overviewTrajectoryChart }); } catch (e) {}
         }
 
         function renderSequentialMatrix(nodes) {
@@ -1404,9 +1510,10 @@ async function geminiFetch(key, init) {
             const idSet = new Set(studentIds);
             const byIdN = {}; stats.nodes.forEach(n => { byIdN[n.id] = n; });
             const snaDays = kbMakeDays(stats.nodes.map(n => n.date));
+            const snaPos = kbThreadPos(stats.nodes, n => n.date);
             const snaEvents = [], postDays = {};
             stats.nodes.forEach(n => {
-                const d = snaDays.index(n.date), a = String(n.author);
+                const d = snaDays.index(n.date, snaPos(n.id)), a = String(n.author);
                 if (idSet.has(a)) (postDays[a] = postDays[a] || []).push(d);
                 const p = n.parentId ? byIdN[n.parentId] : null;
                 if (p && String(p.author) !== a && idSet.has(a) && idSet.has(String(p.author))) snaEvents.push({ from: a, to: String(p.author), d: d });
@@ -1423,13 +1530,32 @@ async function geminiFetch(key, init) {
             const stopSnaPhysics = () => { if (overviewNetwork) overviewNetwork.setOptions({ physics: false }); };
             overviewNetwork.once('stabilizationIterationsDone', stopSnaPhysics);
             setTimeout(stopSnaPhysics, 2500);
-            kbAttachPlayer({ id: 'sna', container: container, network: overviewNetwork, nodesDS: snaNodesDS, edgesDS: snaEdgesDS, labels: snaDays.labels, build: snaBuild });
+            kbAttachPlayer({ explainTitle: '全班互動網絡(誰回應了誰)的形成過程', id: 'sna', container: container, network: overviewNetwork, nodesDS: snaNodesDS, edgesDS: snaEdgesDS, labels: snaDays.stepLabels, steps: snaDays.steps, build: snaBuild });
             const ctx1 = document.getElementById('principlesChart').getContext('2d');
             const typeCounts = { question:0, extend:0, improve:0, counter:0, riseabove:0 };
             stats.nodes.forEach(n => { if (typeCounts[n.type] !== undefined) typeCounts[n.type]++; });
             if(principlesChartInstance) principlesChartInstance.destroy();
             principlesChartInstance = new Chart(ctx1, { type: 'doughnut', data: { labels: ['提問', '延伸', '改進', '反駁', '整合'], datasets: [{ data: Object.values(typeCounts), backgroundColor: ['#3b82f6', '#eab308', '#22c55e', '#ef4444', '#a855f7'] }] }, options: { responsive: true, maintainAspectRatio: false } });
+            try {
+                const sdP = kbStepDays(stats.nodes.map(n => n.date));
+                const cntAt = step => { const c = { question: 0, extend: 0, improve: 0, counter: 0, riseabove: 0 }; stats.nodes.forEach(n => { if (sdP.idx(n.date) <= step && c[n.type] !== undefined) c[n.type]++; }); return c; };
+                kbAttachReplay({ id: 'principles', anchor: document.getElementById('principlesChart').parentElement, labels: sdP.labels, explainTitle: '全班鷹架類型(提問/延伸/改進/反駁/整合)分布的累積',
+                    render: step => { principlesChartInstance.data.datasets[0].data = Object.values(cntAt(step)); principlesChartInstance.update('none'); },
+                    values: step => { const c = cntAt(step); return '提問' + c.question + '、延伸' + c.extend + '、改進' + c.improve + '、反駁' + c.counter + '、整合' + c.riseabove; } });
+            } catch (e) { console.error(e); }
 
+            renderKb12Radar(stats, typeCounts);
+            try {
+                const wholeNow = (typeof globalClassStats !== 'undefined') && (stats.totalNotes >= (globalClassStats.totalNotes || 0) * 0.95);
+                const statsOf = notes => { const studs = getScopedStudents(globalRawDB, globalRawDB.nodes || []); const counts = studs.map(u => notes.filter(n => String(n.author) === String(u.id)).length).sort((a, b) => a - b); return Object.assign({}, stats, { totalNotes: notes.length, nodes: notes, gini: calculateGini(counts).toFixed(2) }); };
+                const mixOf = notes => { const c = {}; notes.forEach(n => { c[n.type] = (c[n.type] || 0) + 1; }); return c; };
+                kbRep({ id: 'kb12radar', anchor: document.getElementById('kbPrinciplesChart').parentElement, title: 'KB 12 原則落實度(觀點多樣性、集體責任、真實問題、權威資料、觀點改進、民主化)的累積變化',
+                    render: () => renderKb12Radar(statsOf(globalAllNotes), mixOf(globalAllNotes), wholeNow),
+                    values: () => { renderKb12Radar(statsOf(globalAllNotes), mixOf(globalAllNotes), wholeNow); const d = kbPrinciplesChartInstance.data; return d.labels.map((l, i) => l + d.datasets[0].data[i]).join('、'); } });
+            } catch (e) { console.error(e); }
+        }
+
+        function renderKb12Radar(stats, typeCounts, forceWhole) {
           // --- ⭐ KB 12原則雷達圖：全班/小組動態精準切換版 ---
             const tCount = stats.totalNotes > 0 ? stats.totalNotes : 1;
 
@@ -1448,7 +1574,7 @@ async function geminiFetch(key, init) {
             // ⭐ 核心修正區：動態切割全班與小組的基準數據
             // ==========================================
             // 判斷目前是否在看全班 (若當前文章數 >= 全班總數的95%，視為全班模式)
-            const isWholeClass = (typeof globalClassStats !== 'undefined') && (stats.totalNotes >= (globalClassStats.totalNotes || 0) * 0.95);
+            const isWholeClass = forceWhole !== undefined ? forceWhole : ((typeof globalClassStats !== 'undefined') && (stats.totalNotes >= (globalClassStats.totalNotes || 0) * 0.95));
 
             // 抓出「該範圍內」實際有發言的作者名單
             const activeAuthors = new Set(stats.nodes.filter(n => n.author).map(n => String(n.author)));
@@ -1565,6 +1691,7 @@ async function geminiFetch(key, init) {
                     topics: data.topics || [],
                     userList: data.userList || {}
                 };
+                try { window.__kbIdent = kbAiIdent(window.state.userList); } catch (e) {}
                 const currentDb = getRealData();
                 if (currentDb) {
                     // ⭐ 先用最新資料重新計算班級統計(globalRawDB / globalAllNotes / globalClassStats),各分頁才不會用到舊資料
@@ -1578,6 +1705,7 @@ async function geminiFetch(key, init) {
             dbStatus.innerText = "Local Storage";
             dbStatus.className = "text-cyan-400 font-bold";
             applyCloudData(feed());
+            try { ensureStoryCard(); } catch (e) { console.error(e); }
             KB.on((keys, remote) => { if (remote && KB.auth.current()) applyCloudData(feed()); });
         };
 
@@ -1598,16 +1726,17 @@ async function geminiFetch(key, init) {
 
             const getSize = (c) => Math.max(12, Math.min(45, 12 + c * 1.5));
             const lensDays = kbMakeDays(globalAllNotes.map(n => n.dateTime));
+            const lensPos = kbThreadPos(globalAllNotes, n => n.dateTime);
             const lensBuild = i => {
                 const c = { Fact: 0, Theory: 0, Challenge: 0, Synthesis: 0 };
                 globalAllNotes.forEach(n => {
-                    if (lensDays.index(n.dateTime) > i) return;
+                    if (lensDays.index(n.dateTime, lensPos(n.id)) > i) return;
                     if (n.type === 'extend' || n.type === 'improve') c.Theory++;
                     else if (n.type === 'counter') c.Challenge++;
                     else if (n.type === 'riseabove') c.Synthesis++;
                     else c.Fact++;
                 });
-                return {
+                const full = {
                     nodes: [
                         { id: 'Fact', label: '事實\nFact\n(' + c.Fact + ')', color: '#cbd5e1', shape: 'dot', size: getSize(c.Fact) },
                         { id: 'Theory', label: '理論\nTheory\n(' + c.Theory + ')', color: '#3b82f6', shape: 'dot', size: getSize(c.Theory) },
@@ -1622,6 +1751,9 @@ async function geminiFetch(key, init) {
                         { id: 'e5', from: 'Theory', to: 'Synthesis', arrows: 'to' }
                     ]
                 };
+                // 還沒有任何貼文的類別先不出現;兩端都有貼文時,連線才會長出來
+                const cnt = { Fact: c.Fact, Theory: c.Theory, Challenge: c.Challenge, Synthesis: c.Synthesis };
+                return { nodes: full.nodes.filter(nd => cnt[nd.id] > 0), edges: full.edges.filter(ed => cnt[ed.from] > 0 && cnt[ed.to] > 0) };
             };
             const lensLast = lensDays.labels.length - 1;
             const nodes = new vis.DataSet(lensBuild(lensLast).nodes), edges = new vis.DataSet(lensBuild(lensLast).edges);
@@ -1629,7 +1761,7 @@ async function geminiFetch(key, init) {
             const stopLensPhysics = () => { if (lensNetwork) lensNetwork.setOptions({ physics: false }); };
             lensNetwork.once('stabilizationIterationsDone', stopLensPhysics);
             setTimeout(stopLensPhysics, 2500);
-            kbAttachPlayer({ id: 'lens', container: container, anchor: container.parentElement, network: lensNetwork, nodesDS: nodes, edgesDS: edges, labels: lensDays.labels, build: lensBuild });
+            kbAttachPlayer({ explainTitle: '深度對話透視鏡(事實、理論、挑戰、整合四類想法)的累積', id: 'lens', container: container, anchor: container.parentElement, network: lensNetwork, nodesDS: nodes, edgesDS: edges, labels: lensDays.stepLabels, steps: lensDays.steps, build: lensBuild });
             lensNetwork.on("click", function (params) {
                 const detailBox = document.getElementById('lens-detail');
                 let info = null;
@@ -1674,7 +1806,8 @@ async function geminiFetch(key, init) {
                 return { id: w, label: `${w}\n(${noteIds.length})`, value: noteIds.length, color: color, font: font, shape: 'dot', shadow: shadow };
             });
             const cpDays = kbMakeDays(globalAllNotes.map(n => n.dateTime));
-            const noteDay = {}; globalAllNotes.forEach(n => { noteDay[n.id] = cpDays.index(n.dateTime); });
+            const cpPos = kbThreadPos(globalAllNotes, n => n.dateTime);
+            const noteDay = {}; globalAllNotes.forEach(n => { noteDay[n.id] = cpDays.index(n.dateTime, cpPos(n.id)); });
             const kwSet = {}; sortedKeywords.forEach(w => { kwSet[w] = new Set(keywordMap[w]); });
             const cpBuild = i => {
                 const nds = nodesData.map(nd => { const c = keywordMap[nd.id].filter(id => noteDay[id] <= i).length; return Object.assign({}, nd, { value: Math.max(c, 0.1), label: nd.id + '\n(' + c + ')', hidden: c === 0 }); });
@@ -1694,7 +1827,7 @@ async function geminiFetch(key, init) {
             const stopConceptPhysics = () => { if (conceptNetworkInstance) conceptNetworkInstance.setOptions({ physics: false }); };
             conceptNetworkInstance.once('stabilizationIterationsDone', stopConceptPhysics);
             setTimeout(stopConceptPhysics, 2500);
-            kbAttachPlayer({ id: 'concept', container: container, network: conceptNetworkInstance, nodesDS: cpNodesDS, edgesDS: cpEdgesDS, labels: cpDays.labels, build: cpBuild });
+            kbAttachPlayer({ explainTitle: '概念語義網絡(關鍵詞如何彼此連結)的成形過程', id: 'concept', container: container, network: conceptNetworkInstance, nodesDS: cpNodesDS, edgesDS: cpEdgesDS, labels: cpDays.stepLabels, steps: cpDays.steps, build: cpBuild });
             conceptNetworkInstance.on("click", function (params) { if (params.nodes.length > 0) showKeywordContext(params.nodes[0], keywordMap[params.nodes[0]]); });
         }
 
@@ -1743,6 +1876,7 @@ async function geminiFetch(key, init) {
             }
 
             lexicalChartInstance = new Chart(ctx, { type: 'line', data: { labels: labels, datasets: [{ label: '知識詞彙累積量', data: dataPoints, borderColor: '#8b5cf6', backgroundColor: 'rgba(139, 92, 246, 0.1)', fill: true, tension: 0.4 }] }, options: { responsive: true, maintainAspectRatio: false } });
+            try { kbAttachSeriesPlayer({ id: 'lexical', explainTitle: '全班知識詞彙累積量的成長', chart: lexicalChartInstance }); } catch (e) {}
         }
 
         function initPromisingnessChart() {
@@ -1760,6 +1894,7 @@ async function geminiFetch(key, init) {
                 dot.innerHTML = `<div class="w-3 h-3 ${n.type === 'question' ? 'bg-red-500' : 'bg-blue-500'} rounded-full shadow-lg hotspot-dot"></div><div class="absolute -top-8 -left-10 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap z-20 pointer-events-none w-max max-w-[150px] truncate p-1 shadow-xl border border-slate-700 hidden md:block">${n.title}</div>`;
                 container.appendChild(dot);
             });
+            try { kbRep({ id: 'promising', anchor: container, title: '觀點潛力熱點圖(每則想法被關注的程度與認知落差)的累積', render: () => initPromisingnessChart() }); } catch (e) {}
         }
 
         function initEvolutionTimeline() {
@@ -1776,6 +1911,7 @@ async function geminiFetch(key, init) {
                 item.innerHTML = `<div class="absolute -left-10 top-0 w-8 h-8 bg-white rounded-full flex items-center justify-center border-2 border-slate-200 text-slate-400 text-xs"><i class="fas ${icon}"></i></div><div class="${color} border p-3 rounded-lg shadow-sm"><div class="flex justify-between items-center mb-1"><span class="text-xs font-bold text-slate-700">${n.title || '無標題'}</span><span class="text-[10px] text-slate-400">${n.date}</span></div><div class="mb-1"><span class="text-[10px] bg-slate-100 text-slate-600 px-1 py-0.5 rounded border border-slate-300 font-medium">${typeLabel}</span></div><div class="text-xs text-slate-600 line-clamp-2">${n.content}</div></div>`;
                 container.appendChild(item);
             });
+            try { kbRep({ id: 'evotimeline', anchor: container, title: '觀點演化路徑(討論串一則接一則長出來)', render: () => initEvolutionTimeline() }); } catch (e) {}
         }
 
         function viewNote(noteId) {
@@ -1879,6 +2015,7 @@ async function geminiFetch(key, init) {
                 },
                 options: { responsive: true, maintainAspectRatio: false, scales: { y: { stacked: true, beginAtZero: true } }, onClick: (e, activeEls) => { if (activeEls.length > 0) { const ds = streamChart.data.datasets[activeEls[0].datasetIndex]; if(ds.type === 'scatter') { const noteId = ds.data[activeEls[0].index].noteId; if(noteId) viewNote(noteId); } } } }
             });
+            try { kbAttachSeriesPlayer({ id: 'stream', explainTitle: '關鍵對話流(提問、延伸、深化、整合如何交替出現)', chart: streamChart }); } catch (e) {}
         }
 
         // ⭐ KB 原則共用判斷工具
@@ -2054,6 +2191,12 @@ async function geminiFetch(key, init) {
             window.kb12Results = {};
             checks.forEach(c => { window.kb12Results[c.key] = { val: c.val, status: c.pass ? '達標' : '尚未達標', meaning: c.meaning }; });
             checklistContainer.innerHTML = checks.map(c => `<div class="flex items-start p-2 border-b border-yellow-100 last:border-0"><div class="mr-3 mt-1">${c.pass ? '<i class="fas fa-check-circle text-green-500"></i>' : '<i class="fas fa-exclamation-circle text-red-400"></i>'}</div><div><div class="font-bold text-sm text-slate-700 flex items-center gap-2">${c.title}<button class="ref-btn px-2 py-1 text-[10px]" onclick="openRef('${c.key}')"><i class="fas fa-book"></i> Ref</button></div><div class="text-xs text-slate-500">${c.desc}</div><div class="text-xs font-mono font-bold ${c.pass ? 'text-green-600' : 'text-red-500'} mt-1">Val: ${c.val}</div></div></div>`).join('');
+            try {
+                const checkText = () => Object.values(window.kb12Results || {}).map(r => r.status + '(' + r.val + ')').join(';');
+                kbRep({ id: 'impact', anchor: document.getElementById('impactScatterChart').parentElement, title: '互動影響力矩陣(誰發文多、誰被回應多)的形成過程', render: () => initAcademicAnalysis() });
+                kbRep({ id: 'fingerprint', anchor: document.getElementById('scaffoldProfileChart').parentElement, title: '認知鷹架指紋(每位同學偏好用哪種鷹架)的累積', render: () => initAcademicAnalysis() });
+                kbRep({ id: 'kb12check', anchor: document.getElementById('kb12-check-list'), title: 'KB 12 原則實證檢核(各項是否達標)的變化', render: () => initAcademicAnalysis(), values: () => { initAcademicAnalysis(); return checkText(); } });
+            } catch (e) {}
         }
 
         function calculateStudentMetrics(db, userId) {
@@ -2081,7 +2224,7 @@ async function geminiFetch(key, init) {
                     const p = globalAllNotes.find(x => x.id === n.parentId);
                     if(p && String(p.author) !== uIdStr) {
                         egoNodes.add(String(p.author));
-                        egoEdges.push({from: uIdStr, to: String(p.author), t: n.dateTime});
+                        egoEdges.push({from: uIdStr, to: String(p.author), t: n.dateTime, type: 'out'});
                         outDegree++;
                     }
                 }
@@ -2091,16 +2234,36 @@ async function geminiFetch(key, init) {
                     const p = globalAllNotes.find(x => x.id === n.parentId);
                     if(p && String(p.author) === uIdStr && String(n.author) !== uIdStr) {
                         egoNodes.add(String(n.author));
-                        egoEdges.push({from: String(n.author), to: uIdStr, t: n.dateTime});
+                        egoEdges.push({from: String(n.author), to: uIdStr, t: n.dateTime, type: 'in'});
                         inDegree++;
                     }
                 }
             });
 
-            const visNodes = Array.from(egoNodes).map(uid => {
+            // 自我互動圈一律使用「全部論壇貼文」計算,不受上方討論區篩選影響(否則選了某一組,其他組的學生就只剩 2~3 條線)
+            // 畫法:他與每位互動對象的連線(藍=他回應別人、綠=別人回應他),加上這些對象彼此之間的互動(淺灰細線)
+            const egoSrc = (db.nodes || []).map(n => ({ id: n.id, author: String(n.author), parentId: n.parentId, dateTime: new Date(n.date).getTime() }));
+            const srcById = {}; egoSrc.forEach(x => { srcById[x.id] = x; });
+            const vNodes = new Set([uIdStr]), vEdges = []; let vOut = 0, vIn = 0;
+            egoSrc.forEach(n => {
+                if (!n.parentId) return;
+                const p = srcById[n.parentId]; if (!p) return;
+                if (n.author === uIdStr && p.author !== uIdStr) { vNodes.add(p.author); vEdges.push({ from: uIdStr, to: p.author, t: n.dateTime, nid: n.id, type: 'out' }); vOut++; }
+                else if (p.author === uIdStr && n.author !== uIdStr) { vNodes.add(n.author); vEdges.push({ from: n.author, to: uIdStr, t: n.dateTime, nid: n.id, type: 'in' }); vIn++; }
+            });
+            const alterEdges = [], alterPairs = new Set();
+            egoSrc.forEach(n => {
+                if (!n.parentId) return;
+                const p = srcById[n.parentId]; if (!p) return;
+                if (n.author !== p.author && n.author !== uIdStr && p.author !== uIdStr && vNodes.has(n.author) && vNodes.has(p.author)) {
+                    alterEdges.push({ from: n.author, to: p.author, t: n.dateTime, nid: n.id, type: 'alter' });
+                    alterPairs.add(n.author < p.author ? n.author + '|' + p.author : p.author + '|' + n.author);
+                }
+            });
+            const visNodes = Array.from(vNodes).map(uid => {
                 const u = Object.values(db.userList).find(x => String(x.id) === String(uid));
                 const isMe = String(uid) === uIdStr;
-                return { id: uid, label: u ? (u.name || '?') : '?', color: isMe ? '#3b82f6' : '#94a3b8', size: isMe ? 25 : 15, font: { color: isMe ? 'white' : 'black' } };
+                return { id: uid, label: u ? (u.name || '?') : '?', color: isMe ? '#3b82f6' : '#94a3b8', size: isMe ? 26 : 16, font: isMe ? { color: '#1e293b', size: 13, strokeWidth: 3, strokeColor: '#ffffff' } : { color: '#334155', size: 11, strokeWidth: 3, strokeColor: '#ffffff' } };
             });
 
             let role = "參與者"; let badgeColor = "bg-gray-100 text-gray-500 border-gray-200";
@@ -2146,7 +2309,7 @@ async function geminiFetch(key, init) {
             const radarData = [agencyScore, communityScore, ideaImpScore, synthesisScore, inquiryScore];
             const depthTrend = [Math.min(20, inquiryScore/4), Math.min(40, agencyScore/2), Math.min(60, ideaImpScore/1.2), Math.min(80, synthesisScore), inquiryScore];
 
-            return { user, noteCount, scaffoldCounts, visNodes, visEdges: egoEdges, depthTrend, radarData, role, badgeColor, topKeywords, balanceData, inDegree, outDegree };
+            return { user, noteCount, scaffoldCounts, visNodes, visEdges: vEdges.concat(alterEdges), alterLinkCount: alterPairs.size, egoOut: vOut, egoIn: vIn, depthTrend, radarData, role, badgeColor, topKeywords, balanceData, inDegree, outDegree };
         }
 
         // ===========================================
@@ -2359,24 +2522,55 @@ async function geminiFetch(key, init) {
             const badge = document.getElementById('kb-role-badge'); badge.innerText = data.role; badge.className = `text-[10px] px-2 py-0.5 rounded-full border font-bold tracking-wide ${data.badgeColor}`; badge.classList.remove('hidden');
             document.getElementById('student-keywords-container').innerHTML = data.topKeywords.length > 0 ? data.topKeywords.map(k => `<span class="bg-amber-50 text-amber-700 border border-amber-200 px-2 py-1 rounded text-xs">${k}</span>`).join('') : '<span class="text-xs text-slate-400">無詞彙</span>';
             const ctxR = document.getElementById('radarChart').getContext('2d'); if(radarChartInstance) radarChartInstance.destroy(); radarChartInstance = new Chart(ctxR, { type: 'radar', data: { labels: ['主體性','社群互動','觀點改進','昇華整合','持續探究'], datasets: [{ label: displayName, data: data.radarData, backgroundColor:'rgba(59,130,246,0.2)', borderColor:'#3B82F6' }] }, options: { responsive:true, maintainAspectRatio:false, scales: { r: { suggestedMin: 0, suggestedMax: 100, ticks:{display:false} } } } });
-            const container = document.getElementById('ego-network-container'); if(egoNetworkInstance) { egoNetworkInstance.destroy(); egoNetworkInstance = null; } const egoDays = kbMakeDays(globalAllNotes.map(n => n.dateTime));
-            const egoEvents = (data.visEdges || []).map(ed => ({ from: ed.from, to: ed.to, d: egoDays.index(ed.t) }));
-            const egoEdgeFrame = kbEdgeFrames(egoEvents);
-            const egoBuild = i => { const eds = egoEdgeFrame(i); const present = new Set([String(userId)]); eds.forEach(ed => { present.add(String(ed.from)); present.add(String(ed.to)); }); return { nodes: data.visNodes.filter(nd => present.has(String(nd.id))), edges: eds }; };
+            const container = document.getElementById('ego-network-container'); if(egoNetworkInstance) { egoNetworkInstance.destroy(); egoNetworkInstance = null; } const egoDays = kbMakeDays((db.nodes || []).map(n => new Date(n.date).getTime()));
+            const egoPos = kbThreadPos(db.nodes || [], n => new Date(n.date).getTime());
+            const egoEvents = (data.visEdges || []).map(ed => ({ from: ed.from, to: ed.to, d: egoDays.index(ed.t, egoPos(ed.nid)), type: ed.type }));
+            const EGO_COL = { out: '#2563eb', in: '#16a34a', alter: '#cbd5e1' };
+            const egoEdgeFrame = kbEdgeFrames(egoEvents, EGO_COL);
+            const egoBuild = i => { const eds = egoEdgeFrame(i).map(ed => (ed.color && ed.color.color === EGO_COL.alter) ? Object.assign({}, ed, { width: 1, arrows: '' }) : ed); const present = new Set([String(userId)]); eds.forEach(ed => { present.add(String(ed.from)); present.add(String(ed.to)); }); return { nodes: data.visNodes.filter(nd => present.has(String(nd.id))), edges: eds }; };
             const egoLast = egoDays.labels.length - 1;
             const egoNodesDS = new vis.DataSet(egoBuild(egoLast).nodes), egoEdgesDS = new vis.DataSet(egoBuild(egoLast).edges);
-            egoNetworkInstance = new vis.Network(container, { nodes: egoNodesDS, edges: egoEdgesDS }, { nodes: { shape: 'dot' }, physics: { stabilization: { enabled: true, iterations: 120, updateInterval: 50, fit: true }, barnesHut: { damping: 0.6 } } });
+            egoNetworkInstance = new vis.Network(container, { nodes: egoNodesDS, edges: egoEdgesDS }, { nodes: { shape: 'dot' }, edges: { smooth: false }, physics: { stabilization: { enabled: true, iterations: 160, updateInterval: 50, fit: true }, barnesHut: { gravitationalConstant: -3500, springLength: 120, damping: 0.6 } } });
+            document.getElementById('ego-metric').innerHTML = '互動對象 <b>' + (data.visNodes.length - 1) + '</b> 人 · 回應他人 <b>' + data.egoOut + '</b> 次 · 被回應 <b>' + data.egoIn + '</b> 次 · 對象之間另有 <b>' + data.alterLinkCount + '</b> 組互動<br><span style="color:#2563eb">■</span> 他回應別人 <span style="color:#16a34a">■</span> 別人回應他 <span style="color:#94a3b8">■</span> 其他人彼此互動' + (activeTopicFilter !== 'all' ? '<br><span class="text-slate-400">此圖不受討論區篩選影響,顯示全部論壇互動</span>' : '');
             // 排列穩定後就關閉物理運算,圖不會再一直晃動(仍可手動拖曳節點)
             const stopEgoPhysics = () => { if (egoNetworkInstance) egoNetworkInstance.setOptions({ physics: false }); };
             egoNetworkInstance.once('stabilizationIterationsDone', stopEgoPhysics);
             setTimeout(stopEgoPhysics, 2500);
-            kbAttachPlayer({ id: 'ego-t', container: container, anchor: container.parentElement, network: egoNetworkInstance, nodesDS: egoNodesDS, edgesDS: egoEdgesDS, labels: egoDays.labels, build: egoBuild });
+            kbAttachPlayer({ explainTitle: '這位學生的自我互動圈(他和誰互動)的形成過程', id: 'ego-t', container: container, anchor: container.parentElement, network: egoNetworkInstance, nodesDS: egoNodesDS, edgesDS: egoEdgesDS, labels: egoDays.stepLabels, steps: egoDays.steps, build: egoBuild });
             const ctxB = document.getElementById('balanceChart').getContext('2d'); if(balanceChartInstance) balanceChartInstance.destroy();
             const totalBal = data.balanceData[0] + data.balanceData[1];
             document.getElementById('bal-init').innerText = totalBal > 0 ? Math.round(data.balanceData[0]/totalBal*100) + '%' : '0%';
             document.getElementById('bal-build').innerText = totalBal > 0 ? Math.round(data.balanceData[1]/totalBal*100) + '%' : '0%';
             balanceChartInstance = new Chart(ctxB, { type: 'doughnut', data: { labels: ['自主', '協作'], datasets: [{ data: data.balanceData, backgroundColor: ['#3b82f6', '#22c55e'] }] }, options: { responsive: true, cutout: '70%', plugins: { legend: { display: false } } } });
             const ctxD = document.getElementById('studentDepthChart').getContext('2d'); if(studentDepthChartInstance) studentDepthChartInstance.destroy(); studentDepthChartInstance = new Chart(ctxD, { type: 'line', data: { labels: ['階段1','階段2','階段3','階段4','當前'], datasets: [{ label:'深度發展', data: data.depthTrend, borderColor:'#8B5CF6', backgroundColor: 'rgba(139, 92, 246, 0.1)', fill: true, tension: 0.3 }] }, options: { responsive:true, maintainAspectRatio:false, scales: { y: { beginAtZero: true, max: 100 } } } });
+
+            try {
+                const sdT = kbStepDays((db.nodes || []).map(n => new Date(n.date).getTime()));
+                const ident = window.__kbIdent || (window.__kbIdent = kbAiIdent(db.userList));
+                const who = ident.codeOf[String(userId)] || '這位學生';
+                // 只在計算時暫時換成「到該日為止」的貼文,算完立刻還原,不會影響頁面其他項目
+                const metricsAt = step => { const full = globalAllNotes; globalAllNotes = full.filter(n => sdT.idx(n.dateTime) <= step); window.__kbReplaying = true; try { return calculateStudentMetrics(db, userId); } finally { globalAllNotes = full; window.__kbReplaying = false; } };
+                const AX = ['主體性', '社群互動', '觀點改進', '昇華整合', '持續探究'];
+                kbAttachReplay({ id: 'stu-radar', anchor: document.getElementById('radarChart').parentElement, labels: sdT.labels, explainTitle: who + ' 的核心能力雷達(主體性、社群互動、觀點改進、昇華整合、持續探究)',
+                    render: step => { const m = metricsAt(step); radarChartInstance.data.datasets[0].data = m ? m.radarData : [0, 0, 0, 0, 0]; radarChartInstance.update('none'); },
+                    values: step => { const m = metricsAt(step); return m ? m.radarData.map((v, i) => AX[i] + v).join('、') + ';角色:' + m.role + ';貼文 ' + m.noteCount + ' 篇' : '尚無貼文'; } });
+                kbAttachReplay({ id: 'stu-balance', anchor: document.getElementById('balanceChart').parentElement.parentElement, labels: sdT.labels, explainTitle: who + ' 的社群認知平衡(自己發起 vs 協作回應)',
+                    render: step => {
+                        const m = metricsAt(step), b = m ? m.balanceData : [0, 0], tb = b[0] + b[1];
+                        balanceChartInstance.data.datasets[0].data = b; balanceChartInstance.update('none');
+                        document.getElementById('bal-init').innerText = tb > 0 ? Math.round(b[0] / tb * 100) + '%' : '0%';
+                        document.getElementById('bal-build').innerText = tb > 0 ? Math.round(b[1] / tb * 100) + '%' : '0%';
+                    },
+                    values: step => { const m = metricsAt(step); return m ? '自己發起 ' + m.balanceData[0] + ' 篇、協作回應 ' + m.balanceData[1] + ' 篇' : '尚無貼文'; } });
+                kbAttachReplay({ id: 'stu-depth', anchor: document.getElementById('studentDepthChart').parentElement, labels: sdT.labels, explainTitle: who + ' 的認知深度演化(五個階段的深度發展)',
+                    render: step => { const m = metricsAt(step); studentDepthChartInstance.data.datasets[0].data = m ? m.depthTrend : [0, 0, 0, 0, 0]; studentDepthChartInstance.update('none'); },
+                    values: step => { const m = metricsAt(step); return m ? '深度發展 ' + m.depthTrend.map(v => Math.round(v)).join('→') : '尚無貼文'; } });
+                const dpWrap = document.querySelector('[data-kbnet="stu-depth"]');
+                if (dpWrap) kbAddExplain(dpWrap, { title: who + ' 的完整知識建構歷程(從最初到最後)', label: '📖 AI 歷程故事', table: () => kbStoryText(userId) }, 'stu-story');
+                kbAttachReplay({ id: 'stu-keywords', anchor: document.getElementById('student-keywords-container'), labels: sdT.labels, explainTitle: who + ' 的詞彙貢獻指紋(常用概念詞彙)的累積',
+                    render: step => { const m = metricsAt(step); document.getElementById('student-keywords-container').innerHTML = (m && m.topKeywords.length > 0) ? m.topKeywords.map(k => '<span class="bg-amber-50 text-amber-700 border border-amber-200 px-2 py-1 rounded text-xs">' + k + '</span>').join('') : '<span class="text-xs text-slate-400 italic">尚無內容</span>'; },
+                    values: step => { const m = metricsAt(step); return m && m.topKeywords.length ? '常用詞:' + ident.scrub(m.topKeywords.slice(0, 6).join('、')) : '尚無內容'; } });
+            } catch (e) { console.error(e); }
 
             fetchStudentAIInsight(userId, false);
         }
@@ -2427,6 +2621,24 @@ async function geminiFetch(key, init) {
                     },
                     options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { font: { size: 10 } } } }, scales: { r: { ticks: { display: false } } } }
                 });
+                try {
+                    const sdE = kbStepDays(globalAllNotes.map(n => n.dateTime));
+                    const emoAt = step => {
+                        const e = [1, 1, 1, 1];
+                        globalAllNotes.forEach(n => {
+                            if (sdE.idx(n.dateTime) > step) return;
+                            const text = (n.content || "") + (n.title || "");
+                            if (text.includes('為什麼') || text.includes('如何') || text.includes('怎麼')) e[0]++;
+                            else if (text.includes('不懂') || text.includes('難') || text.includes('?') || text.includes('？')) e[1]++;
+                            else if (text.includes('哇') || text.includes('原來') || text.includes('竟然') || text.includes('！') || text.includes('!')) e[2]++;
+                            else e[3]++;
+                        });
+                        return e;
+                    };
+                    kbAttachReplay({ id: 'emotion', anchor: ctxE.parentElement, labels: sdE.labels, explainTitle: '認知情緒(好奇、困惑、驚訝、中性)分布的累積',
+                        render: step => { emotionChartInstance.data.datasets[0].data = emoAt(step); emotionChartInstance.update('none'); },
+                        values: step => { const e = emoAt(step); return '好奇' + (e[0] - 1) + '、困惑' + (e[1] - 1) + '、驚訝' + (e[2] - 1) + '、中性' + (e[3] - 1); } });
+                } catch (e) { console.error(e); }
             }
 
             const ctxL = document.getElementById('lexicalGrowthChart');
@@ -2473,8 +2685,14 @@ async function geminiFetch(key, init) {
                     },
                     options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
                 });
+                try { kbAttachSeriesPlayer({ id: 'lexgrow', explainTitle: '學術語言與生活語言使用量的成長', chart: lexicalGrowthChartInstance }); } catch (e) {}
             }
 
+            renderScaffoldTransition();
+            try { kbRep({ id: 'scaffold-trans', anchor: document.getElementById('scaffold-transition-container'), title: '鷹架回應模式(提問、延伸、改進、整合彼此怎麼接續)的累積', render: () => renderScaffoldTransition() }); } catch (e) {}
+        }
+
+        function renderScaffoldTransition() {
             const container = document.getElementById('scaffold-transition-container');
             const types = ['question', 'extend', 'improve', 'riseabove'];
             const labelsMap = {'question':'提問', 'extend':'延伸', 'improve':'改進', 'riseabove':'整合'};
@@ -2638,7 +2856,7 @@ function buildRefContext(key, studentId) {
     } else {
         (extras[key] || [typeDist, perStudent]).forEach(f => { lines.push('【此指標相關數據】\n' + f().join('\n')); });
     }
-    return { text: lines.join('\n'), nameOf: nameOf };
+    return { text: lines.join('\n'), nameOf: nameOf, codeOf: codeOf, scrub: scrub };
 }
 
 async function fetchRefAIInsight(key, aiPrompt, currentVal, currentStatus, force = false, studentId = '') {
@@ -2660,13 +2878,16 @@ async function fetchRefAIInsight(key, aiPrompt, currentVal, currentStatus, force
     try { ctx = buildRefContext(key, studentId); } catch (e) { console.error(e); ctx = { text: '(背景數據整理失敗,僅依下列指標數值回答)', nameOf: {} }; }
     const info = (typeof refContent !== 'undefined' && refContent[key]) ? refContent[key] : {};
     const targetDesc = studentId ? '這位學生' : '目前範圍的班級(或小組)';
-    const prompt = '你是專精「知識建構(Knowledge Building)」的教學顧問。老師正在查看指標「' + (info.title || key) + '」,想請你做 AI 診斷。\n' +
-        '【指標意義】' + (info.theory || '') + '\n' +
-        '【' + targetDesc + '在此指標的目前結果】數值:' + currentVal + ';狀態判定:' + currentStatus + '\n' +
-        ctx.text + '\n' +
-        '【老師的問題】' + aiPrompt + '\n\n' +
-        '【規則】只能根據上面的數據下結論並引用具體數字;不要編造沒有的資料;學生一律用代號(如 S01)稱呼;文字類指標(認知能動性、權威資料、詞彙分析等)是關鍵字估計,請在結論裡適度提醒。\n' +
-        '請用繁體中文、Markdown 輸出,約 250~350 字,包含:\n**這個數字代表什麼**(1~2 句)\n**可能的原因**(引用數據,1~2 點)\n**老師可以怎麼做**(2~3 個具體可執行的行動)\n**要留意的地方**(1 句)';
+    // 依日期整理「從最初到最後」的資料(代號與上面的背景資料一致),讓 AI 能按時間說故事
+    let story = '';
+    try {
+        const dbR = getRealData();
+        story = kbStoryTable({ nodes: (dbR.nodes || []).map(n => ({ id: n.id, author: String(n.author), parentId: n.parentId, type: n.type, title: n.title, content: n.content, date: new Date(n.date).getTime() })), userId: studentId ? String(studentId) : null, codeOf: ctx.codeOf || {}, scrub: ctx.scrub });
+    } catch (e) { console.error(e); }
+    const prompt = kbRefPrompt({ audience: 'teacher', title: info.title || key, meaning: info.theory || '',
+        current: targetDesc + '在此指標的目前結果:數值 ' + currentVal + ';狀態判定 ' + currentStatus,
+        data: ctx.text, timeline: story, question: aiPrompt,
+        extraRules: '文字類指標(認知能動性、權威資料、詞彙分析等)是關鍵字估計,請在結論裡用一句話提醒;學生一律用代號(如 S01)稱呼。' });
 
     const aiResult = await callGeminiAPI(prompt);
     const aiFailed = String(aiResult).startsWith('⚠️');
