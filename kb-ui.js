@@ -142,7 +142,7 @@
   function navItems() {
     var cur = KB.auth.current(), items = [];
     items.push({ icon: 'fa-house', text: '首頁', href: 'index.html' });
-    if (cur && KB.can('forum.read')) items.push({ icon: 'fa-comments', text: '知識論壇', href: 'Knowledge Building Forum.html' });
+    if (cur && KB.can('forum.read')) items.push({ icon: 'fa-comments', text: '知識論壇', href: 'Knowledge Building Forum.html?home=1' });
     if (cur && KB.can('analytics.teacher')) items.push({ icon: 'fa-chart-line', text: '老師分析', href: 'ANALYTICS-teacher.html' });
     if (cur && KB.can('analytics.student')) items.push({ icon: 'fa-compass', text: '學生分析', href: 'ANALYTICS-student.html' });
     if (cur && KB.can('setup.access')) items.push({ icon: 'fa-gear', text: '設定中心', href: 'setup.html' });

@@ -403,7 +403,7 @@
             document.getElementById('ai-panel').classList.toggle('hidden', !staff);
             document.getElementById('ai-locked').classList.toggle('hidden', !!staff);
         }
-        var KBFILES = { forum: 'Knowledge Building Forum.html', teacher: 'ANALYTICS-teacher.html', student: 'ANALYTICS-student.html', setup: 'setup.html' };
+        var KBFILES = { forum: 'Knowledge Building Forum.html?home=1', teacher: 'ANALYTICS-teacher.html', student: 'ANALYTICS-student.html', setup: 'setup.html' };
 
         // Gemini 模型自動選擇:向 Google 查詢這把金鑰「實際可用」的模型,挑出版本最新的 flash 模型;
 // 查不到時依序嘗試 gemini-3.8-flash、gemini-2.5-flash(遇到 404 自動換下一個)。

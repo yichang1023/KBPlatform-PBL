@@ -360,8 +360,13 @@
             },
             load: () => {
                 window.dataManager.applyFromCore();
+                let goHome = false;
+                try {   // 從分析頁、首頁等「回到論壇」:一律回論壇第一頁(討論區列表),不是回到上次看的某個討論區
+                    goHome = new URLSearchParams(location.search).get('home') === '1';
+                    if (goHome) { window.state.currentView = 'entrance'; window.state.currentTopicId = null; window.dataManager.saveLocalSession(); history.replaceState(null, '', location.pathname); }
+                } catch (e) {}
                 try {
-                    const parsed = JSON.parse(localStorage.getItem('kb_local_session') || 'null');
+                    const parsed = goHome ? null : JSON.parse(localStorage.getItem('kb_local_session') || 'null');
                     if (parsed) { window.state.currentView = parsed.currentView || 'entrance'; window.state.currentTopicId = parsed.currentTopicId || null; }
                 } catch (e) {}
                 // 其他分頁(例如設定中心、另一位使用者的視窗)有變動時,同步更新這裡的畫面
