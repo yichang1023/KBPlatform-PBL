@@ -719,6 +719,7 @@
                 const cu = window.state.user;
                 return window.ui.showToast(cu && cu.realRole === 'guest' ? '訪客只能瀏覽,請登入後再發文' : '目前論壇暫時無法發文(已鎖定或不在開放時間)', 'error');
             }
+            if (pid) { try { KB.content.markRead(pid); } catch (e) {} }   // 要回覆別人的想法,一定先讀過了(分析頁的「閱讀他人」)
             window.state.composer.editingId = null;
             const hh = document.querySelector('#modal-node h3'); if (hh) hh.textContent = '貢獻想法';
             const pb = document.querySelector('#modal-node button[onclick*="submitNode"]'); if (pb) pb.textContent = '發布';
@@ -833,6 +834,7 @@
 
         window.app.openNodeDetail = (id) => {
             const n = window.state.nodes.find(x => x.id === id); if(!n) return;
+            try { KB.content.markRead(id); } catch (e) {}   // 記下「學生看過別人的這則想法」(分析頁的「閱讀他人」用)
             const s = window.SCAFFOLDS[n.type] || window.SCAFFOLDS['question'];
             const u = Object.values(window.state.userList).find(u => u.id === n.author) || {name: '未知', avatar: 'https://api.dicebear.com/9.x/notionists/svg?seed=Unknown'};
             const icon = document.getElementById('detail-scaffold-icon');

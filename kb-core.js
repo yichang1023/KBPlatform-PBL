@@ -81,7 +81,7 @@
       lockout: { maxFails: 5, minutes: 10 },
       analysis: { agencyPass: 0.7, agencyRate: 0.6, agencyTargets: { init: 0.25, mon: 0.5, exp: 0.3 }, kbDiversityContrast: 0.3, kbSources: 0.05, kbQuestion: 0.15 },
       ai: { enabled: true, stripNames: true, model: 'auto' },
-      requireStudentPwChange: true,
+      requireStudentPwChange: false,   // 目前統一不強制改密碼(此設定已不再生效)
       consent: { enabled: false, version: 1, text: '歡迎使用本平台。本平台用於課程學習與教學研究:你在論壇的發言與操作紀錄會被保存,並可能以匿名方式(姓名會以代號取代)用於教學分析與研究。請妥善保管自己的帳號與密碼,不要借給別人使用。若有疑問請洽老師。按「同意並繼續」表示你已閱讀並同意。' }
     };
   }
@@ -210,7 +210,7 @@
   function sessionWrite(s) { if (s) writeJSON('session', s); else rawDel('session'); }
   function idleLimitMs() { return (S.settings.idleMinutes || 0) * 60000; }
   function publicUser(u) {
-    return { id: u.id, role: u.role, label: labelFor(u.id, u.role), avatar: avatarFor(u.id, u.role), realName: u.realName, classId: u.classId, groupId: u.groupId, mustChange: !!u.mustChange,
+    return { id: u.id, role: u.role, label: labelFor(u.id, u.role), avatar: avatarFor(u.id, u.role), realName: u.realName, classId: u.classId, groupId: u.groupId, mustChange: false,
       needConsent: u.role === 'student' && !!(S.settings.consent && S.settings.consent.enabled) && u.consentVersion !== S.settings.consent.version };
   }
   var auth = {
@@ -246,7 +246,7 @@
       persist(['users']);
       sessionWrite({ account: u.id, role: u.role, since: Date.now(), last: Date.now() });
       audit('auth.login', u.id, '');
-      return { ok: true, user: publicUser(u), mustChange: !!u.mustChange };
+      return { ok: true, user: publicUser(u), mustChange: false };   // 目前統一不強制改密碼
     },
     acceptConsent: function () {
       var cur = auth.current(); if (!cur || cur.role !== 'student') return { ok: false };
@@ -348,7 +348,7 @@
       for (var i = 0; i < S.users.length; i++) if (S.users[i].id.toLowerCase() === id.toLowerCase()) return { ok: false, error: '帳號/學號已存在:' + id };
       var pw = o.password ? String(o.password) : id;
       var u = makeUser(id, role, String(o.realName || '').trim(), pw, { classId: o.classId || '', groupId: o.groupId || '' });
-      u.mustChange = role === 'student' ? !!S.settings.requireStudentPwChange : !!o.mustChange;
+      u.mustChange = false;   // 目前統一不強制改密碼
       S.users.push(u);
       persist(['users']);
       audit('user.create', id, role);
@@ -381,7 +381,7 @@
       var u = userById(id); if (!u) return { ok: false, error: '找不到使用者' };
       var pw = newPw ? String(newPw) : defaultPasswordFor(u);
       u.salt = randSalt(); u.pwHash = hashPw(pw, u.salt); u.fails = 0; u.lockUntil = 0;
-      u.mustChange = u.role === 'student' ? !!S.settings.requireStudentPwChange : !!(!newPw);
+      u.mustChange = false;   // 目前統一不強制改密碼
       persist(['users']); audit('user.resetPw', id, newPw ? '指定新密碼' : '重設為預設'); return { ok: true, password: pw };
     },
     /* 更換學號:同步改寫貼文、主題建立者、回收桶中的作者,貼文上顯示的姓名不變 */
@@ -496,7 +496,21 @@
       if (c.trash) { S.trash = c.trash; keys.push('trash'); }
       persist(keys);
     },
-    audit: function (action, target, detail) { audit(action, target, detail); }
+    audit: function (action, target, detail) { audit(action, target, detail); },
+    /* 閱讀紀錄:學生「點開」別人的想法(看完整內容)時記下「哪一則、哪一天」,同一則只算一次;自己的貼文不算。
+       存在使用者資料裡(user.reads = { 貼文編號: 'YYYY-MM-DD' }),分析頁的「閱讀他人」就是這份真實紀錄的篇數。 */
+    markRead: function (nodeId) {
+      var cur = auth.current(); if (!cur || cur.role !== 'student') return false;
+      var n = S.nodes.filter(function (x) { return x.id === nodeId; })[0];
+      if (!n || String(n.author) === String(cur.id)) return false;
+      var u = S.users.filter(function (x) { return x.id === cur.id; })[0]; if (!u) return false;
+      if (u.reads && u.reads[nodeId]) return false;
+      var d = new Date(), day = d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+      u.reads = u.reads || {}; u.reads[nodeId] = day;
+      persist(['users']); return true;
+    },
+    /* 所有人的閱讀紀錄(給分析頁用):{ 使用者編號: { 貼文編號: 日期 } } */
+    reads: function () { var out = {}; S.users.forEach(function (u) { if (u.reads && Object.keys(u.reads).length) out[u.id] = clone(u.reads); }); return out; }
   };
 
   /* ---------- 備份、還原、清空 ---------- */
@@ -603,7 +617,7 @@
       var head = ['學號', '姓名', '班級', '初始密碼(未改密碼者)'];
       var rows = S.users.filter(function (u) { return u.role === 'student'; }).map(function (u) {
         var c = S.classes.filter(function (x) { return x.id === u.classId; })[0], g = S.groups.filter(function (x) { return x.id === u.groupId; })[0];
-        return [u.id, u.realName, c ? c.name : '', u.mustChange ? u.id : '(已自行修改)'];
+        return [u.id, u.realName, c ? c.name : '', hashPw(u.id, u.salt) === u.pwHash ? u.id : '(已自行修改)'];
       });
       return io.toCSV([head].concat(rows));
     }
@@ -652,7 +666,7 @@
         users: S.users.length, students: S.users.filter(function (u) { return u.role === 'student'; }).length,
         staff: S.users.filter(function (u) { return isStaffRole(u.role); }).length,
         classes: S.classes.length, groups: S.groups.length, topics: S.topics.length, posts: S.nodes.length, trash: S.trash.length,
-        mustChange: S.users.filter(function (u) { return u.role === 'student' && u.mustChange; }).length,
+        mustChange: S.users.filter(function (u) { return u.role === 'student' && hashPw(u.id, u.salt) === u.pwHash; }).length,   // 仍使用預設密碼(=學號)的學生人數
         defaultStaffPw: S.users.filter(function (u) { return isStaffRole(u.role) && hashPw(u.id, u.salt) === u.pwHash; }).map(function (u) { return u.id; }),
         storageBytes: (function () { var n = 0; KEYS.forEach(function (k) { n += (rawGet(k) || '').length; }); return n; })()
       };

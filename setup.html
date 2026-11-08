@@ -151,7 +151,7 @@
     if (st.defaultStaffPw.length) chk('bad', '仍在使用預設密碼', '帳號 <b>' + st.defaultStaffPw.map(esc).join('、') + '</b> 的密碼與帳號相同,正式使用前請務必更換。', '<button class="btn btn-p btn-sm" data-go="users">前往更換</button>');
     else chk('ok', '最高權限帳號未使用預設密碼', '');
     chk(st.staff >= 2 ? 'ok' : 'warn', '最高權限帳號數量:' + st.staff, st.staff >= 2 ? '建議保留至少兩個,避免唯一帳號忘記密碼。' : '目前只有一個,建議再建立一個備援帳號。', st.staff >= 2 ? '' : '<button class="btn btn-g btn-sm" data-go="users">新增帳號</button>');
-    chk(st.mustChange > 0 ? 'warn' : 'ok', '尚未修改預設密碼的學生:' + st.mustChange + ' 人', '學生首次登入會被要求改密碼;未改者仍使用「學號」當密碼。');
+    chk('ok', '仍使用預設密碼(=學號)的學生:' + st.mustChange + ' 人', '目前統一不強制學生改密碼,登入後可直接使用。');
     chk(bk.length ? 'ok' : 'warn', bk.length ? '最近備份:' + fmt(bk[bk.length - 1].time) : '尚未建立任何備份', '建議在重要操作前建立備份;清空、還原前系統也會自動備份。', '<button class="btn btn-g btn-sm" data-act="quick-backup">立即備份</button>');
     chk(cfg.maintenance ? 'warn' : 'ok', '維護模式:' + (cfg.maintenance ? '已開啟(學生與訪客無法進入)' : '關閉'), '');
     chk(cfg.forumLocked ? 'warn' : 'ok', '論壇鎖定:' + (cfg.forumLocked ? '已鎖定(學生不能發文)' : '未鎖定'), '');
@@ -241,7 +241,7 @@
       '<label>學號</label><input class="kbui-input" data-f="id" autocomplete="off">' +
       '<label>姓名</label><input class="kbui-input" data-f="realName" autocomplete="off">' +
       '<label>班級</label><input class="kbui-input" data-f="className" list="kb-cls-list" placeholder="選擇或直接輸入新班級" autocomplete="off"><datalist id="kb-cls-list">' + cls.map(function (c) { return '<option value="' + esc(c.name) + '">'; }).join('') + '</datalist>' +
-      '<label>初始密碼(選填)</label><input class="kbui-input" data-f="password" autocomplete="off" placeholder="留空 = 學號"><div class="kbui-hint">學生首次登入會被要求改密碼。</div>' +
+      '<label>初始密碼(選填)</label><input class="kbui-input" data-f="password" autocomplete="off" placeholder="留空 = 學號"><div class="kbui-hint">目前統一不強制學生改密碼。</div>' +
       '<div data-f="err"></div><div class="kbui-row"><button class="kbui-btn kbui-ghost" data-f="cancel">取消</button><button class="kbui-btn kbui-primary" data-f="save">新增</button></div>');
     var c = m.card, f = function (n) { return c.querySelector('[data-f=' + n + ']'); };
     f('cancel').onclick = m.close;
@@ -523,7 +523,6 @@
         setRow('維護模式', '開啟後,學生與訪客無法進入任何頁面(老師與管理者不受影響)。適合更新資料或調整設定時使用。', sw('maintenance', c.maintenance)) +
         setRow('顯示名稱方式', '預設顯示姓名(右上角、貼文作者、討論區建立者、分析頁都用姓名;同名同姓時會附上學號)。選「學號」則全部改顯示學號。傳給 AI 時一律會換成代號。', '<select class="inp" data-setting="displayMode">' + opts([{ v: 'name', t: '姓名(預設)' }, { v: 'id', t: '學號' }], c.displayMode) + '</select>')) +
       card('登入與密碼安全', 'fa-shield-halved',
-        setRow('學生首次登入強制改密碼', '新建立的學生帳號(密碼=學號)第一次登入必須先改密碼。', sw('requireStudentPwChange', c.requireStudentPwChange)) +
         inpRow('老師/管理者閒置自動登出(分鐘)', '0 代表不自動登出。', 'ap-idle', c.idleMinutes, 'number', 'min="0" max="1440"') +
         inpRow('連續登入失敗幾次後鎖定', '', 'ap-maxfails', c.lockout.maxFails, 'number', 'min="2" max="20"') +
         inpRow('鎖定時間(分鐘)', '', 'ap-lockmin', c.lockout.minutes, 'number', 'min="1" max="1440"') +
