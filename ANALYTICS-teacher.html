@@ -87,6 +87,7 @@
     wrap.setAttribute('data-kbnet', o.id);
     wrap.style.cssText = 'display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px;font-size:11px;color:#334155';
     wrap.innerHTML = '<button type="button" data-a="play" style="padding:3px 10px;border-radius:6px;background:#4f46e5;color:#fff;font-weight:700;white-space:nowrap">▶ 播放</button>' +
+      '<button type="button" data-a="sprev" title="回到上一步" style="padding:3px 9px;border-radius:6px;background:#e0e7ff;color:#3730a3;font-weight:700;white-space:nowrap">◀ 上一步</button><button type="button" data-a="snext" title="前進到下一步" style="padding:3px 9px;border-radius:6px;background:#e0e7ff;color:#3730a3;font-weight:700;white-space:nowrap">下一步 ▶</button>' +
       '<input type="range" data-a="seek" min="0" max="' + (N - 1) + '" value="' + (N - 1) + '" style="flex:1;min-width:90px">' +
       '<span data-a="label" style="min-width:44px;font-weight:700;text-align:center"></span>' +
       '<label style="display:flex;align-items:center;gap:3px;white-space:nowrap">速度 <select data-a="speed" style="border:1px solid #cbd5e1;border-radius:4px;padding:1px 3px;background:#fff">' +
@@ -132,6 +133,9 @@
     }
     btn.onclick = function () { if (st.playing) setPlaying(false); else play(); };
     seek.oninput = function () { setPlaying(false); apply(Number(seek.value), true); };
+    // 一步一步看:上一步 / 下一步(會先暫停播放)
+    wrap.querySelector('[data-a=sprev]').onclick = function () { setPlaying(false); apply(Math.max(0, st.i - 1), true); };
+    wrap.querySelector('[data-a=snext]').onclick = function () { setPlaying(false); apply(Math.min(N - 1, st.i + 1), true); };
     spSel.onchange = function () { speed = Number(spSel.value); lsSet('kb_net_speed', String(speed)); if (st.playing) schedule(); };
     autoCb.onchange = function () { lsSet('kb_net_autoplay', autoCb.checked ? '1' : '0'); if (autoCb.checked && !st.playing) { apply(0, true); play(); } };
     label.textContent = o.labels[N - 1];
@@ -263,7 +267,7 @@
 
         /* Mobile */
         .mobile-header { display: none; }
-        @media (max-width: 768px) {
+        @media (max-width: 767.98px) {
             .mobile-header { display: flex; }
             #sidebar { position: fixed; height: 100%; z-index: 50; transform: translateX(-100%); transition: transform 0.3s ease-in-out; }
             #sidebar.open { transform: translateX(0); }
@@ -275,9 +279,10 @@
 <body class="h-screen flex flex-col md:flex-row overflow-hidden bg-slate-50">
 
     <!-- Mobile Header -->
-    <header class="mobile-header bg-slate-900 text-white p-4 justify-between items-center shrink-0 z-30 shadow-md">
-        <h1 class="font-bold flex items-center text-lg"><i class="fas fa-network-wired mr-2 text-blue-500"></i> KB ANALYTICS</h1>
-        <button onclick="toggleSidebar()" class="text-slate-300 hover:text-white p-2"><i class="fas fa-bars text-xl"></i></button>
+    <!-- 選單鈕放在左邊(右上角固定著「使用者」小標籤,放右邊會被蓋住、找不到),並寫上「選單」兩個字 -->
+    <header class="mobile-header bg-slate-900 text-white p-3 items-center gap-3 shrink-0 z-30 shadow-md" style="padding-right:140px">
+        <button id="mobile-menu-btn" type="button" onclick="toggleSidebar()" aria-label="開啟選單" class="flex items-center gap-2 bg-slate-800 border border-slate-600 text-white font-bold px-3 py-2 rounded-lg shrink-0"><i class="fas fa-bars text-lg"></i><span class="text-sm">選單</span></button>
+        <h1 class="font-bold flex items-center text-base min-w-0 truncate"><i class="fas fa-network-wired mr-2 text-blue-500"></i> KB ANALYTICS</h1>
     </header>
 
     <!-- Overlay -->
@@ -824,6 +829,11 @@
             const overlay = document.getElementById('sidebar-overlay');
             sidebar.classList.toggle('open');
             overlay.classList.toggle('visible');
+        }
+        // 一律「關起來」(切換頁面、同步資料後使用;避免本來就是關著的選單被切換成打開)
+        function closeSidebar() {
+            document.getElementById('sidebar').classList.remove('open');
+            document.getElementById('sidebar-overlay').classList.remove('visible');
         }
 
         // --- 1. 真實 Gemini API 呼叫模組 ---
@@ -1430,7 +1440,7 @@ async function geminiFetch(key, init) {
                 }
                 btn.innerHTML = originalText;
                 btn.classList.remove('opacity-75', 'cursor-not-allowed');
-                if(window.innerWidth < 768) toggleSidebar();
+                if(window.innerWidth < 768) closeSidebar();
             }, 600);
         }
 
@@ -1628,13 +1638,16 @@ async function geminiFetch(key, init) {
             // 權重調整：因為小組無法確切知道誰「沒參與」，所以我們把焦點放在「有參與者的發言平等性 (佔70%)」
             const democratizeScore = stats.totalNotes > 0 ? Math.min(100, Math.round((participationRate * 0.3) + (Math.max(0, 100 - localGini * 100) * 0.7))) : 0;
             // --------------------------------------------------------
+            // 全班/小組發文太少時比例不準,六項都乘上「累積程度」:發文滿 max(20, 參與人數×2) 篇才算滿,分數隨討論累積慢慢長高
+            const kbMat = stats.totalNotes > 0 ? Math.min(1, stats.totalNotes / Math.max(20, targetStudentCount * 2)) : 0;
+            const kbData = [diversityScore, responsibilityScore, problemScore, dataScore, improvableScore, democratizeScore].map(v => Math.round(v * kbMat));
             const ctx2 = document.getElementById('kbPrinciplesChart').getContext('2d');
             if(kbPrinciplesChartInstance) kbPrinciplesChartInstance.destroy();
             kbPrinciplesChartInstance = new Chart(ctx2, {
                 type: 'radar',
                 data: {
                     labels: ['觀點多樣性', '集體責任', '真實問題', '權威資料', '觀點改進', '民主化'],
-                    datasets: [{ label: '本班落實度', data: [diversityScore, responsibilityScore, problemScore, dataScore, improvableScore, democratizeScore], backgroundColor: 'rgba(234, 179, 8, 0.2)', borderColor: '#eab308', pointBackgroundColor: '#eab308' }]
+                    datasets: [{ label: '本班落實度', data: kbData, backgroundColor: 'rgba(234, 179, 8, 0.2)', borderColor: '#eab308', pointBackgroundColor: '#eab308' }]
                 },
                 options: { responsive: true, maintainAspectRatio: false, scales: { r: { suggestedMin: 0, suggestedMax: 100, ticks: { display: false } } }, plugins: { legend: { display: false } } }
             });
@@ -1669,7 +1682,7 @@ async function geminiFetch(key, init) {
             }
 
             document.getElementById('main-scroll-area').scrollTop = 0;
-            if(window.innerWidth < 768) toggleSidebar();
+            if(window.innerWidth < 768) closeSidebar();
         }
 
          // --- Init Function ---
@@ -2157,6 +2170,7 @@ async function geminiFetch(key, init) {
             const raAuthors = users.filter(u => userStats[u.id].scaffolds.riseabove > 0).length;
             const giniVal = parseFloat(globalClassStats.gini) || 0;
             const uCnt = users.length || 1;
+            const enough = globalNoteCount >= Math.max(20, users.length * 2);   // 發文太少時比例不準,先不判定「達標」
             const checks = [
                 { key: 'kb12_real', title: 'Real Ideas, Authentic Problems', pass: globalNoteCount > 0 && (qishCount / nz) >= AN.kbQuestion && perStudent >= 3,
                   desc: '是否有真實的疑問驅動討論(提問/疑問型貼文 ≥ 15%,且人均 ≥ 3 篇)',
@@ -2192,6 +2206,7 @@ async function geminiFetch(key, init) {
                   meaning: '民主化代表每個人都有機會貢獻想法,而不是少數人主導。吉尼係數越接近 0 越平均,越接近 1 代表發言越集中在少數人身上。' }
             ];
             // 供 Ref 視窗讀取每個項目的即時數值與說明
+            if (!enough) checks.forEach(c => { c.pass = false; c.val += '(發文才 ' + globalNoteCount + ' 篇,還在累積,先不判定)'; });
             window.kb12Results = {};
             checks.forEach(c => { window.kb12Results[c.key] = { val: c.val, status: c.pass ? '達標' : '尚未達標', meaning: c.meaning }; });
             checklistContainer.innerHTML = checks.map(c => `<div class="flex items-start p-2 border-b border-yellow-100 last:border-0"><div class="mr-3 mt-1">${c.pass ? '<i class="fas fa-check-circle text-green-500"></i>' : '<i class="fas fa-exclamation-circle text-red-400"></i>'}</div><div><div class="font-bold text-sm text-slate-700 flex items-center gap-2">${c.title}<button class="ref-btn px-2 py-1 text-[10px]" onclick="openRef('${c.key}')"><i class="fas fa-book"></i> Ref</button></div><div class="text-xs text-slate-500">${c.desc}</div><div class="text-xs font-mono font-bold ${c.pass ? 'text-green-600' : 'text-red-500'} mt-1">Val: ${c.val}</div></div></div>`).join('');
@@ -2203,6 +2218,7 @@ async function geminiFetch(key, init) {
             } catch (e) {}
         }
 
+        const STU_MATURE_N = 10;   // 個別學生:發文滿 10 篇,各項能力才算滿比例
         function calculateStudentMetrics(db, userId) {
             if (!db || !db.userList) return null;
             const uIdStr = String(userId);
@@ -2310,10 +2326,14 @@ async function geminiFetch(key, init) {
             const myDays = new Set(myNodes.map(n => dayKeyOf(n.dateTime)));
             const inquiryScore = noteCount > 0 ? cap100((allDays.size ? myDays.size / allDays.size : 0) * 50 + Math.min(1, (inDegree / nN) / 0.8) * 50) : 0;
 
-            const radarData = [agencyScore, communityScore, ideaImpScore, synthesisScore, inquiryScore];
-            const depthTrend = [Math.min(20, inquiryScore/4), Math.min(40, agencyScore/2), Math.min(60, ideaImpScore/1.2), Math.min(80, synthesisScore), inquiryScore];
+            // 發文太少時比例不準(只發 1 篇提問,提問占比就是 100%),所以五項都乘上「累積程度」:
+            // 發文 0 篇 = 0、發文滿 STU_MATURE_N 篇才算滿,分數會隨發文慢慢長高,不會一開始就衝到頂
+            const mat = Math.max(0, Math.min(1, noteCount / STU_MATURE_N));
+            const radarData = [agencyScore, communityScore, ideaImpScore, synthesisScore, inquiryScore].map(v => cap100(v * mat));
+            const [agencyScore2, , ideaImpScore2, synthesisScore2, inquiryScore2] = radarData;
+            const depthTrend = [Math.min(20, inquiryScore2/4), Math.min(40, agencyScore2/2), Math.min(60, ideaImpScore2/1.2), Math.min(80, synthesisScore2), inquiryScore2];
 
-            return { user, noteCount, scaffoldCounts, visNodes, visEdges: vEdges.concat(alterEdges), alterLinkCount: alterPairs.size, egoOut: vOut, egoIn: vIn, depthTrend, radarData, role, badgeColor, topKeywords, balanceData, inDegree, outDegree };
+            return { user, noteCount, maturity: mat, scaffoldCounts, visNodes, visEdges: vEdges.concat(alterEdges), alterLinkCount: alterPairs.size, egoOut: vOut, egoIn: vIn, depthTrend, radarData, role, badgeColor, topKeywords, balanceData, inDegree, outDegree };
         }
 
         // ===========================================
@@ -2557,7 +2577,7 @@ async function geminiFetch(key, init) {
                 const AX = ['主體性', '社群互動', '觀點改進', '昇華整合', '持續探究'];
                 kbAttachReplay({ id: 'stu-radar', anchor: document.getElementById('radarChart').parentElement, labels: sdT.labels, explainTitle: who + ' 的核心能力雷達(主體性、社群互動、觀點改進、昇華整合、持續探究)',
                     render: step => { const m = metricsAt(step); radarChartInstance.data.datasets[0].data = m ? m.radarData : [0, 0, 0, 0, 0]; radarChartInstance.update('none'); },
-                    values: step => { const m = metricsAt(step); return m ? m.radarData.map((v, i) => AX[i] + v).join('、') + ';角色:' + m.role + ';貼文 ' + m.noteCount + ' 篇' : '尚無貼文'; } });
+                    values: step => { const m = metricsAt(step); return m ? m.radarData.map((v, i) => AX[i] + v).join('、') + ';角色:' + m.role + ';貼文 ' + m.noteCount + ' 篇' + (m.noteCount < STU_MATURE_N ? '(發文還少,分數先打折,發滿 ' + STU_MATURE_N + ' 篇才算滿)' : '') : '尚無貼文'; } });
                 kbAttachReplay({ id: 'stu-balance', anchor: document.getElementById('balanceChart').parentElement.parentElement, labels: sdT.labels, explainTitle: who + ' 的社群認知平衡(自己發起 vs 協作回應)',
                     render: step => {
                         const m = metricsAt(step), b = m ? m.balanceData : [0, 0], tb = b[0] + b[1];

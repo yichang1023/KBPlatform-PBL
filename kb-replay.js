@@ -20,6 +20,7 @@
     wrap.style.cssText = opts.style || 'grid-column:1/-1;display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px;font-size:11px;color:#334155';
     var SP = opts.speeds || SPEEDS, speed = Number(lsGet('kb_net_speed', '1')); if (SP.indexOf(speed) < 0) speed = 1;
     wrap.innerHTML = '<button type="button" data-a="play" style="padding:3px 10px;border-radius:6px;background:#4f46e5;color:#fff;font-weight:700;white-space:nowrap">▶ 播放</button>' +
+      '<button type="button" data-a="sprev" title="回到上一步" style="padding:3px 9px;border-radius:6px;background:#e0e7ff;color:#3730a3;font-weight:700;white-space:nowrap">◀ 上一步</button><button type="button" data-a="snext" title="前進到下一步" style="padding:3px 9px;border-radius:6px;background:#e0e7ff;color:#3730a3;font-weight:700;white-space:nowrap">下一步 ▶</button>' +
       (opts.stepper ? '<button type="button" data-a="prev" style="padding:3px 9px;border-radius:6px;background:#fce7f3;color:#9d174d;font-weight:700;white-space:nowrap">◀ 上一天</button><button type="button" data-a="next" style="padding:3px 9px;border-radius:6px;background:#fce7f3;color:#9d174d;font-weight:700;white-space:nowrap">下一天 ▶</button>' : '') +
       '<input type="range" data-a="seek" min="0" max="' + opts.max + '" value="' + opts.max + '" style="flex:1;min-width:90px">' +
       '<span data-a="label" style="min-width:' + (opts.labelWidth || 44) + 'px;font-weight:700;text-align:center"></span>' +
@@ -156,9 +157,9 @@
   var C = { q: '<b style="color:#2563eb">藍=提問</b>', e: '<b style="color:#ca8a04">黃=延伸</b>', i: '<b style="color:#16a34a">綠=改進</b>', c: '<b style="color:#dc2626">紅=反駁</b>', r: '<b style="color:#9333ea">紫=整合</b>' };
   global.kbHow = {
     // ---- 學生分析 ----
-    's-role': '下面四條能力棒:<b>開創力</b>(提出新問題、新想法)、<b>連結力</b>(回應並接上別人的想法)、<b>整合力</b>(把零散的想法合成新觀點)、<b>維護力</b>(持續關心、延續討論)。棒越長,代表你越常做這件事;最長的那一項,決定你的「知識角色」。',
+    's-role': '下面四條能力棒:<b>開創力</b>(提出新問題、新想法)、<b>連結力</b>(回應並接上別人的想法)、<b>整合力</b>(把零散的想法合成新觀點)、<b>維護力</b>(持續關心、延續討論)。棒越長,代表你越常做這件事;最長的那一項,決定你的「知識角色」。<br><b>為什麼一開始很短?</b>發文還少的時候,只靠一兩篇看不出你的特色,所以分數會先打折;發滿 10 篇才算滿,棒子會隨著你發文慢慢長長。',
     's-cards': '四張數字卡都是「累積數字」,只會越來越多:<b>發文貢獻</b>=你寫了幾則;<b>閱讀他人</b>=估計看過幾則別人的想法;<b>觀點連結</b>=你回應別人幾次;<b>社群影響力</b>=別人回應你幾次。',
-    's-radar': '五個角度的能力雷達:<b>開創力、連結力、整合力、維護力、影響力</b>。越往外圈代表越強,圖形越大、越圓,就是你的能力越突出、越均衡。',
+    's-radar': '五個角度的能力雷達:<b>開創力、連結力、整合力、維護力、影響力</b>。越往外圈代表越強,圖形越大、越圓,就是你的能力越突出、越均衡。<br><b>為什麼一開始很小?</b>發文還少的時候,分數會先打折(發滿 10 篇才算滿),所以圖形會從小小的一圈,隨著發文慢慢長大。',
     's-bars': '五種發言方式(鷹架):提問、延伸、改進、反駁、整合。棒子越長,代表你用得越多。多用不同的方式,想法才會從「一個問題」慢慢長成「新的觀點」。',
     's-timeline': '每一張卡片是你的<b>一則發言</b>,依時間排列;圖示和顏色代表發言的類型(提問、改進、整合…)。播放時,卡片會一則一則加進來,就是你的想法一步一步走過的路。',
     's-diversity': '「觀點多樣性」=你參與了<b>幾條不同的討論串</b>。條數越多,下面的棒子越滿,代表你接觸、貢獻的觀點越多元。',
@@ -174,7 +175,7 @@
     'traj': '兩條折線是全班的<b>累積量</b>:一條是提出的問題,一條是發展出的理論。線越往上爬,代表累積越多;兩條線的距離,就是「問題」和「理論」誰跑得比較快。',
     'sna': '每個<b>圓點是一位同學</b>(顏色只是用來分辨人),<b>圓點越大</b>代表累計發文越多。<b>線</b>是「誰回應了誰」,<b>箭頭</b>從回應的人指向被回應的人,<b>線越粗</b>代表回應越多次。位在中間、連線很多的人,就是討論的中心。',
     'principles': '圓環圖是五種發言類型的比例:' + C.q + '、' + C.e + '、' + C.i + '、' + C.c + '、' + C.r + '。哪一種色塊越大,代表班上越常出現這種發言。',
-    'kb12radar': '雷達圖有六個方向(KB 12 原則的重點):<b>觀點多樣性、集體責任、真實問題、權威資料、觀點改進、民主化</b>,依實際貼文換算成分數。越往外圈代表落實得越好,圖形越大越完整。',
+    'kb12radar': '雷達圖有六個方向(KB 12 原則的重點):<b>觀點多樣性、集體責任、真實問題、權威資料、觀點改進、民主化</b>,依實際貼文換算成分數。越往外圈代表落實得越好,圖形越大越完整。<br><b>為什麼一開始很小?</b>討論才剛開始、貼文還少的時候,比例不準,所以分數會先打折(全班貼文累積到「人數×2」篇才算滿),圖形會隨討論變多慢慢長大。',
     'lens': '四個圓代表四類想法:<b style="color:#64748b">灰=事實</b>、<b style="color:#2563eb">藍=理論</b>(延伸/改進)、<b style="color:#ca8a04">黃=挑戰</b>(反駁)、<b style="color:#16a34a">綠=整合</b>。<b>圓越大</b>代表這類貼文越多(括號裡是篇數);箭頭是對話常見的走向:事實 → 理論 → 挑戰 → 整合。',
     'concept': '每個圓點是一個<b>關鍵詞</b>,兩個詞常常<b>一起出現</b>就會連起來;連得越多的詞,越是討論的中心概念。紅色是熱點觀點。播放時,看詞怎麼一個一個長出來、連起來。',
     'lexical': '折線是班上「知識詞彙」的<b>累積量</b>:每多出現一個專業、知識用語就往上爬一點。線越陡,代表全班用詞進步得越快。',
@@ -185,7 +186,7 @@
     'fingerprint': '每一根直條是一位同學(第一根是全班平均),分成四種顏色:' + C.q + '、' + C.e + '、' + C.i + '、' + C.r + ',代表他的發言各佔幾 %。顏色比例不一樣,就是每個人不同的「思考指紋」。',
     'kb12check': '逐項檢查 KB 12 原則有沒有達標:<b>達標</b>的項目會打勾,其餘代表還需要加強。播放時,看哪幾項是從哪一天開始變成達標的。',
     'ego-t': '<b style="color:#4f46e5">大的靛色圓點是這位學生</b>,灰色圓點是跟他互動過的同學。<b>箭頭</b>從回應的人指向被回應的人,<b>線越粗</b>代表回應越多次;線的顏色是回應類型(' + C.q + '、' + C.e + '、' + C.i + '、' + C.c + '、' + C.r + '),灰色細線是這些同學彼此之間的互動。',
-    'stu-radar': '雷達圖的五個方向:<b>主體性、社群互動、觀點改進、昇華整合、持續探究</b>。越往外圈代表這位同學在這方面越強,圖形越大越均衡。',
+    'stu-radar': '雷達圖的五個方向:<b>主體性、社群互動、觀點改進、昇華整合、持續探究</b>。越往外圈代表這位同學在這方面越強,圖形越大越均衡。<br><b>為什麼一開始很小?</b>這位同學發文還少的時候,分數會先打折(發滿 10 篇才算滿),所以圖形會隨他發文慢慢長大。',
     'stu-balance': '甜甜圈分成兩段:<b style="color:#2563eb">藍=自主</b>(自己發起的想法)、<b style="color:#16a34a">綠=協作</b>(回應別人的想法)。看他是自己提想法比較多,還是跟大家一起討論比較多。',
     'stu-depth': '依討論的深淺分成五個階段,看這位同學的發言落在哪些深度。階段越深,代表越能把討論往下推進、不只停在表面。',
     'stu-keywords': '這位同學常用的<b>概念詞彙</b>;出現越多次的詞越明顯。詞彙一天一天變多、變豐富,就是他的「詞彙指紋」。',
@@ -240,6 +241,9 @@
     btn.onclick = function () { if (st.playing) setPlaying(false); else play(); };
     seek.oninput = function () { setPlaying(false); render(Number(seek.value)); };
     spSel.onchange = function () { ui.saveSpeed(Number(spSel.value)); };
+    // 一步一步看:上一步 / 下一步(會先暫停播放)
+    ui.wrap.querySelector('[data-a=sprev]').onclick = function () { setPlaying(false); render(Math.max(0, st.k - 1)); };
+    ui.wrap.querySelector('[data-a=snext]').onclick = function () { setPlaying(false); render(Math.min(M, st.k + 1)); };
     label.textContent = String(labels[M - 1]);
     var api = { destroy: function () { st.gone = true; clearTimeout(st.timer); if (ui.wrap.parentNode) ui.wrap.parentNode.removeChild(ui.wrap); }, play: play, goto: render, state: st };
     seriesPlayers[o.id] = api;
@@ -271,6 +275,9 @@
     btn.onclick = function () { if (st.playing) setPlaying(false); else play(); };
     seek.oninput = function () { setPlaying(false); render(Number(seek.value)); };
     spSel.onchange = function () { ui.saveSpeed(Number(spSel.value)); };
+    // 一步一步看:上一步 / 下一步(會先暫停播放)
+    ui.wrap.querySelector('[data-a=sprev]').onclick = function () { setPlaying(false); render(Math.max(0, st.k - 1)); };
+    ui.wrap.querySelector('[data-a=snext]').onclick = function () { setPlaying(false); render(Math.min(L - 1, st.k + 1)); };
     // 上一天 / 下一天(每 o.jump 步為一天)
     var jumpN = o.jump || 1, prevB = ui.wrap.querySelector('[data-a=prev]'), nextB = ui.wrap.querySelector('[data-a=next]');
     if (prevB) prevB.onclick = function () { setPlaying(false); var k = st.k; render(Math.max(0, k % jumpN === 0 ? k - jumpN : Math.floor(k / jumpN) * jumpN)); };

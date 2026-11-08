@@ -1691,6 +1691,12 @@
                     </div>
                     ${currentUserRole === window.ROLES.LEAD ? `<button onclick="window.app.openCreateTopic()" class="bg-indigo-600 text-white px-5 py-2 rounded-lg shadow text-sm hover:bg-indigo-700 transition flex-shrink-0"><i class="fa-solid fa-plus"></i> 新增主題</button>` : ''}
                 </div>
+                ${(window.state.nodes.length === 0 && (location.protocol === 'file:' || /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname))) ? `
+                <div id="empty-demo-hint" class="mb-5 rounded-xl border border-amber-300 bg-amber-50 text-amber-900 px-4 py-3 text-sm leading-relaxed">
+                    <b>目前這個瀏覽器裡還沒有任何人發言。</b>測試版的資料只存在你這台電腦的這個瀏覽器,要看到 25 位學生的討論,請先到
+                    <a href="載入示範資料.html" class="font-bold underline text-indigo-700">「載入示範資料」頁</a>
+                    按一次「載入示範資料」,再回到這裡重新整理。
+                </div>` : ''}
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-4">
                     ${visibleTopics.length === 0 ? `<div class="col-span-full text-center text-slate-400 py-10">此分類暫無主題，點擊右上角新增一個吧！</div>` : ''}
                     ${visibleTopics.map(t => {
