@@ -720,6 +720,9 @@
             }
         };
 
+        // 小學生版的五個選項:中文名稱大一點、符號一看就懂(? + ↗ ! ↑)、柔和的顏色
+        const KIDS_SCAFFOLD = { question: ['提問', '?', '#8aa9e8'], extend: ['延伸', '+', '#e6c96a'], improve: ['改進', '↗', '#82c69b'], counter: ['反例', '!', '#d9828a'], riseabove: ['昇華', '↑', '#b08ae0'] };
+        Object.keys(KIDS_SCAFFOLD).forEach(k => { if (window.SCAFFOLDS[k]) { window.SCAFFOLDS[k].zh = KIDS_SCAFFOLD[k][0]; window.SCAFFOLDS[k].glyph = KIDS_SCAFFOLD[k][1]; window.SCAFFOLDS[k].chip = KIDS_SCAFFOLD[k][2]; } });
         window.app.openComposer = (pid) => {
             if (!KB.can('forum.post')) {
                 const cu = window.state.user;
@@ -732,9 +735,10 @@
             const pb = document.querySelector('#modal-node button[onclick*="submitNode"]'); if (pb) pb.textContent = '發布';
             window.state.composer.parentId = pid;
             document.getElementById('scaffold-selector').innerHTML = Object.values(window.SCAFFOLDS).map(s => `
-                <button onclick="window.app.selectScaffold('${s.id}')" id="btn-scaffold-${s.id}" class="flex flex-col items-center justify-center p-2 rounded-lg border-2 border-slate-100 opacity-60 transition hover:opacity-80">
-                    <div class="w-8 h-8 md:w-8 md:h-8 rounded-full ${s.color} text-white flex justify-center items-center mb-1"><i class="fa-solid ${s.icon}"></i></div>
-                    <span class="text-[10px] md:text-xs font-bold text-slate-600">${s.label}</span>
+                <button type="button" onclick="window.app.selectScaffold('${s.id}')" id="btn-scaffold-${s.id}" title="${s.zh || s.label}(${s.label})" aria-label="${s.zh || s.label}" class="flex flex-col items-center justify-start px-1 py-2 md:p-2 rounded-2xl border-2 border-slate-100 opacity-80 transition hover:opacity-100">
+                    <div class="w-11 h-11 sm:w-14 sm:h-14 rounded-full text-white flex justify-center items-center mb-1 text-2xl sm:text-3xl font-black leading-none" style="background:${s.chip || ''}" aria-hidden="true">${s.glyph || '?'}</div>
+                    <span class="text-sm sm:text-base font-black text-slate-800 leading-tight">${s.zh || s.label}</span>
+                    <span class="text-[10px] sm:text-xs text-slate-400 font-semibold leading-tight mt-0.5" style="word-break:keep-all">${s.label}</span>
                 </button>`).join('');
             const descEl = document.getElementById('scaffold-desc');
             if(descEl) { descEl.innerHTML = ''; descEl.className = 'hidden'; }
@@ -759,10 +763,10 @@
             Object.values(window.SCAFFOLDS).forEach(s => {
                 const btn = document.getElementById(`btn-scaffold-${s.id}`);
                 if(s.id === t) {
-                    btn.classList.remove('opacity-60', 'border-slate-100');
+                    btn.classList.remove('opacity-80', 'border-slate-100');
                     btn.classList.add('opacity-100', window.SCAFFOLDS[t].border, window.SCAFFOLDS[t].bgSoft);
                 } else {
-                    btn.classList.add('opacity-60', 'border-slate-100');
+                    btn.classList.add('opacity-80', 'border-slate-100');
                     btn.classList.remove('opacity-100', window.SCAFFOLDS[s.id].border, window.SCAFFOLDS[s.id].bgSoft);
                 }
             });
