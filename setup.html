@@ -527,6 +527,8 @@
         inpRow('連續登入失敗幾次後鎖定', '', 'ap-maxfails', c.lockout.maxFails, 'number', 'min="2" max="20"') +
         inpRow('鎖定時間(分鐘)', '', 'ap-lockmin', c.lockout.minutes, 'number', 'min="1" max="1440"') +
         '<div class="pt-2"><button class="btn btn-p btn-sm" data-act="ap-sec-save">儲存登入安全設定</button></div>') +
+      card('語音輸入(實驗中)', 'fa-microphone',
+        setRow('發言視窗的語音輸入(🎤 用說的)', '開啟後,發言視窗的標題與內容旁邊會多一個「用說的」按鈕,小朋友可以用講的輸入,說完還能檢查、修改。關閉後就只有原本的打字輸入。注意:要用 Chrome 或 Edge、需要麥克風與網路,語音會送到瀏覽器的語音服務轉成文字。', sw('voiceEnabled', (c.voice || { enabled: true }).enabled !== false))) +
       card('使用說明與同意書', 'fa-file-signature',
         setRow('學生登入後先閱讀並同意', '開啟後,學生第一次登入(以及你修改說明內容之後)會先看到下面這段說明,按「同意並繼續」才能使用;不同意會被登出。同意紀錄會寫在稽核紀錄裡。', sw('consentEnabled', c.consent.enabled)) +
         '<div class="py-2"><label class="lbl">說明內容(可依研究倫理要求自行修改)</label><textarea class="inp w-full" rows="6" id="cs-text">' + esc(c.consent.text) + '</textarea><div class="mt-2"><button class="btn btn-p btn-sm" data-act="cs-save">儲存說明內容</button></div></div>');
@@ -678,7 +680,7 @@
     guestEnabled: function (v) { KB.settings.update({ guestEnabled: v }); }, studentEditOwn: function (v) { KB.settings.update({ studentEditOwn: v }); },
     forumLocked: function (v) { KB.settings.update({ forumLocked: v }); }, postWindowEnabled: function (v) { KB.settings.update({ postWindow: { enabled: v } }); },
     aiEnabled: function (v) { KB.settings.update({ ai: { enabled: v } }); }, annEnabled: function (v) { KB.settings.update({ announcement: { enabled: v } }); },
-    maintenance: function (v) { KB.settings.update({ maintenance: v }); }, consentEnabled: function (v) { KB.settings.update({ consent: { enabled: v } }); }, requireStudentPwChange: function (v) { KB.settings.update({ requireStudentPwChange: v }); }
+    maintenance: function (v) { KB.settings.update({ maintenance: v }); }, voiceEnabled: function (v) { KB.settings.update({ voice: { enabled: v } }); }, consentEnabled: function (v) { KB.settings.update({ consent: { enabled: v } }); }, requireStudentPwChange: function (v) { KB.settings.update({ requireStudentPwChange: v }); }
   };
 
   document.addEventListener('click', function (e) {
