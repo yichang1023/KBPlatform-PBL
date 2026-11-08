@@ -339,7 +339,8 @@
   var ID_RE = /^[A-Za-z0-9_.@-]{1,40}$/;
   function defaultPasswordFor(u) { return u.role === 'student' ? String(u.id) : String(u.id); }
   var users = {
-    list: function () { return S.users.map(function (u) { var c = clone(u); delete c.pwHash; delete c.salt; return c; }); },
+    // pwDefault:密碼是否還是預設值(=帳號/學號)。系統只存加密後的密碼,看不到任何人自己改的密碼;忘記時請用「重設密碼」
+    list: function () { return S.users.map(function (u) { var c = clone(u); c.pwDefault = hashPw(u.id, u.salt) === u.pwHash; delete c.pwHash; delete c.salt; return c; }); },
     get: function (id) { var u = userById(id); if (!u) return null; var c = clone(u); delete c.pwHash; delete c.salt; return c; },
     create: function (o) {
       var id = String(o.id || '').trim(), role = o.role || 'student';

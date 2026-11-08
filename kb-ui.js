@@ -103,11 +103,12 @@
     return new Promise(function (resolve) {
       var cur = KB.auth.current();
       var m = modal('<h3><i class="fa-solid fa-key" style="color:#4f46e5"></i>' + (o.forced ? '首次登入,請設定新密碼' : '修改密碼') + '</h3><p>' + (o.forced ? '為了帳號安全,請先把預設密碼換成只有你知道的新密碼。' : '請輸入目前密碼與新密碼。') + '</p>' +
-        '<label>目前密碼</label><input class="kbui-input" type="password" data-a="old" autocomplete="current-password">' +
-        '<label>新密碼(至少 6 個字元,不可與學號/帳號相同)</label><input class="kbui-input" type="password" data-a="n1" autocomplete="new-password"><div class="kbui-hint" data-a="strength"></div>' +
-        '<label>再輸入一次新密碼</label><input class="kbui-input" type="password" data-a="n2" autocomplete="new-password"><div data-a="err"></div>' +
+        '<label>目前密碼</label><input class="kbui-input" type="password" data-a="old" autocomplete="new-password" data-lpignore="true" data-1p-ignore="true"><div class="kbui-hint">還沒改過密碼的話,「目前密碼」就是你的學號。忘記了,請老師幫你重設。</div>' +
+        '<label>新密碼(至少 6 個字元,不可與學號/帳號相同)</label><input class="kbui-input" type="password" data-a="n1" autocomplete="new-password" data-lpignore="true" data-1p-ignore="true"><div class="kbui-hint" data-a="strength"></div>' +
+        '<label>再輸入一次新密碼</label><input class="kbui-input" type="password" data-a="n2" autocomplete="new-password" data-lpignore="true" data-1p-ignore="true"><label style="display:flex;align-items:center;gap:6px;margin-top:8px;cursor:pointer;font-weight:600"><input type="checkbox" data-a="show"> 顯示我輸入的密碼(確認有沒有打對)</label><div data-a="err"></div>' +
         '<div class="kbui-row">' + (o.forced ? '<button class="kbui-btn kbui-ghost" data-a="out">登出</button>' : '<button class="kbui-btn kbui-ghost" data-a="no">取消</button>') + '<button class="kbui-btn kbui-primary" data-a="ok">儲存新密碼</button></div>', { locked: !!o.forced, onCancel: function () { resolve(false); } });
       var c = m.card, q = function (a) { return c.querySelector('[data-a=' + a + ']'); };
+      q('show').onchange = function () { var t = q('show').checked ? 'text' : 'password'; q('old').type = t; q('n1').type = t; q('n2').type = t; };
       q('n1').oninput = function () {
         var v = q('n1').value, s = 0; if (v.length >= 6) s++; if (v.length >= 10) s++; if (/[A-Za-z]/.test(v) && /[0-9]/.test(v)) s++; if (/[^A-Za-z0-9]/.test(v)) s++;
         q('strength').textContent = v ? ('強度:' + ['太弱', '普通', '不錯', '很好', '很強'][s]) : '';
@@ -116,7 +117,7 @@
         var e = q('err'); e.innerHTML = '';
         if (q('n1').value !== q('n2').value) { e.innerHTML = '<div class="kbui-err">兩次輸入的新密碼不一致</div>'; return; }
         var r = KB.auth.changePassword(q('old').value, q('n1').value);
-        if (!r.ok) { e.innerHTML = '<div class="kbui-err">' + esc(r.error) + '</div>'; return; }
+        if (!r.ok) { e.innerHTML = '<div class="kbui-err">' + esc(r.error) + (/目前的密碼/.test(r.error) ? '。還沒改過的話,請輸入你的學號;忘記了請老師幫你重設。' : '') + '</div>'; return; }
         m.close(); toast('密碼已更新', 'ok'); resolve(true);
       }
       q('ok').onclick = submit;
