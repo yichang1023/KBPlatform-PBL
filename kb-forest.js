@@ -121,7 +121,22 @@
   /* ---------- 畫一棵樹 ---------- */
   function drawTree(host, lay, ctx) {
     var uid = 'kf' + Math.random().toString(36).slice(2, 7);
-    var bs = Math.max(1.45, Math.min(3.0, 1.35 * Math.sqrt(1.3 * R * R * 0.85 / (Math.max(12, lay.total) * 100))));   // 給小學生:花要大、要快看得到茂密
+    var bs = Math.max(1.7, Math.min(3.4, 1.7 * Math.sqrt(1.3 * R * R * 0.85 / (Math.max(12, lay.total) * 100))));   // 給小學生:花要大、要快看得到茂密
+    // 把樹冠「收緊」並「完整放進框裡」:
+    //  1) 密度:花越大、貼文越少,樹冠就收得越小,花與花緊緊靠在一起,不留大片空白
+    //  2) 邊界:任何一朵花(連同伴花)都不可以被畫框切到;太靠外的就整體往樹幹方向收進來
+    (function fit() {
+      if (lay._fit) return; lay._fit = true;   // 同一份排版只收緊一次
+      var kd = Math.min(1, (11 * bs) * Math.sqrt(0.61 * Math.max(1, lay.total)) / R), kb = 1;
+      var xmin = 9, xmax = W - 9, ymin = 128, ymax = BY - 4;
+      lay.order.forEach(function (id) {
+        var inf = lay.info[id], e = 16.5 * (1 + Math.min(3, inf.kids.length) * 0.18) * bs * 1.04, dx = inf.x - CX, dy = inf.y - CY;
+        if (dx > 0.01) kb = Math.min(kb, (xmax - e - CX) / dx); else if (dx < -0.01) kb = Math.min(kb, (xmin + e - CX) / dx);
+        if (dy > 0.01) kb = Math.min(kb, (ymax - e - CY) / dy); else if (dy < -0.01) kb = Math.min(kb, (ymin + e - CY) / dy);
+      });
+      var k = Math.max(0.15, Math.min(kd, kb));
+      if (k < 0.999) lay.order.forEach(function (id) { var inf = lay.info[id]; inf.x = CX + (inf.x - CX) * k; inf.y = CY + (inf.y - CY) * k; inf.cx = CX + (inf.cx - CX) * k; inf.cy = CY + (inf.cy - CY) * k; });
+    })();
     var svg = el('svg', { viewBox: '0 120 ' + W + ' ' + (H - 120), class: 'kf-svg', role: 'img', 'aria-label': ctx.name + ' 的念念成櫻' }, host);
     var defs = el('defs', null, svg);
     var gSky = el('linearGradient', { id: uid + 's', x1: '0', y1: '0', x2: '0', y2: '1' }, defs);
@@ -191,6 +206,18 @@
       var g = el('g', { class: 'kf-b', 'data-id': id }, bloomLayer);
       var big = (1 + Math.min(3, inf.kids.length) * 0.18) * bs;
       el('circle', { cx: f1(inf.x), cy: f1(inf.y), r: f1(9.5 * big), fill: pal[1], 'fill-opacity': '.38' }, g);
+      // 每個想法開三朵花:主花旁邊靠得很近再開兩朵小一點的伴花(同一個想法、同一個顏色,一起出現)
+      var rc = rng(h32(id + 'c')), ca0 = rc() * 6.283;
+      for (var q2 = 0; q2 < 2; q2++) {
+        var ca = ca0 + q2 * 3.1 + (rc() - 0.5) * 0.7, cd = (5.2 + rc() * 2.0) * big, cx2 = inf.x + Math.cos(ca) * cd, cy2 = inf.y + Math.sin(ca) * cd * 0.85, cb = big * (q2 ? 0.7 : 0.82);
+        el('circle', { cx: f1(cx2), cy: f1(cy2), r: f1(8.2 * cb), fill: pal[1], 'fill-opacity': '.3' }, g);
+        for (var k2 = 0; k2 < 9; k2++) {
+          var a2 = (k2 / 9) * 6.283 + rc() * 0.9, d2 = (2.2 + rc() * 4.2) * cb;
+          el('circle', { cx: f1(cx2 + Math.cos(a2) * d2), cy: f1(cy2 + Math.sin(a2) * d2), r: f1((2.6 + rc() * 2.1) * cb), fill: pal[Math.floor(rc() * 3)], 'fill-opacity': f1(0.78 + rc() * 0.2) }, g);
+        }
+        el('circle', { cx: f1(cx2 - 1.2), cy: f1(cy2 - 1.2), r: f1(1.5 * cb), fill: '#fff', 'fill-opacity': '.8' }, g);
+        el('circle', { cx: f1(cx2), cy: f1(cy2), r: f1(1.1 * cb), fill: n.type === 'riseabove' ? '#ffd54f' : '#e84a82', 'fill-opacity': '.75' }, g);
+      }
       for (var k = 0; k < 11; k++) {
         var a = (k / 11) * 6.283 + r() * 0.9, d = (2.2 + r() * 4.6) * big;
         el('circle', { cx: f1(inf.x + Math.cos(a) * d), cy: f1(inf.y + Math.sin(a) * d), r: f1((2.6 + r() * 2.3) * big), fill: pal[Math.floor(r() * 3)], 'fill-opacity': f1(0.78 + r() * 0.2) }, g);
@@ -274,7 +301,7 @@
       });
 
       var legend = doc.createElement('div'); legend.className = 'kf-legend';
-      legend.innerHTML = ['question', 'extend', 'improve', 'counter', 'riseabove'].map(function (k) { return '<span><i class="kf-dot" style="background:' + PALETTE[k][0] + '"></i>' + TYPE_TXT[k] + (k === 'riseabove' ? '(白櫻、金色花心)' : '') + '</span>'; }).join('') + (opts.youId ? '<span><i class="kf-dot" style="background:#fff;border:1.5px dashed #f59e0b"></i>金色虛線圈 = 你的想法</span>' : '') + '<span style="margin-left:auto">一朵花 = 一則貼文;分岔越多,樹冠越茂密;滑鼠移到花上可以看內容</span>';
+      legend.innerHTML = ['question', 'extend', 'improve', 'counter', 'riseabove'].map(function (k) { return '<span><i class="kf-dot" style="background:' + PALETTE[k][0] + '"></i>' + TYPE_TXT[k] + (k === 'riseabove' ? '(白櫻、金色花心)' : '') + '</span>'; }).join('') + (opts.youId ? '<span><i class="kf-dot" style="background:#fff;border:1.5px dashed #f59e0b"></i>金色虛線圈 = 你的想法</span>' : '') + '<span style="margin-left:auto">一則貼文 = 一簇花(三朵);分岔越多,樹冠越茂密;滑鼠移到花上可以看內容</span>';
       container.appendChild(legend);
 
       function setStepValue(sv) {
@@ -300,7 +327,7 @@
           d.rootEdge.style.opacity = vis === 0 ? 0 : 1;
           var sc = vis === 0 ? 0.6 : (0.78 + 0.22 * Math.pow(frac, 0.4));   // 樹一開始就不會太小
           d.tree.style.transform = 'scale(' + f1(sc) + ')';
-          d.tree.style.setProperty('--bz', f1(1 + 0.45 * Math.pow(1 - frac, 1.4)));
+          d.tree.style.setProperty('--bz', f1(1 + 0.3 * Math.pow(1 - frac, 1.4)));
           d.seed.style.opacity = vis === 0 ? 1 : 0;
           var nf = Math.round(Math.min(70, vis * 0.6));
           d.fps.forEach(function (f, i) { f.classList.toggle('on', i < nf); });
