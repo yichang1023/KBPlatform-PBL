@@ -154,6 +154,7 @@
 <script src="kb-replay.js"></script>
 <script src="kb-ai-story.js"></script>
 <script src="kb-forest.js"></script>
+<script src="kb-concept.js?v=20261109b"></script>
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.6.1"></script>
@@ -526,29 +527,14 @@
             </h2>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-                <!-- A. 概念演化雲 (專屬區塊) -->
-                <div class="card hover:border-teal-200 transition col-span-1 md:col-span-2">
-                    <div class="flex justify-between items-center mb-4 border-b border-slate-100 pb-3">
-                        <h3 class="section-title mb-0"><i class="fas fa-cloud text-teal-500 mr-2"></i> 概念演化雲 (Concept Evolution)</h3>
+                <!-- A. 概念演化雲 (專屬區塊):立體的雲 + 資料線 + 故事卡 -->
+                <div class="card hover:border-teal-200 transition col-span-1 md:col-span-2" id="concept-card">
+                    <div class="flex justify-between items-center mb-3 border-b border-slate-100 pb-3">
+                        <h3 class="section-title mb-0"><i class="fas fa-cloud text-teal-500 mr-2"></i> 我的概念雲 (Concept Evolution)</h3>
                         <button onclick="openRefModal('concept_evolution')" class="ref-btn"><i class="fas fa-info"></i>Ref.</button>
                     </div>
-                    <p class="text-xs text-slate-500 mb-4">系統自動從你的歷程中擷取關鍵字，具象化你關注焦點的「質變」。</p>
-
-                    <div class="flex flex-col gap-4">
-                        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 relative">
-                            <div class="text-[10px] font-bold text-slate-400 mb-2 uppercase tracking-widest flex items-center"><i class="fas fa-history mr-1"></i> 前期關注 (Early)</div>
-                            <div id="word-cloud-early" class="flex flex-wrap text-sm text-slate-600 gap-2"><span class="italic text-xs">擷取中...</span></div>
-                        </div>
-
-                        <div class="flex justify-center -my-3 relative z-10 text-slate-300">
-                            <i class="fas fa-arrow-down text-xl"></i>
-                        </div>
-
-                        <div class="bg-teal-50/70 p-4 rounded-xl border border-teal-200 relative shadow-sm">
-                            <div class="text-[10px] font-bold text-teal-600 mb-2 uppercase tracking-widest flex items-center"><i class="fas fa-fire mr-1"></i> 近期焦點 (Recent)</div>
-                            <div id="word-cloud-late" class="flex flex-wrap text-sm text-teal-800 font-bold gap-2"><span class="italic text-xs">擷取中...</span></div>
-                        </div>
-                    </div>
+                    <p class="text-xs text-slate-500 mb-3">你說過的想法會長成一朵雲:字越大代表用越多次,顏色代表這個想法現在的狀態,虛線連起常一起出現的詞。點一個詞看它的故事,滾輪或按鈕可以放大縮小。</p>
+                    <div id="kbc-host"></div>
                 </div>
 
                 <!-- B. 跨溫層破壁指數 -->
@@ -793,7 +779,7 @@ async function initApiKey() {
         'scaffold': { title: '思考鷹架 (Scaffolds)', theory: '鷹架是支持高階思維的語言模板，幫助學生進行更細緻的論證與反思。', cite: 'Chen, B., et al. (2017).' },
         'radar': { title: '知識五力 (Competency Radar)', theory: '綜合評估學生的多維度能力：主動性、社會性、認知深度等。', cite: 'Lai, K. W., & Law, N. (2006).' },
         'lexical': { title: '語義與詞彙深度 (Lexical Depth)', theory: '追蹤學生從使用「日常語言」轉向精確的「學術術語」，反映了概念理解的深化與專業化過程。', cite: 'Resendes, M., et al. (2015).' },
-        'concept_evolution': { title: '概念演化軌跡 (Concept Evolution Map)', theory: '萃取你發文的關鍵字，具象化你從前期關注表層現象，到後期探討深層機制的詞彙質變過程。', cite: 'Oshima, J., et al. (2012).' },
+        'concept_evolution': { title: '概念演化軌跡 (Concept Evolution Map)', theory: '從你的貼文找出你常用的概念詞,用雲的大小表示用了幾次、用顏色表示這個想法現在的狀態(提問中、被延伸、改進中、被質疑、已整合),虛線連起常一起出現的詞,具象化你的想法如何出現、被回應、被改進、被整合。狀態依你的貼文類型與同學回應判斷,是系統的規則估計,僅供參考。', cite: 'Oshima, J., et al. (2012).' },
         'echo_chamber': { title: '跨溫層破壁指數 (Echo-Chamber Breaking)', theory: '分析你是否主掌握打破同溫層，去回應極少互動的同學。成功破壁者能促進觀點多樣性，成為社群的知識橋樑 (Broker)。', cite: 'Matsuzawa, Y., et al. (2012).' },
         'idea_lineage': { title: '念念成櫻 (Idea Lineage)', theory: '追蹤你拋出的單一觀點如何被他人質疑、補充並收斂。體現了「集體認知責任」。', cite: 'Scardamalia, M., & Bereiter, C. (2006).' },
         'eureka_arc': { title: '認知頓悟軌跡 (Eureka Arc)', theory: '追蹤你經歷「認知衝突 (提問/反駁)」後，最終走向「昇華 (Rise-above)」的歷程。', cite: 'D’Mello, S., et al. (2014).' },
@@ -874,7 +860,7 @@ async function initApiKey() {
         else if (key === 'diversity') specificData = `參與了 ${stats.uniqueTopicsCount} 個不同的討論主題`;
         else if (key === 'path_length') specificData = `平均討論深度：${stats.avgDepth.toFixed(1)} 層`;
         else if (key === 'lexical') specificData = `語義階段：${stats.lexicalStats.level} (${stats.lexicalStats.title})，包含學術詞彙 ${stats.lexicalStats.acCount} 次，邏輯詞彙 ${stats.lexicalStats.lgCount} 次`;
-        else if (key === 'concept_evolution') specificData = `近期高頻焦點關鍵字：${document.getElementById('word-cloud-late').innerText.replace(/\n/g, ', ')}`;
+        else if (key === 'concept_evolution') specificData = '概念雲裡的詞與狀態(依貼文類型與同學回應判斷):' + (window.__kbCC && window.__kbCC.model ? window.__kbCC.model.summaryText() : '資料不足');
         else if (key === 'roles') specificData = `系統綜合判定主要知識角色為：${roleName}`;
         else specificData = `目前沒有特定的專屬數據可提供。`;
 
@@ -1016,26 +1002,46 @@ async function initApiKey() {
         const users = Object.values(globalData.userList || {});
         // 學生只能看自己的分析;老師與管理者可選擇任何一位學生
         const students = users.filter(u => u.role !== 'teacher' && (gateUser.role !== 'student' || u.id === gateUser.id));
+        const optStyle = o => { o.style.color = "#334155"; o.style.backgroundColor = "#ffffff"; return o; };
 
-        if (students.length === 0) select.innerHTML = '<option>無學生資料</option>';
-        else students.forEach(u => {
-            const option = document.createElement('option');
-            option.value = u.id;
-            option.text = u.name;
-            option.style.color = "#334155";
-            option.style.backgroundColor = "#ffffff";
-            select.appendChild(option);
-        });
-
+        // 班級:老師/管理者在有兩個以上班級時,可以先選班級,學生清單只列出那個班級的人
+        const clsOf = u => u.classId || '__none__';
+        const groups = {}; students.forEach(u => { (groups[clsOf(u)] = groups[clsOf(u)] || { name: u.className || '(還沒分班)', n: 0 }).n++; });
+        const clsKeys = Object.keys(groups), showClass = gateUser.role !== 'student' && clsKeys.length >= 2;
+        let want = null; try { want = new URLSearchParams(location.search).get('student'); } catch (e) {}
+        const wantUser = want && gateUser.role !== 'student' ? students.find(u => u.id === want) : null;
+        let clsFilter = 'all'; try { clsFilter = localStorage.getItem('kb_class_filter') || 'all'; } catch (e) {}
+        if (!showClass || !groups[clsFilter]) clsFilter = 'all';
+        if (wantUser && showClass) clsFilter = clsOf(wantUser);   // 從設定中心點某位學生進來:直接切到他的班級
+        let classSel = null;
+        if (showClass) {
+            classSel = document.createElement('select');
+            classSel.id = 'class-selector'; classSel.title = '選擇班級';
+            classSel.className = "bg-white/10 text-white text-xs border border-white/20 rounded px-2 py-1.5 outline-none font-bold cursor-pointer mr-2";
+            classSel.innerHTML = '';
+            const all = optStyle(document.createElement('option')); all.value = 'all'; all.text = '全部班級(' + students.length + ' 人)'; classSel.appendChild(all);
+            clsKeys.sort((a, b) => groups[a].name.localeCompare(groups[b].name, 'zh-Hant')).forEach(k => { const o = optStyle(document.createElement('option')); o.value = k; o.text = groups[k].name + '(' + groups[k].n + ' 人)'; classSel.appendChild(o); });
+            classSel.value = clsFilter; container.appendChild(classSel);
+        }
+        const inScope = u => clsFilter === 'all' || clsOf(u) === clsFilter;
+        function fillStudents() {
+            select.innerHTML = '';
+            const list = students.filter(inScope);
+            if (list.length === 0) select.innerHTML = '<option>無學生資料</option>';
+            else list.forEach(u => { const option = optStyle(document.createElement('option')); option.value = u.id; option.text = u.name; select.appendChild(option); });
+            return list;
+        }
+        fillStudents();
         select.onchange = function() { switchUser(this.value); };
+        if (classSel) classSel.onchange = function () {
+            clsFilter = this.value; try { localStorage.setItem('kb_class_filter', clsFilter); } catch (e) {}
+            const list = fillStudents(); if (list.length) { select.value = list[0].id; switchUser(list[0].id); }
+        };
         container.appendChild(select);
 
-        let targetId = students.length > 0 ? students[0].id : null;
+        let targetId = students.filter(inScope).length > 0 ? students.filter(inScope)[0].id : null;
         // 從設定中心的使用者清單點進來:?student=學號(僅老師與管理者有效,學生只能看自己)
-        try {
-            const want = new URLSearchParams(location.search).get('student');
-            if (want && gateUser.role !== 'student' && students.some(u => u.id === want)) targetId = want;
-        } catch (e) {}
+        if (wantUser) targetId = wantUser.id;
         if (targetId) { select.value = targetId; switchUser(targetId); }
     }
 
@@ -1276,7 +1282,7 @@ async function initApiKey() {
         ]);
 
         renderEgoNetwork(userId);
-        renderConceptEvolution(stats.recentNotes);
+        renderConceptEvolution(userId);
         renderEchoChamber(stats);
 
         // 🔥 修改：傳入 userId, 全域節點 與 全域使用者名單，以繪製完整的成長歷程
@@ -1382,7 +1388,15 @@ async function initApiKey() {
             document.getElementById('lexical-initial-box').innerHTML = '"' + iW + '"'; document.getElementById('lexical-current-box').innerHTML = '"' + cW + '"';
         }, st => { const lv = S(st).lexicalStats; return lv.title + '(學術詞 ' + lv.acCount + '、邏輯詞 ' + lv.lgCount + ')'; });
         // 概念演化雲、跨溫層破壁指數、念念成櫻
-        R('s-concept', card('word-cloud-early'), true, '我的概念演化雲(早期與近期常用詞的變化)', st => renderConceptEvolution(S(st).recentNotes), st => '累計 ' + S(st).totalNotes + ' 篇貼文');
+        (function () {
+            const cc = window.__kbCC, host = document.getElementById('kbc-host');
+            if (!cc || cc.empty || !host) return;
+            const player = kbAttachReplay({ id: 's-concept', anchor: cc.main, labels: sdS.labels, explainTitle: '我的概念雲(每個詞什麼時候長出來、現在是什麼狀態)',
+                render: step => cc.render(step), values: step => cc.model.summaryText(step) || '還沒有概念詞',
+                say: (k, pj) => cc.model.changes(k) || null, slow: true, baseDelay: 1600 });
+            // 故事卡放在播放列下面(離雲近一點),說明留在最後
+            const bar = document.querySelector('[data-kbnet="s-concept"]'); if (bar && cc.cardWrap) bar.insertAdjacentElement('afterend', cc.cardWrap);
+        })();
         // 跨溫層破壁指數:播放時逐天說明「這天回應了誰、圈圈為什麼變滿」,並留下只增不減的「破壁歷程」
         (function () {
             const anchor = card('echo-score'); if (!anchor) return;
@@ -1445,30 +1459,18 @@ async function initApiKey() {
         R('s-lineage', card('lineage-content'), true, '我的念念成櫻(一個想法長出多少後續討論)', (st, step) => renderIdeaLineage(userId, nodesAt(step), globalData.userList), st => { const l = S(st).lineageStats; return '最大的想法引出 ' + l.count + ' 則後續回應、最深 ' + l.maxDepth + ' 層'; });
     }
 
-    function renderConceptEvolution(recentNotes) {
-        const earlyBox = document.getElementById('word-cloud-early');
-        const lateBox = document.getElementById('word-cloud-late');
-        if (!recentNotes || recentNotes.length < 2) {
-            earlyBox.innerHTML = '<span class="text-[10px] italic text-slate-400">發言資料不足，無法產生演化雲</span>';
-            lateBox.innerHTML = '<span class="text-[10px] italic text-slate-400">發言資料不足，無法產生演化雲</span>';
-            return;
-        }
-
-        const extract = (notes) => {
-            let text = notes.map(n => n.content + " " + n.title).join(" ");
-            let chunks = text.match(/[\u4e00-\u9fa5]{2,4}/g) || [];
-            const stops = ['我們','你們','他們','覺得','因為','所以','可以','如果','還是','這個','那個','其實','然後','但是','不過'];
-            let counts = {};
-            chunks.forEach(w => { if(!stops.includes(w)) counts[w] = (counts[w] || 0) + 1; });
-            return Object.entries(counts).sort((a,b) => b[1] - a[1]).slice(0, 5).map(e => e[0]);
-        };
-
-        const sorted = [...recentNotes].reverse();
-        const mid = Math.floor(sorted.length / 2);
-        const renderTags = (words, bc, tc) => words.length ? words.map(w => `<span class="word-tag ${bc} ${tc}">${w}</span>`).join('') : '<span class="text-[10px] text-slate-400">無明顯特徵詞彙</span>';
-
-        earlyBox.innerHTML = renderTags(extract(sorted.slice(0, mid)), 'bg-white border border-slate-200', 'text-slate-600');
-        lateBox.innerHTML = renderTags(extract(sorted.slice(mid)), 'bg-teal-500 shadow-sm border border-teal-600', 'text-white');
+    // 概念雲:用這位學生的貼文(類型、回應、時間)畫出想法怎麼長大;資料線連起常一起出現的詞
+    function renderConceptEvolution(userId) {
+        const host = document.getElementById('kbc-host'); if (!host || !window.KBConcept) return;
+        const uid = userId || currentUserId;
+        const sd = kbStepDays(globalData.nodes.map(n => n.date));
+        const nameOf = id => { const u = (globalData.userList || {})[id]; return u ? u.name : '同學'; };
+        const model = KBConcept.build({ nodes: globalData.nodes, userId: uid, step: ts => sd.idx(ts), name: nameOf, topics: globalData.topics || [], max: 12 });
+        window.__kbCC = KBConcept.create(host, model, {
+            labels: sd.labels,
+            onGoPost: (id, topicId) => { location.href = 'Knowledge Building Forum.html?topic=' + encodeURIComponent(topicId) + '&node=' + encodeURIComponent(id); }
+        });
+        window.__kbCCUser = uid;
     }
 
     function renderEchoChamber(stats) {

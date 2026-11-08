@@ -339,6 +339,11 @@
                 <i class="fas fa-home w-5 text-blue-400"></i><span class="font-bold">返回首頁</span>
             </a>
         </div>
+        <!-- 班級:有兩個以上班級時才出現,選了之後,這裡所有的分析(總覽、個別學生、討論區、言談品質、學術指標)都只看這個班級 -->
+        <div id="class-filter-box" class="px-3 pb-2 hidden">
+            <label for="class-selector" class="block text-[11px] font-bold text-slate-500 mb-1 tracking-wide"><i class="fas fa-school mr-1"></i> 班級</label>
+            <select id="class-selector" onchange="filterDataByClass(this.value)" class="w-full bg-slate-800 border border-slate-600 text-slate-100 text-sm rounded-lg p-2 outline-none focus:border-blue-400"></select>
+        </div>
 
         <nav class="mt-2 flex-1 px-2 space-y-1 overflow-y-auto">
             <div class="border-t border-slate-800 my-2 mx-4"></div>
@@ -806,6 +811,36 @@
         let globalRawDB = {};
         let currentModalTopic = '';
         let activeTopicFilter = 'all';
+        let activeClassFilter = 'all';   // 'all' | 班級編號 | '__none__'(還沒分班)
+        try { activeClassFilter = localStorage.getItem('kb_class_filter') || 'all'; } catch (e) {}
+        const classKeyOf = u => u.classId || '__none__';
+        const inClassScope = u => activeClassFilter === 'all' || classKeyOf(u) === activeClassFilter;
+        // 依班級縮小資料:只留下這個班級學生的貼文與名單(老師/管理者的資料保留)
+        function scopeByClass(data) {
+            if (activeClassFilter === 'all') return data;
+            const ul = {}, ids = new Set();
+            Object.keys(data.userList || {}).forEach(k => { const u = data.userList[k]; if (u.role === 'teacher') ul[k] = u; else if (inClassScope(u)) { ul[k] = u; ids.add(String(u.id)); } });
+            return Object.assign({}, data, { userList: ul, nodes: (data.nodes || []).filter(n => ids.has(String(n.author)) || (ul[n.author] && ul[n.author].role === 'teacher')) });
+        }
+        function classScopeText() {
+            if (activeClassFilter === 'all') return '';
+            const src = window.__kbSrc && window.__kbSrc.userList || {}, one = Object.values(src).find(u => classKeyOf(u) === activeClassFilter);
+            return '(班級:' + (activeClassFilter === '__none__' ? '還沒分班' : (one && one.className) || activeClassFilter) + ')';
+        }
+        function populateClassSelector(userList) {
+            const box = document.getElementById('class-filter-box'), sel = document.getElementById('class-selector'); if (!box || !sel) return;
+            const groups = {}; Object.values(userList || {}).filter(u => u.role !== 'teacher').forEach(u => { const k = classKeyOf(u); (groups[k] = groups[k] || { name: u.className || '(還沒分班)', n: 0 }).n++; });
+            const keys = Object.keys(groups);
+            if (keys.length < 2) { box.classList.add('hidden'); if (activeClassFilter !== 'all') { activeClassFilter = 'all'; } return; }   // 只有一個班級時不顯示,也不篩選
+            if (activeClassFilter !== 'all' && !groups[activeClassFilter]) activeClassFilter = 'all';
+            const total = keys.reduce((a, k) => a + groups[k].n, 0);
+            sel.innerHTML = '<option value="all">全部班級(' + total + ' 人)</option>' + keys.sort((a, b) => groups[a].name.localeCompare(groups[b].name, 'zh-Hant')).map(k => '<option value="' + k + '">' + groups[k].name + '(' + groups[k].n + ' 人)</option>').join('');
+            sel.value = activeClassFilter; box.classList.remove('hidden');
+        }
+        function filterDataByClass(v) {
+            activeClassFilter = v || 'all'; try { localStorage.setItem('kb_class_filter', activeClassFilter); } catch (e) {}
+            if (window.__kbApplyClass) window.__kbApplyClass();
+        }
 
         const kbTypeMap = {
             'question': '提問 (Question)',
@@ -1703,11 +1738,12 @@ async function geminiFetch(key, init) {
                 return { nodes: JSON.parse(JSON.stringify(c.nodes)), topics: JSON.parse(JSON.stringify(c.topics)), userList: KB.compat.userList(gateUser.role) };
             }
             function applyCloudData(data) {
-                window.state = {
+                window.__kbSrc = data; populateClassSelector(data.userList);
+                window.state = scopeByClass({
                     nodes: data.nodes || [],
                     topics: data.topics || [],
                     userList: data.userList || {}
-                };
+                });
                 try { window.__kbIdent = kbAiIdent(window.state.userList); } catch (e) {}
                 const currentDb = getRealData();
                 if (currentDb) {
@@ -1721,6 +1757,7 @@ async function geminiFetch(key, init) {
             }
             dbStatus.innerText = "Local Storage";
             dbStatus.className = "text-cyan-400 font-bold";
+            window.__kbApplyClass = () => { try { aiCache.diagnosis = {}; } catch (e) {} applyCloudData(feed()); };
             applyCloudData(feed());
             try { ensureStoryCard(); } catch (e) { console.error(e); }
             KB.on((keys, remote) => { if (remote && KB.auth.current()) applyCloudData(feed()); });
@@ -2419,7 +2456,7 @@ async function geminiFetch(key, init) {
             const sample = pick.map(n => '- [' + (kbTypeMap[n.type] || n.type) + '|' + (codeOf[String(n.author)] || '?') + '] ' + scrub(n.title) + ':' + scrub(String(n.content || '').slice(0, 80))).join('\n');
 
             const s = globalClassStats;
-            const scope = activeTopicFilter === 'all' ? '全班(所有討論區)' : ('單一討論區:' + (topicName[String(activeTopicFilter)] || activeTopicFilter));
+            const scope = activeTopicFilter === 'all' ? ('全班(所有討論區)' + classScopeText()) : ('單一討論區:' + (topicName[String(activeTopicFilter)] || activeTopicFilter));
             const prompt = '你是知識建構(Knowledge Building)教學顧問,請根據下面的數據,為任課老師做一份「AI 教學診斷」。\n' +
                 '【重要規則】只能根據我提供的數據下結論,引用具體數字;不要編造沒有的資料;學生一律用代號(如 S01)稱呼;語氣專業但白話。\n' +
                 '【分析範圍】' + scope + '\n' +
@@ -2870,7 +2907,7 @@ function buildRefContext(key, studentId) {
         lexical_growth_index: [timeline, () => ['關鍵詞:' + keywords(notes)]], scaffold_transition: [transition, typeDist]
     };
     const lines = [];
-    lines.push('【分析範圍】' + (activeTopicFilter === 'all' ? '全班(所有討論區)' : ('單一討論區:' + (topicName[String(activeTopicFilter)] || activeTopicFilter))));
+    lines.push('【分析範圍】' + (activeTopicFilter === 'all' ? ('全班(所有討論區)' + classScopeText()) : ('單一討論區:' + (topicName[String(activeTopicFilter)] || activeTopicFilter))));
     lines.push('【總體數據】貼文 ' + notes.length + ' 篇、學生 ' + users.length + ' 人、網絡密度 ' + s.density + '、發言吉尼係數 ' + s.gini + '(越小越平均)、昇華率 ' + s.raRate + '%、風險人數 ' + s.riskCount + '、平均對話深度 ' + s.threadDepth);
     lines.push('【' + typeDist()[0] + '】');
     const kbKeys = Object.keys(kb);

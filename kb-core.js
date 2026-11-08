@@ -583,9 +583,10 @@
   var compat = {
     userList: function (viewerRole) {
       var out = {};
+      var cn = {}; S.classes.forEach(function (c) { cn[c.id] = c.name; });
       S.users.forEach(function (u) {
         var r = isStaffRole(u.role) ? 'teacher' : 'student';
-        out[u.id] = { id: u.id, name: labelFor(u.id, viewerRole), role: r, avatar: avatarFor(u.id, u.role), realRole: u.role };
+        out[u.id] = { id: u.id, name: labelFor(u.id, viewerRole), role: r, avatar: avatarFor(u.id, u.role), realRole: u.role, classId: u.classId || '', className: cn[u.classId] || '' };
       });
       // 訪客不會成為貼文作者,不放進使用者清單(避免被分析頁當成學生)
       return out;

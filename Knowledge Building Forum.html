@@ -366,8 +366,13 @@
                     goHome = new URLSearchParams(location.search).get('home') === '1';
                     if (goHome) { window.state.currentView = 'entrance'; window.state.currentTopicId = null; window.dataManager.saveLocalSession(); history.replaceState(null, '', location.pathname); }
                 } catch (e) {}
+                let deep = null;
+                try {   // 從分析頁「回到這則貼文」:網址帶 ?topic=討論區&node=貼文,直接開到那個討論區並打開那則貼文
+                    const q = new URLSearchParams(location.search), tp = q.get('topic'), nd = q.get('node');
+                    if (tp && !goHome && window.state.topics.some(t => t.id === tp)) { deep = { topic: tp, node: nd }; window.state.currentView = 'canvas'; window.state.currentTopicId = tp; window.__kbDeep = deep; window.dataManager.saveLocalSession(); history.replaceState(null, '', location.pathname); }
+                } catch (e) {}
                 try {
-                    const parsed = goHome ? null : JSON.parse(localStorage.getItem('kb_local_session') || 'null');
+                    const parsed = (goHome || deep) ? null : JSON.parse(localStorage.getItem('kb_local_session') || 'null');
                     if (parsed) { window.state.currentView = parsed.currentView || 'entrance'; window.state.currentTopicId = parsed.currentTopicId || null; }
                 } catch (e) {}
                 // 其他分頁(例如設定中心、另一位使用者的視窗)有變動時,同步更新這裡的畫面
@@ -1561,6 +1566,10 @@
                 window.app.router('entrance');
             }
 
+            try {   // 深層連結:打開指定的貼文
+                const dp = window.__kbDeep; window.__kbDeep = null;
+                if (dp && dp.node && window.state.nodes.some(n => n.id === dp.node)) setTimeout(() => { try { window.app.openNodeDetail(dp.node); } catch (e) {} }, 450);
+            } catch (e) {}
             window.addEventListener('mouseup', window.app.canvas.handleEnd);
             window.addEventListener('touchend', window.app.canvas.handleEnd);
             window.addEventListener('resize', () => {
