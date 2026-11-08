@@ -269,6 +269,7 @@
       var pol = auth.checkPolicy(newPw, u);
       if (pol) return { ok: false, error: pol };
       u.salt = randSalt(); u.pwHash = hashPw(String(newPw), u.salt); u.mustChange = false;
+      delete u.initialPw;   // 學生自己改了密碼:系統不再保存任何明碼
       persist(['users']);
       audit('auth.changePw', u.id, '');
       return { ok: true };
@@ -337,10 +338,11 @@
   // 比對姓名時,「溫」與「温」視為同一個字
   function normName(n) { return String(n == null ? '' : n).replace(/\s+/g, '').replace(/溫/g, '温'); }
   var ID_RE = /^[A-Za-z0-9_.@-]{1,40}$/;
+  function isPwDefault(u) { return hashPw(u.initialPw ? String(u.initialPw) : u.id, u.salt) === u.pwHash; }
   function defaultPasswordFor(u) { return u.role === 'student' ? String(u.id) : String(u.id); }
   var users = {
     // pwDefault:密碼是否還是預設值(=帳號/學號)。系統只存加密後的密碼,看不到任何人自己改的密碼;忘記時請用「重設密碼」
-    list: function () { return S.users.map(function (u) { var c = clone(u); c.pwDefault = hashPw(u.id, u.salt) === u.pwHash; delete c.pwHash; delete c.salt; return c; }); },
+    list: function () { return S.users.map(function (u) { var c = clone(u); c.pwDefault = isPwDefault(u); if (c.pwDefault) c.initialPw = String(u.initialPw || u.id); else delete c.initialPw; delete c.pwHash; delete c.salt; return c; }); },
     get: function (id) { var u = userById(id); if (!u) return null; var c = clone(u); delete c.pwHash; delete c.salt; return c; },
     create: function (o) {
       var id = String(o.id || '').trim(), role = o.role || 'student';
@@ -351,6 +353,7 @@
       var pw = o.password ? String(o.password) : id;
       var u = makeUser(id, role, String(o.realName || '').trim(), pw, { classId: o.classId || '', groupId: o.groupId || '' });
       u.mustChange = false;   // 目前統一不強制改密碼
+      if (o.password) u.initialPw = String(o.password);   // 老師匯入/指定的初始密碼:學生還沒改之前,設定中心看得到
       S.users.push(u);
       persist(['users']);
       audit('user.create', id, role);
@@ -384,6 +387,7 @@
       var pw = newPw ? String(newPw) : defaultPasswordFor(u);
       u.salt = randSalt(); u.pwHash = hashPw(pw, u.salt); u.fails = 0; u.lockUntil = 0;
       u.mustChange = false;   // 目前統一不強制改密碼
+      if (newPw) u.initialPw = String(newPw); else delete u.initialPw;   // 老師指定的新密碼視為新的初始密碼;重設為學號就不用另外記
       persist(['users']); audit('user.resetPw', id, newPw ? '指定新密碼' : '重設為預設'); return { ok: true, password: pw };
     },
     /* 更換學號:同步改寫貼文、主題建立者、回收桶中的作者,貼文上顯示的姓名不變 */
@@ -412,10 +416,10 @@
     /* 匯入:rows 為物件陣列,欄位 id / realName / className / groupName / role / password */
     importRows: function (rows, opts) {
       opts = opts || {};
-      var rep = { created: [], updated: [], skipped: [], errors: [] }, seen = {};
+      var rep = { created: [], updated: [], skipped: [], errors: [], pwCustom: 0, pwKept: 0 }, seen = {};   // pwCustom:使用檔案中初始密碼的人數;pwKept:已自己改過密碼、不覆蓋的人數
       var autoClass = opts.autoCreateClass !== false;
       rows.forEach(function (r, idx) {
-        var line = idx + 2, id = String(r.id || '').trim();
+        var line = r._line || (idx + 2), id = String(r.id || '').trim();
         if (!id) { rep.errors.push({ row: line, id: '', msg: '缺少學號' }); return; }
         if (!ID_RE.test(id)) { rep.errors.push({ row: line, id: id, msg: '學號含有不允許的字元' }); return; }
         if (seen[id.toLowerCase()]) { rep.errors.push({ row: line, id: id, msg: '檔案內學號重複' }); return; }
@@ -448,12 +452,19 @@
               var mu = userById(id); if (classId) mu.classId = classId; if (groupId) mu.groupId = groupId; mu.status = 'active';
               users.resetPassword(id, r.password || '');
             }
+            if (r.password) rep.pwCustom++;
             rep.updated.push({ row: line, id: id, from: oldId, msg: '學號 ' + oldId + ' → ' + id + '(沿用既有貼文)' });
             return;
           }
         }
         if (exist) {
-          if (opts.onDuplicate === 'update') { if (!opts.dryRun) { exist.realName = name; if (classId) exist.classId = classId; if (groupId) exist.groupId = groupId; } rep.updated.push({ row: line, id: id }); }
+          if (opts.onDuplicate === 'update') {
+            var pwNow = !!(r.password && isPwDefault(exist) && String(r.password) !== String(exist.initialPw || exist.id));   // 還在用初始密碼的人,才換成檔案裡的新初始密碼
+            if (!opts.dryRun) { exist.realName = name; if (classId) exist.classId = classId; if (groupId) exist.groupId = groupId; if (pwNow) users.resetPassword(id, r.password); }
+            if (pwNow) rep.pwCustom++;
+            else if (r.password && !isPwDefault(exist)) rep.pwKept++;
+            rep.updated.push({ row: line, id: id });
+          }
           else rep.skipped.push({ row: line, id: id, msg: '帳號已存在,已略過' });
           return;
         }
@@ -461,6 +472,7 @@
           var res = users.create({ id: id, role: roleKey, realName: name, classId: classId, groupId: groupId, password: r.password || '' });
           if (!res.ok) { rep.errors.push({ row: line, id: id, msg: res.error }); return; }
         }
+        if (r.password) rep.pwCustom++;
         rep.created.push({ row: line, id: id });
       });
       if (!opts.dryRun) { persist(['users', 'classes', 'groups']); audit('user.import', '', '新增 ' + rep.created.length + ' / 更新 ' + rep.updated.length + ' / 略過 ' + rep.skipped.length + ' / 錯誤 ' + rep.errors.length); }
@@ -587,7 +599,7 @@
   };
 
   /* ---------- 匯入匯出(CSV) ---------- */
-  var IMPORT_HEADERS = { '學號': 'id', '帳號': 'id', 'id': 'id', 'studentid': 'id', '姓名': 'realName', 'name': 'realName', '班級': 'className', 'class': 'className', '組別': 'groupName', '組': 'groupName', 'group': 'groupName', '角色': 'role', 'role': 'role', '初始密碼': 'password', '密碼': 'password', 'password': 'password' };
+  var IMPORT_HEADERS = { '學號': 'id', '帳號': 'id', 'id': 'id', 'studentid': 'id', '姓名': 'realName', 'name': 'realName', '班級': 'className', 'class': 'className', '組別': 'groupName', '組': 'groupName', 'group': 'groupName', '角色': 'role', 'role': 'role', '初始密碼': 'password', '預設密碼': 'password', '密碼': 'password', 'password': 'password', 'pwd': 'password' };
   function parseCSV(text) {
     text = String(text || '').replace(/^﻿/, '');
     var rows = [], row = [], cell = '', q = false, i, c;
@@ -604,14 +616,106 @@
     rows = rows.filter(function (r) { return r.some(function (x) { return String(x).trim() !== ''; }); });
     return rows;
   }
+  /* ---------- 匯入名單:自動認出需要的欄位 ----------
+   *  老師的名單不一定和我們的範本一樣(欄位順序不同、多了電子郵件/學校、標題是「學生姓名」「密碼」…)。
+   *  這裡會:1) 在前幾列找出標題列  2) 依欄位名稱認出 學號、姓名、班級、初始密碼(密碼)、組別  3) 認不出來的欄位,看內容猜
+   *  4) 不需要的欄位(電子郵件、學校、座號…)直接略過。認出的結果會顯示給老師確認,也可以自己改。 */
+  var FIELD_SYN = {
+    id: ['學號', '學生學號', '帳號', '學生帳號', '登入帳號', '學生編號', '學號/帳號', '帳號/學號', 'id', 'studentid', 'student_id', 'account', 'username', 'user'],
+    realName: ['姓名', '學生姓名', '學生', '名字', '全名', '學生名稱', '學生姓名(中文)', 'name', 'studentname', 'fullname', 'student'],
+    className: ['班級', '班別', '班', '年班', '班級名稱', '所屬班級', 'class', 'classname'],
+    groupName: ['組別', '組', '小組', '分組', 'group'],
+    password: ['初始密碼', '預設密碼', '密碼', '登入密碼', 'password', 'pwd', 'pw', 'initialpassword'],
+    role: ['角色', '身分', '身份', 'role'],
+    grade: ['年級', 'grade']
+  };
+  function normHeader(h) { return String(h == null ? '' : h).replace(/[（(][^）)]*[）)]/g, '').split(' ').join('').split('　').join('').trim().toLowerCase(); }
+  function headerField(h) {
+    var k = normHeader(h); if (!k) return '';
+    for (var f in FIELD_SYN) if (FIELD_SYN[f].indexOf(k) >= 0) return f;
+    if (/(電子郵件|電郵|信箱|e-?mail|mail)/.test(k)) return '_ignore';
+    if (k.indexOf('座號') >= 0) return '_ignore';
+    if (k.indexOf('學號') >= 0) return 'id';
+    if (k.indexOf('姓名') >= 0) return 'realName';
+    if (k.indexOf('密碼') >= 0 || k.indexOf('password') >= 0) return 'password';
+    if (k.indexOf('班級') >= 0) return 'className';
+    if (k.indexOf('組別') >= 0) return 'groupName';
+    return '';
+  }
+  function cellText(v) { v = v == null ? '' : String(v).trim(); return /^\d+\.0+$/.test(v) ? v.split('.')[0] : v; }
+  function rowHasData(r) { return !!r && r.some(function (x) { return cellText(x) !== ''; }); }
+  var REQUIRED_FIELDS = ['id', 'realName'];
+  function analyze(matrix) {
+    matrix = matrix || [];
+    var best = -1, bestScore = 0, i, c;
+    for (i = 0; i < Math.min(10, matrix.length); i++) {
+      var seen = {}, sc = 0; (matrix[i] || []).forEach(function (h) { var f = headerField(h); if (f && f !== '_ignore' && !seen[f]) { seen[f] = 1; sc++; } });
+      if (sc > bestScore) { bestScore = sc; best = i; }
+    }
+    var headerRow = (bestScore >= 2 || (bestScore === 1 && best === 0)) ? best : -1;
+    var dataStart = headerRow + 1, width = 0;
+    matrix.forEach(function (r) { if (r && r.length > width) width = r.length; });
+    var headers = [], mapping = { id: -1, realName: -1, className: -1, groupName: -1, password: -1, role: -1, grade: -1 }, source = {}, ignore = {};
+    for (c = 0; c < width; c++) {
+      var label = headerRow >= 0 ? cellText((matrix[headerRow] || [])[c]) : '';
+      headers.push(label);
+      var f = headerRow >= 0 ? headerField(label) : '';
+      if (f === '_ignore') ignore[c] = 1;
+      else if (f && mapping[f] < 0) { mapping[f] = c; source[f] = '欄位名稱'; }
+    }
+    // 認不出來的欄位:看內容猜(只猜 學號、姓名、班級)
+    var sample = []; for (i = dataStart; i < matrix.length && sample.length < 200; i++) if (rowHasData(matrix[i])) sample.push(matrix[i]);
+    function colVals(c2) { return sample.map(function (r) { return cellText((r || [])[c2]); }).filter(function (x) { return x !== ''; }); }
+    function share(vals, test) { return vals.length ? vals.filter(test).length / vals.length : 0; }
+    var taken = {}; Object.keys(mapping).forEach(function (k) { if (mapping[k] >= 0) taken[mapping[k]] = 1; });
+    var guess = { realName: [], className: [], id: [] };
+    for (c = 0; c < width; c++) {
+      if (taken[c] || ignore[c]) continue;
+      var vals = colVals(c); if (vals.length < 2) continue;
+      if (share(vals, function (x) { return x.indexOf('@') >= 0; }) >= 0.6) { ignore[c] = 1; continue; }
+      var uniq = {}; vals.forEach(function (x) { uniq[x] = 1; });
+      var uniqShare = Object.keys(uniq).length / vals.length;
+      var sName = share(vals, function (x) { return /^[㐀-鿿·．.]{2,6}$/.test(x) && !/(班|年級|學校|國小|國中)$/.test(x); });
+      var sClass = share(vals, function (x) { return /(年.{0,3}班|^[0-9]{1,2}年[0-9]{1,2}班|班$)/.test(x); });
+      var sId = share(vals, function (x) { return /^[A-Za-z0-9_.-]{3,20}$/.test(x) && /[0-9]/.test(x); });
+      if (sName >= 0.8 && uniqShare >= 0.8) guess.realName.push({ c: c, s: sName });
+      if (sClass >= 0.8) guess.className.push({ c: c, s: sClass });
+      if (sId >= 0.8 && uniqShare >= 0.95) guess.id.push({ c: c, s: sId });
+    }
+    ['realName', 'className', 'id'].forEach(function (k) {
+      if (mapping[k] >= 0 || !guess[k].length) return;
+      guess[k].sort(function (a, b) { return b.s - a.s || a.c - b.c; });
+      mapping[k] = guess[k][0].c; source[k] = '內容判斷'; taken[mapping[k]] = 1;
+    });
+    var missing = REQUIRED_FIELDS.filter(function (k) { return mapping[k] < 0; });
+    var ignored = []; for (c = 0; c < width; c++) { var used = false; Object.keys(mapping).forEach(function (k) { if (mapping[k] === c) used = true; }); if (!used) ignored.push(headers[c] || ('第 ' + (c + 1) + ' 欄')); }
+    return { headerRow: headerRow, dataStart: dataStart, headers: headers, mapping: mapping, source: source, missing: missing, ignored: ignored };
+  }
+  var NUM_ZH = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九'];
+  function zhNum(s) { s = String(s).trim(); return /^[1-9]$/.test(s) ? NUM_ZH[Number(s)] : s; }
+  // 依認出的欄位,把每一列轉成 { id, realName, className, groupName, password, role, _line }(_line 是檔案中的列號)
+  function applyMapping(matrix, mapping, dataStart) {
+    var out = [];
+    for (var i = dataStart || 0; i < (matrix || []).length; i++) {
+      var r = matrix[i] || []; if (!rowHasData(r)) continue;
+      var o = { _line: i + 1 };
+      ['id', 'realName', 'className', 'groupName', 'password', 'role'].forEach(function (k) { var idx = mapping[k]; if (idx != null && idx >= 0) o[k] = cellText(r[idx]); });
+      // 年級與班級分開兩欄時(例如 6 與 7),合成「六年七班」
+      if (mapping.grade >= 0 && o.className && /^[0-9一二三四五六七八九十]{1,2}班?$/.test(o.className)) {
+        var g = cellText(r[mapping.grade]).replace(/[年級级]/g, ''), cn = o.className.replace(/班$/, '');
+        if (g) o.className = zhNum(g) + '年' + zhNum(cn) + '班';
+      }
+      out.push(o);
+    }
+    return out;
+  }
   function rowsToObjects(matrix) {
-    if (!matrix.length) return [];
-    var head = matrix[0].map(function (h) { var k = String(h).trim().toLowerCase().replace(/\s+/g, ''); return IMPORT_HEADERS[k] || IMPORT_HEADERS[String(h).trim()] || ''; });
-    return matrix.slice(1).map(function (r) { var o = {}; head.forEach(function (k, i) { if (k) o[k] = r[i] == null ? '' : String(r[i]).trim(); }); return o; });
+    var a = analyze(matrix);
+    return applyMapping(matrix, a.mapping, a.dataStart);
   }
   function csvEscape(v) { v = v == null ? '' : String(v); return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }
   var io = {
-    parseCSV: parseCSV, rowsToObjects: rowsToObjects,
+    parseCSV: parseCSV, rowsToObjects: rowsToObjects, analyze: analyze, applyMapping: applyMapping,
     parseText: function (text) { return rowsToObjects(parseCSV(text)); },
     template: function () { return '﻿學號,姓名,班級,初始密碼(選填)\r\n1120001,王小明,一年一班,\r\n1120002,李小華,一年一班,\r\n'; },
     toCSV: function (arrOfArrays) { return '﻿' + arrOfArrays.map(function (r) { return r.map(csvEscape).join(','); }).join('\r\n'); },
@@ -619,7 +723,7 @@
       var head = ['學號', '姓名', '班級', '初始密碼(未改密碼者)'];
       var rows = S.users.filter(function (u) { return u.role === 'student'; }).map(function (u) {
         var c = S.classes.filter(function (x) { return x.id === u.classId; })[0], g = S.groups.filter(function (x) { return x.id === u.groupId; })[0];
-        return [u.id, u.realName, c ? c.name : '', hashPw(u.id, u.salt) === u.pwHash ? u.id : '(已自行修改)'];
+        return [u.id, u.realName, c ? c.name : '', isPwDefault(u) ? String(u.initialPw || u.id) : '(已自行修改)'];
       });
       return io.toCSV([head].concat(rows));
     }
@@ -668,7 +772,7 @@
         users: S.users.length, students: S.users.filter(function (u) { return u.role === 'student'; }).length,
         staff: S.users.filter(function (u) { return isStaffRole(u.role); }).length,
         classes: S.classes.length, groups: S.groups.length, topics: S.topics.length, posts: S.nodes.length, trash: S.trash.length,
-        mustChange: S.users.filter(function (u) { return u.role === 'student' && hashPw(u.id, u.salt) === u.pwHash; }).length,   // 仍使用預設密碼(=學號)的學生人數
+        mustChange: S.users.filter(function (u) { return u.role === 'student' && isPwDefault(u); }).length,   // 仍使用預設密碼(=學號)的學生人數
         defaultStaffPw: S.users.filter(function (u) { return isStaffRole(u.role) && hashPw(u.id, u.salt) === u.pwHash; }).map(function (u) { return u.id; }),
         storageBytes: (function () { var n = 0; KEYS.forEach(function (k) { n += (rawGet(k) || '').length; }); return n; })()
       };

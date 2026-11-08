@@ -106,6 +106,7 @@
   function sw(id, on) { return '<div class="sw' + (on ? ' on' : '') + '" role="switch" aria-checked="' + (on ? 'true' : 'false') + '" tabindex="0" data-sw="' + id + '"></div>'; }
   function setRow(title, desc, ctrl) { return '<div class="row-set"><div><div class="font-bold text-sm">' + title + '</div><div class="text-xs text-slate-500 mt-0.5">' + (desc || '') + '</div></div><div class="shrink-0">' + ctrl + '</div></div>'; }
   function card(title, icon, body, extra) { return '<div class="card fade-in"><div class="flex items-center gap-2 mb-3"><i class="fa-solid ' + icon + ' text-indigo-500"></i><h2 class="font-bold">' + title + '</h2><div class="ml-auto flex gap-2 flex-wrap">' + (extra || '') + '</div></div>' + body + '</div>'; }
+  function pwHidden() { try { return localStorage.getItem('kb_setup_pw_hide') === '1'; } catch (e) { return false; } }
   function ok(r, msg) { if (r && r.ok === false) { KBUI.toast(r.error || '操作失敗', 'err'); return false; } if (msg) KBUI.toast(msg, 'ok'); return true; }
   function clsName(id) { var c = KB.classes.list().filter(function (x) { return x.id === id; })[0]; return c ? c.name : ''; }
   function grpName(id) { var g = KB.classes.groups().filter(function (x) { return x.id === id; })[0]; return g ? g.name : ''; }
@@ -196,15 +197,15 @@
     var clsOpts = KB.classes.list().map(function (c) { return { v: c.id, t: c.name }; });
     var toolbar = '<div class="flex flex-wrap gap-2 items-center mb-3"><input class="inp w-48" id="u-q" placeholder="搜尋學號或姓名" value="' + esc(U.q) + '"><select class="inp" id="u-role">' + opts([{ v: 'student', t: '學生' }, { v: 'teacher', t: '老師' }, { v: 'master', t: '管理者' }], U.role, '全部角色') + '</select><select class="inp" id="u-cls">' + opts(clsOpts, U.cls, '全部班級') + '</select><select class="inp" id="u-status">' + opts([{ v: 'active', t: '啟用中' }, { v: 'disabled', t: '已停用' }], U.status, '全部狀態') + '</select><span class="text-xs text-slate-500">共 ' + list.length + ' 人</span></div>';
     var bulk = '<div class="flex flex-wrap gap-2 items-center mb-3 ' + (selCount ? '' : 'opacity-50') + '"><span class="text-xs font-bold text-indigo-700">已選 ' + selCount + ' 人</span><button class="btn btn-g btn-sm" data-act="bulk-reset" ' + (selCount ? '' : 'disabled') + '><i class="fa-solid fa-key"></i>重設密碼為學號</button><button class="btn btn-g btn-sm" data-act="bulk-disable" ' + (selCount ? '' : 'disabled') + '><i class="fa-solid fa-user-slash"></i>停用</button><button class="btn btn-g btn-sm" data-act="bulk-enable" ' + (selCount ? '' : 'disabled') + '><i class="fa-solid fa-user-check"></i>啟用</button><button class="btn btn-g btn-sm" data-act="bulk-move" ' + (selCount ? '' : 'disabled') + '><i class="fa-solid fa-right-left"></i>移動班級/組別</button><button class="btn btn-d btn-sm" data-act="bulk-delete" ' + (selCount ? '' : 'disabled') + '><i class="fa-solid fa-trash"></i>刪除</button></div>';
-    var tbl = '<div class="overflow-x-auto max-h-[60vh] border border-slate-200 rounded-lg"><table class="tbl"><thead><tr><th><input type="checkbox" data-act="u-all" ' + (allOn ? 'checked' : '') + '></th><th>學號 / 帳號</th><th>姓名</th><th>角色</th><th>班級</th><th>組別</th><th>狀態</th><th>密碼</th><th>最後登入</th><th>操作</th></tr></thead><tbody>' +
+    var tbl = '<div class="overflow-x-auto max-h-[60vh] border border-slate-200 rounded-lg"><table class="tbl"><thead><tr><th><input type="checkbox" data-act="u-all" ' + (allOn ? 'checked' : '') + '></th><th>學號 / 帳號</th><th>姓名</th><th>角色</th><th>班級</th><th>組別</th><th>狀態</th><th>密碼 <button class="btn btn-g btn-sm" data-act="pw-eye" title="顯示或隱藏初始密碼" style="padding:1px 6px"><i class="fa-solid ' + (pwHidden() ? 'fa-eye-slash' : 'fa-eye') + '"></i></button></th><th>最後登入</th><th>操作</th></tr></thead><tbody>' +
       (rows.length ? rows.map(function (u) {
         var locked = u.lockUntil && Date.now() < u.lockUntil;
-        return '<tr><td><input type="checkbox" data-sel="' + esc(u.id) + '" ' + (U.sel[u.id] ? 'checked' : '') + '></td><td class="font-mono font-bold">' + compassLink(u, esc(u.id)) + '</td><td>' + compassLink(u, esc(u.realName || '—')) + '</td><td><span class="chip ' + u.role + '">' + ROLE_TXT[u.role] + '</span></td><td>' + esc(clsName(u.classId) || '—') + '</td><td>' + esc(grpName(u.groupId) || '—') + '</td><td>' + (u.placeholder ? '<span class="chip warn" title="預建學生,匯入名單後會自動換成真實學號並啟用">待匯入名單</span>' : (u.status === 'active' ? '<span class="chip ok">啟用</span>' : '<span class="chip bad">停用</span>')) + (locked ? ' <span class="chip warn">鎖定中</span>' : '') + '</td><td>' + (u.pwDefault ? '<span class="chip warn" title="密碼還是預設值(=學號),還沒自己改過">預設密碼(=學號)</span>' : '<span class="chip ok" title="已經自己改過密碼。系統只存加密後的密碼,看不到內容;忘記時請按鑰匙重設">已自己改過</span>') + '</td><td class="text-xs text-slate-500">' + fmt(u.lastLogin) + '</td><td class="whitespace-nowrap"><button class="btn btn-g btn-sm" data-act="u-edit" data-id="' + esc(u.id) + '" title="編輯"><i class="fa-solid fa-pen"></i></button> <button class="btn btn-g btn-sm" data-act="u-reset" data-id="' + esc(u.id) + '" title="重設密碼"><i class="fa-solid fa-key"></i></button> ' + (locked ? '<button class="btn btn-g btn-sm" data-act="u-unlock" data-id="' + esc(u.id) + '" title="解除鎖定"><i class="fa-solid fa-lock-open"></i></button> ' : '') + '<button class="btn btn-g btn-sm" data-act="u-toggle" data-id="' + esc(u.id) + '" title="' + (u.status === 'active' ? '停用' : '啟用') + '"><i class="fa-solid ' + (u.status === 'active' ? 'fa-user-slash' : 'fa-user-check') + '"></i></button> <button class="btn btn-d btn-sm" data-act="u-del" data-id="' + esc(u.id) + '" title="刪除"><i class="fa-solid fa-trash"></i></button></td></tr>';
+        return '<tr><td><input type="checkbox" data-sel="' + esc(u.id) + '" ' + (U.sel[u.id] ? 'checked' : '') + '></td><td class="font-mono font-bold">' + compassLink(u, esc(u.id)) + '</td><td>' + compassLink(u, esc(u.realName || '—')) + '</td><td><span class="chip ' + u.role + '">' + ROLE_TXT[u.role] + '</span></td><td>' + esc(clsName(u.classId) || '—') + '</td><td>' + esc(grpName(u.groupId) || '—') + '</td><td>' + (u.placeholder ? '<span class="chip warn" title="預建學生,匯入名單後會自動換成真實學號並啟用">待匯入名單</span>' : (u.status === 'active' ? '<span class="chip ok">啟用</span>' : '<span class="chip bad">停用</span>')) + (locked ? ' <span class="chip warn">鎖定中</span>' : '') + '</td><td>' + (u.pwDefault ? '<span class="chip warn" title="學生還沒自己改過密碼,這是匯入名單時的初始密碼(沒指定就是學號)">初始密碼:<b class="font-mono">' + (pwHidden() ? '●●●●●' : esc(u.initialPw || u.id)) + '</b></span>' : '<span class="chip ok" title="學生已經自己改過密碼。系統只存加密後的密碼,看不到內容;忘記時請按鑰匙重設">已自己改過</span>') + '</td><td class="text-xs text-slate-500">' + fmt(u.lastLogin) + '</td><td class="whitespace-nowrap"><button class="btn btn-g btn-sm" data-act="u-edit" data-id="' + esc(u.id) + '" title="編輯"><i class="fa-solid fa-pen"></i></button> <button class="btn btn-g btn-sm" data-act="u-reset" data-id="' + esc(u.id) + '" title="重設密碼"><i class="fa-solid fa-key"></i></button> ' + (locked ? '<button class="btn btn-g btn-sm" data-act="u-unlock" data-id="' + esc(u.id) + '" title="解除鎖定"><i class="fa-solid fa-lock-open"></i></button> ' : '') + '<button class="btn btn-g btn-sm" data-act="u-toggle" data-id="' + esc(u.id) + '" title="' + (u.status === 'active' ? '停用' : '啟用') + '"><i class="fa-solid ' + (u.status === 'active' ? 'fa-user-slash' : 'fa-user-check') + '"></i></button> <button class="btn btn-d btn-sm" data-act="u-del" data-id="' + esc(u.id) + '" title="刪除"><i class="fa-solid fa-trash"></i></button></td></tr>';
       }).join('') : '<tr><td colspan="10" class="text-center text-slate-400 py-10">沒有符合條件的使用者</td></tr>') + '</tbody></table></div>';
     var pager = '<div class="flex items-center justify-between mt-3 text-xs text-slate-500"><span>第 ' + U.page + ' / ' + pages + ' 頁</span><div class="flex gap-2"><button class="btn btn-g btn-sm" data-act="u-prev" ' + (U.page <= 1 ? 'disabled' : '') + '>上一頁</button><button class="btn btn-g btn-sm" data-act="u-next" ' + (U.page >= pages ? 'disabled' : '') + '>下一頁</button></div></div>';
     var head = '<button class="btn btn-p" data-act="u-new"><i class="fa-solid fa-user-plus"></i>新增使用者</button><button class="btn btn-s" data-act="u-import"><i class="fa-solid fa-file-import"></i>匯入名單</button><button class="btn btn-g" data-act="u-template"><i class="fa-solid fa-download"></i>下載範本</button><button class="btn btn-g" data-act="u-export"><i class="fa-solid fa-file-export"></i>匯出名單</button><button class="btn btn-g" data-act="u-print"><i class="fa-solid fa-print"></i>帳號通知單</button>';
     $('#content').innerHTML = card('使用者清單', 'fa-users', toolbar + bulk + tbl + pager, head) +
-      '' + placeholderNote() + '<div class="card text-xs text-slate-500 leading-relaxed"><b class="text-slate-700">說明</b>:學生帳號就是學號,初始密碼也是學號,第一次登入會被要求改密碼。新增的帳號預設是學生;要設為老師或管理者,請按該列的「編輯」修改角色(兩者權限完全相同)。系統不允許刪除、停用或降級最後一個「管理者/老師」帳號,避免平台沒有人能登入。</div>';
+      '' + placeholderNote() + '<div class="card text-xs text-slate-500 leading-relaxed"><b class="text-slate-700">說明</b>:學生帳號就是學號;初始密碼預設也是學號,匯入名單時若有填「初始密碼」就用你填的,學生還沒自己改過密碼之前,在下方「密碼」欄看得到(用眼睛按鈕可隱藏)。目前不強制學生改密碼。新增的帳號預設是學生;要設為老師或管理者,請按該列的「編輯」修改角色(兩者權限完全相同)。系統不允許刪除、停用或降級最後一個「管理者/老師」帳號,避免平台沒有人能登入。</div>';
     bindUsers();
   };
   function bindUsers() {
@@ -285,21 +286,32 @@
       if (/\.xlsx?$/.test(name)) {
         fr.onload = function () {
           // 先用內建讀取器(不需要網路);失敗時(例如舊式 .xls)再試線上元件
-          KBXLSX.read(fr.result).then(function (matrix) { resolve(KB.io.rowsToObjects(matrix)); }).catch(function (e1) {
-            loadXLSX().then(function () { var wb = XLSX.read(new Uint8Array(fr.result), { type: 'array' }); var ws = wb.Sheets[wb.SheetNames[0]]; var matrix = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: '' }); resolve(KB.io.rowsToObjects(matrix.filter(function (r) { return r.some(function (x) { return String(x).trim() !== ''; }); }))); })
+          KBXLSX.read(fr.result).then(function (matrix) { resolve(matrix); }).catch(function (e1) {
+            loadXLSX().then(function () { var wb = XLSX.read(new Uint8Array(fr.result), { type: 'array' }); var ws = wb.Sheets[wb.SheetNames[0]]; var matrix = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: '' }); resolve((matrix.filter(function (r) { return r.some(function (x) { return String(x).trim() !== ''; }); }))); })
               .catch(function () { reject(new Error(e1.message + '。若是舊式 .xls,請另存成 .xlsx 或 CSV 後再匯入。')); });
           });
         };
         fr.readAsArrayBuffer(file);
       } else {
-        fr.onload = function () { var text = fr.result; resolve(KB.io.parseText(text)); };
+        fr.onload = function () { var text = fr.result; resolve(KB.io.parseCSV(text)); };
         fr.readAsText(file, 'utf-8');
       }
     });
   }
   function importDialog() {
-    var rows = null, fileName = '';
-    var m = KBUI.modal('<h3><i class="fa-solid fa-file-import" style="color:#16a34a"></i>匯入名單(Excel / CSV)</h3><p>欄位:<b>學號、姓名、班級、初始密碼(選填)</b>。未填初始密碼時,密碼就是學號。</p><div class="drop" data-f="drop"><i class="fa-solid fa-cloud-arrow-up text-2xl"></i><div class="font-bold mt-1">拖曳檔案到這裡,或點擊選擇</div><div class="text-xs mt-1">支援 .xlsx、.xls、.csv(UTF-8)</div><input type="file" accept=".csv,.xlsx,.xls" data-f="file" style="display:none"></div><div data-f="body"></div><div class="kbui-row"><button class="kbui-btn kbui-ghost" data-f="close">關閉</button><button class="kbui-btn kbui-primary" data-f="go" disabled>確認匯入</button></div>');
+    var rows = null, fileName = '', matrix = null, ana = null;
+    function colLabel(i) { var n = i, s = ''; do { s = String.fromCharCode(65 + n % 26) + s; n = Math.floor(n / 26) - 1; } while (n >= 0); return s; }
+    function mapPanel() {
+      var fields = [['id', '學號 *'], ['realName', '姓名 *'], ['className', '班級'], ['password', '初始密碼(或密碼)'], ['groupName', '組別']];
+      var optHtml = function (sel) { return '<option value="-1">(不使用)</option>' + ana.headers.map(function (h, i) { return '<option value="' + i + '"' + (sel === i ? ' selected' : '') + '>' + colLabel(i) + ' 欄:' + esc(h || '(沒有標題)') + '</option>'; }).join(''); };
+      var found = fields.filter(function (x) { return ana.mapping[x[0]] >= 0; }).map(function (x) { return x[1].replace(' *', '') + '←' + esc(ana.headers[ana.mapping[x[0]]] || colLabel(ana.mapping[x[0]]) + ' 欄') + (ana.source[x[0]] === '內容判斷' ? '(依內容判斷)' : ''); });
+      return '<div style="border:1px solid #c7d2fe;background:#eef2ff;border-radius:10px;padding:10px 12px;margin:10px 0"><div class="text-sm font-bold" style="color:#3730a3"><i class="fa-solid fa-wand-magic-sparkles"></i> 系統自動認出的欄位(如果不對,可以自己改)</div><div class="text-xs" style="color:#4338ca;margin:4px 0 8px">' + (found.length ? esc('') + found.join('、') : '沒有認出任何欄位') + (ana.ignored.length ? '<br>不需要、已略過的欄位:' + ana.ignored.map(esc).join('、') : '') + '</div><div class="grid grid-cols-2 gap-2">' + fields.map(function (x) { return '<label class="text-xs m-0" style="display:flex;align-items:center;gap:6px"><span style="min-width:96px;font-weight:700">' + x[1] + '</span><select class="kbui-input" style="flex:1;padding:4px 6px" data-m="' + x[0] + '">' + optHtml(ana.mapping[x[0]]) + '</select></label>'; }).join('') + '</div></div>';
+    }
+    function bindMap() {
+      Array.prototype.forEach.call(c.querySelectorAll('[data-m]'), function (sel) { sel.onchange = function () { ana.mapping[sel.getAttribute('data-m')] = Number(sel.value); rows = KB.io.applyMapping(matrix, ana.mapping, ana.dataStart); preview(); }; });
+    }
+
+    var m = KBUI.modal('<h3><i class="fa-solid fa-file-import" style="color:#16a34a"></i>匯入名單(Excel / CSV)</h3><p>名單格式不一定要和範本一樣:系統會<b>自動認出「學號、姓名、班級、初始密碼(或密碼)」</b>這幾欄(欄位順序不同、多了電子郵件或學校都沒關係),認出的結果可以自己再改。沒填初始密碼的人,密碼就是學號。</p><div class="drop" data-f="drop"><i class="fa-solid fa-cloud-arrow-up text-2xl"></i><div class="font-bold mt-1">拖曳檔案到這裡,或點擊選擇</div><div class="text-xs mt-1">支援 .xlsx、.xls、.csv(UTF-8)</div><input type="file" accept=".csv,.xlsx,.xls" data-f="file" style="display:none"></div><div data-f="body"></div><div class="kbui-row"><button class="kbui-btn kbui-ghost" data-f="close">關閉</button><button class="kbui-btn kbui-primary" data-f="go" disabled>確認匯入</button></div>');
     m.card.style.maxWidth = '760px';
     var c = m.card, f = function (n) { return c.querySelector('[data-f=' + n + ']'); };
     function options() { return { onDuplicate: (c.querySelector('[data-f=dup]') || {}).value || 'skip', autoCreateClass: true }; }
@@ -307,18 +319,24 @@
       if (!rows) return;
       var o = options(), rep = KB.users.importRows(rows, Object.assign({ dryRun: true }, o));
       var list = rows.slice(0, 200).map(function (r, i) {
-        var line = i + 2, st = '', cl = 'chip gray';
+        var line = r._line || (i + 2), st = '', cl = 'chip gray';
         if (rep.errors.some(function (e) { return e.row === line; })) { st = '錯誤:' + rep.errors.filter(function (e) { return e.row === line; })[0].msg; cl = 'chip bad'; }
         else if (rep.skipped.some(function (e) { return e.row === line; })) { st = '略過(已存在)'; cl = 'chip warn'; }
         else if (rep.updated.some(function (e) { return e.row === line; })) { var up = rep.updated.filter(function (e) { return e.row === line; })[0]; st = up.msg || '更新'; cl = 'chip warn'; }
         else { st = '新增'; cl = 'chip ok'; }
-        return '<tr><td>' + line + '</td><td class="font-mono">' + esc(r.id || '') + '</td><td>' + esc(r.realName || '') + '</td><td>' + esc(r.className || '') + '</td><td><span class="' + cl + '">' + esc(st) + '</span></td></tr>';
+        return '<tr><td>' + line + '</td><td class="font-mono">' + esc(r.id || '') + '</td><td>' + esc(r.realName || '') + '</td><td>' + esc(r.className || '') + '</td><td class="font-mono">' + esc(r.password || '') + '</td><td><span class="' + cl + '">' + esc(st) + '</span></td></tr>';
       }).join('');
-      f('body').innerHTML = '<div class="flex flex-wrap gap-2 my-3 text-xs"><span class="chip ok">新增 ' + rep.created.length + '</span><span class="chip warn">更新 ' + rep.updated.length + '</span><span class="chip warn">略過 ' + rep.skipped.length + '</span><span class="chip bad">錯誤 ' + rep.errors.length + '</span><span class="text-slate-500">檔案:' + esc(fileName) + '(共 ' + rows.length + ' 列)</span></div><div class="flex items-center gap-2 mb-2 text-sm"><label class="m-0">學號已存在時:</label><select class="kbui-input" style="width:auto" data-f="dup"><option value="skip"' + (o.onDuplicate === 'skip' ? ' selected' : '') + '>略過</option><option value="update"' + (o.onDuplicate === 'update' ? ' selected' : '') + '>更新姓名/班級/組別</option></select></div><div style="max-height:260px;overflow:auto;border:1px solid #e2e8f0;border-radius:10px"><table class="tbl"><thead><tr><th>列</th><th>學號</th><th>姓名</th><th>班級</th><th>結果</th></tr></thead><tbody>' + list + '</tbody></table></div>' + (rows.length > 200 ? '<div class="kbui-hint">僅預覽前 200 列,匯入時會處理全部。</div>' : '');
+      f('body').innerHTML = mapPanel() + '<div class="flex flex-wrap gap-2 my-3 text-xs"><span class="chip ok">新增 ' + rep.created.length + '</span><span class="chip warn">更新 ' + rep.updated.length + '</span><span class="chip warn">略過 ' + rep.skipped.length + '</span><span class="chip bad">錯誤 ' + rep.errors.length + '</span><span class="chip ok" title="檔案中有填「初始密碼」的人,會用你填的;沒填的用學號">用檔案中的初始密碼 ' + (rep.pwCustom || 0) + ' 人</span>' + (rep.pwKept ? '<span class="chip gray" title="這些學生已經自己改過密碼,不會被覆蓋">已自己改過、不覆蓋 ' + rep.pwKept + ' 人</span>' : '') + '<span class="text-slate-500">檔案:' + esc(fileName) + '(共 ' + rows.length + ' 列)</span></div><div class="flex items-center gap-2 mb-2 text-sm"><label class="m-0">學號已存在時:</label><select class="kbui-input" style="width:auto" data-f="dup"><option value="skip"' + (o.onDuplicate === 'skip' ? ' selected' : '') + '>略過</option><option value="update"' + (o.onDuplicate === 'update' ? ' selected' : '') + '>更新姓名/班級/組別(還沒改過密碼的人,也換成檔案裡的初始密碼)</option></select></div><div style="max-height:260px;overflow:auto;border:1px solid #e2e8f0;border-radius:10px"><table class="tbl"><thead><tr><th>列</th><th>學號</th><th>姓名</th><th>班級</th><th>初始密碼</th><th>結果</th></tr></thead><tbody>' + list + '</tbody></table></div>' + (rows.length > 200 ? '<div class="kbui-hint">僅預覽前 200 列,匯入時會處理全部。</div>' : '');
+      bindMap();
       c.querySelector('[data-f=dup]').onchange = preview;
       f('go').disabled = rep.created.length + rep.updated.length === 0;
     }
-    function take(file) { if (!file) return; f('body').innerHTML = '<div class="kbui-hint my-3">讀取中…</div>'; fileName = file.name; parseFile(file).then(function (r) { if (!r.length) { f('body').innerHTML = '<div class="kbui-err">檔案是空的,或第一列沒有「學號、姓名」等欄位名稱。</div>'; rows = null; return; } rows = r; preview(); }).catch(function (e) { f('body').innerHTML = '<div class="kbui-err">' + esc(e.message) + '</div>'; }); }
+    function take(file) { if (!file) return; f('body').innerHTML = '<div class="kbui-hint my-3">讀取中…</div>'; fileName = file.name; parseFile(file).then(function (mx) {
+      matrix = mx; ana = KB.io.analyze(matrix); rows = KB.io.applyMapping(matrix, ana.mapping, ana.dataStart);
+      if (!matrix.length || !rows.length) { f('body').innerHTML = '<div class="kbui-err">檔案是空的,或找不到學生資料。</div>'; rows = null; return; }
+      preview();
+      if (ana.missing.length) KBUI.toast('還沒認出「' + ana.missing.map(function (k) { return k === 'id' ? '學號' : '姓名'; }).join('、') + '」欄,請在上方選一下', 'err');
+    }).catch(function (e) { f('body').innerHTML = '<div class="kbui-err">' + esc(e.message) + '</div>'; }); }
     f('drop').onclick = function () { f('file').click(); };
     f('file').onchange = function () { take(this.files[0]); };
     ['dragover', 'dragenter'].forEach(function (ev) { f('drop').addEventListener(ev, function (e) { e.preventDefault(); f('drop').classList.add('over'); }); });
@@ -328,7 +346,7 @@
       var rep = KB.users.importRows(rows, options());
       m.close(); R.users();
       var html = '新增 <b>' + rep.created.length + '</b>、更新 <b>' + rep.updated.length + '</b>、略過 <b>' + rep.skipped.length + '</b>、錯誤 <b>' + rep.errors.length + '</b>。';
-      KBUI.confirm({ title: '匯入完成', html: html + (rep.errors.length ? '<br>是否下載「錯誤報告」?' : '<br>新建帳號的初始密碼就是學號,請用「帳號通知單」發給學生。'), okText: rep.errors.length ? '下載錯誤報告' : '好', cancelText: '關閉' }).then(function (y) {
+      KBUI.confirm({ title: '匯入完成', html: html + (rep.errors.length ? '<br>是否下載「錯誤報告」?' : '<br>' + (rep.pwCustom ? '其中 <b>' + rep.pwCustom + '</b> 人使用檔案中的「初始密碼」,其餘用學號。初始密碼可在「使用者」清單的「密碼」欄看到(學生自己改過就不再顯示),也可用「帳號通知單」發給學生。' : '新建帳號的初始密碼就是學號,請用「帳號通知單」發給學生。')), okText: rep.errors.length ? '下載錯誤報告' : '好', cancelText: '關閉' }).then(function (y) {
         if (y && rep.errors.length) download('匯入錯誤報告_' + dateStr() + '.csv', KB.io.toCSV([['列', '學號', '原因']].concat(rep.errors.map(function (e) { return [e.row, e.id, e.msg]; }))), 'text/csv');
       });
     };
@@ -338,7 +356,7 @@
     if (!st.length) { KBUI.toast('目前沒有學生帳號', 'err'); return; }
     var w = window.open('', '_blank'); if (!w) { KBUI.toast('瀏覽器擋住了彈出視窗,請允許後再試', 'err'); return; }
     var name = KB.settings.get().platformName;
-    w.document.write('<!doctype html><meta charset="utf-8"><title>帳號通知單</title><style>body{font-family:"Noto Sans TC","Microsoft JhengHei",sans-serif;margin:16px}.g{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.c{border:1.5px dashed #94a3b8;border-radius:10px;padding:12px 14px;break-inside:avoid}h3{margin:0 0 6px;font-size:15px}p{margin:3px 0;font-size:13px}.k{font-family:monospace;font-size:15px;font-weight:700}small{color:#64748b}</style><h2>' + esc(name) + ' 帳號通知單</h2><div class="g">' + st.map(function (u) { return '<div class="c"><h3>' + esc(name) + '</h3><p>班級:' + esc(clsName(u.classId) || '—') + '</p><p>姓名:' + esc(u.realName) + '</p><p>帳號(學號):<span class="k">' + esc(u.id) + '</span></p><p>初始密碼:<span class="k">' + (u.mustChange ? esc(u.id) : '(已自行修改)') + '</span></p><small>首次登入後請立刻修改密碼,並妥善保管。</small></div>'; }).join('') + '</div><script>window.onload=function(){window.print()}<\/script>');
+    w.document.write('<!doctype html><meta charset="utf-8"><title>帳號通知單</title><style>body{font-family:"Noto Sans TC","Microsoft JhengHei",sans-serif;margin:16px}.g{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.c{border:1.5px dashed #94a3b8;border-radius:10px;padding:12px 14px;break-inside:avoid}h3{margin:0 0 6px;font-size:15px}p{margin:3px 0;font-size:13px}.k{font-family:monospace;font-size:15px;font-weight:700}small{color:#64748b}</style><h2>' + esc(name) + ' 帳號通知單</h2><div class="g">' + st.map(function (u) { return '<div class="c"><h3>' + esc(name) + '</h3><p>班級:' + esc(clsName(u.classId) || '—') + '</p><p>姓名:' + esc(u.realName) + '</p><p>帳號(學號):<span class="k">' + esc(u.id) + '</span></p><p>初始密碼:<span class="k">' + (u.pwDefault ? esc(u.initialPw || u.id) : '(已自行修改)') + '</span></p><small>登入後建議修改成只有自己知道的密碼,並妥善保管。</small></div>'; }).join('') + '</div><script>window.onload=function(){window.print()}<\/script>');
     w.document.close();
   }
 
@@ -555,6 +573,7 @@
   var A = {
     'quick-backup': function () { var r = KB.backup.create('手動備份'); KBUI.toast('已建立備份', 'ok'); render(); },
     'u-new': function () { userForm(); },
+    'pw-eye': function () { try { localStorage.setItem('kb_setup_pw_hide', pwHidden() ? '0' : '1'); } catch (e) {} R.users(); },
     'u-edit': function (b) { userForm(KB.users.get(b.dataset.id)); },
     'u-reset': function (b) {
       var u = KB.users.get(b.dataset.id);
@@ -580,7 +599,7 @@
     'u-template': function () {
       var bytes = KBXLSX.build([
         { name: '名單', header: true, widths: [18, 18, 20, 22], textCols: [0, 1, 2, 3], blankRows: 300, rows: [['學號', '姓名', '班級', '初始密碼(選填)'], ['1120001', '王小明', '一年一班', ''], ['1120002', '李小華', '一年一班', '']] },
-        { name: '說明', widths: [70], rows: [['名單匯入說明'], ['1. 在「名單」工作表由第 2 列開始填寫,範例兩列可直接覆蓋或刪除。'], ['2. 學號與姓名必填;班級不存在時會自動建立。'], ['3. 初始密碼可留空,留空時密碼就是學號;學生第一次登入會被要求改密碼。'], ['4. 欄位已設為文字格式,學號開頭的 0 不會消失。'], ['5. 填好後存檔,回到設定中心 > 使用者管理 > 匯入名單,選擇這個檔案即可(會先預覽再確認)。']] }
+        { name: '說明', widths: [70], rows: [['名單匯入說明'], ['1. 在「名單」工作表由第 2 列開始填寫,範例兩列可直接覆蓋或刪除。'], ['2. 學號與姓名必填;班級不存在時會自動建立。'], ['3. 初始密碼可留空,留空時密碼就是學號;有填的會照你填的當初始密碼,並顯示在設定中心「使用者」清單(學生自己改過就不再顯示)。'], ['4. 欄位已設為文字格式,學號開頭的 0 不會消失。'], ['5. 填好後存檔,回到設定中心 > 使用者管理 > 匯入名單,選擇這個檔案即可(會先預覽再確認)。']] }
       ]);
       download('名單匯入範本.xlsx', bytes, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'); KBUI.toast('範本已下載(名單匯入範本.xlsx)', 'ok');
     },
