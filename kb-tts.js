@@ -675,6 +675,7 @@
   /* ---------- 朗讀控制: 一段一段讀, 可暫停/繼續/停止 ----------
    * opts = { chunks:[{ text, start, end }], voice(聲音名), style, rate, model, onChunk(i,chunk), onState(state), onNote(msg) } */
   function Reader(o) {
+    o.chunks = o.chunks.slice();   // 自己留一份(失敗時會把一段切成兩段, 不能動到外面的清單)
     var self = this; this.o = o; this.i = o.from || 0; this.state = 'idle'; this.token = 0; this.audio = null; this.pre = {}; this.engine = o.engine === 'browser' ? 'browser' : 'ai'; this.gapT = null; this.seekFrac = o.fromFrac || 0; this.chunkT0 = 0; this.pausedAt = 0;
     function set(s) { self.state = s; if (o.onState) o.onState(s); }
     function say(m) { if (o.onNote) o.onNote(m); }
@@ -682,8 +683,24 @@
     function clearGap() { if (self.gapT) { clearTimeout(self.gapT); self.gapT = null; } }
     function fail(err, tok) {
       if (tok !== self.token) return; clearWait();
+      if (self.engine === 'ai' && tooBig(err) && splitCurrent()) { run(tok); return; }   // 這一段太大或太久而失敗: 切成兩段再合成
       if (self.engine === 'ai' && o.onAiFail) { var h = false; try { h = o.onAiFail(err, self.i); } catch (e) {} if (h) return; }   // AI 人聲出問題(額度用完等): 讓朗讀列改用瀏覽器聲音接著念
       say((err && err.status === 429 ? '' : '朗讀失敗: ') + (err && err.message || '請稍後再試')); done();   // 額度用完(429)不是壞掉, 直接顯示說明
+    }
+    function tooBig(err) { var st = err && err.status; return st === 413 || st === 504 || st === 500 || st === 502; }
+    function splitCurrent() {   // 把正在合成的這一段從句子中間對半切成兩段(至少 200 字、至少 2 句才切), 並把這台電腦的每段上限調小
+      var c = o.chunks[self.i]; if (!c || String(c.text).length < 200) return false;
+      var ss = splitSentences(c.text); if (ss.length < 2) return false;
+      var total = 0, acc = 0, k = 0, i2, key; ss.forEach(function (q) { total += q.text.length; });
+      for (i2 = 0; i2 < ss.length - 1; i2++) { acc += ss[i2].text.length; k = i2; if (acc >= total / 2) break; }
+      var t1 = ss.slice(0, k + 1).map(function (q) { return q.text; }).join(''), t2 = ss.slice(k + 1).map(function (q) { return q.text; }).join('');
+      if (!t1 || !t2) return false;
+      var span = Math.max(0, (c.end || 0) - (c.start || 0)), mid = (c.start || 0) + Math.round(span * t1.length / (t1.length + t2.length)), c1 = {}, c2 = {};
+      for (key in c) { c1[key] = c[key]; c2[key] = c[key]; }
+      c1.text = t1; c1.end = mid; c1.par = false; c2.text = t2; c2.start = mid; c2.first = false;
+      o.chunks.splice(self.i, 1, c1, c2); self.pre = {};
+      try { global.localStorage.setItem('kb_tts_cap', String(Math.max(150, Math.floor(String(c.text).length / 2)))); } catch (e) {}
+      say('這一段太長了, 自動切成兩段再合成…'); return true;
     }
     function clipFor(i) {
       if (self.pre[i]) return self.pre[i];
@@ -838,6 +855,10 @@
   //  part='title': 「類型。標題。」(例如「提問。空氣裡的一粒灰塵。」); part='body': 下方的內文.
   // 為了「流暢自然」, 內文的段落要夠長(句子之間不要每句都停頓重新開口):
   //  由短到長: 第 1 段約 50 字內(最快開始播)、第 2 段約 100 字、第 3 段約 200 字、之後每段最多 300 字. 播前一段的時候, 後一段正好合成好, 不用等.
+  // 每一段最多幾個字: 前面幾段由短到長(最快開始播); 之後一般人設 600 字、說書人 400 字(說書人每一小段各有自己的情緒, 留短一點).
+  // 實測(2026-11): 約 300 字 = 72 秒聲音、回來要 19 秒; 600 字 = 147 秒、36 秒; 一次念太長 Google 沒有截斷. 線上版的伺服器用串流回傳(不受 4.5MB 限制), 執行時間上限 60 秒.
+  // 如果某一段因為太大、太久失敗, 會自動對半切再試, 並把上限記在這台電腦(kb_tts_cap)調小.
+  function chunkCap(rich) { var c = rich ? 400 : 600, v = 0; try { v = parseInt(global.localStorage.getItem('kb_tts_cap') || '0', 10) || 0; } catch (e) {} return v >= 120 && v < c ? v : c; }
   var LIMITS = [50, 100, 200], LIMITS_RICH = [50, 100, 160];   // 說書人切得比較短(每一小段各有自己的情緒, 變化更細)
   // opt = { sentence: 一句一段(瀏覽器聲音用: 每句各自調語速音高), rich: 說書人 }
   function chunksFor(pst, part, lead, progressive, opt) {
@@ -848,12 +869,12 @@
       if (intro) out.push({ text: intro, start: 0, end: 0, title: true });
       return out;
     }
-    var src = String(pst.content == null ? '' : pst.content), rest = splitSentences(src), lims = opt.rich ? LIMITS_RICH : LIMITS, dflt = opt.rich ? 220 : 300;
+    var src = String(pst.content == null ? '' : pst.content), rest = splitSentences(src), lims = opt.rich ? LIMITS_RICH : LIMITS, dflt = chunkCap(opt.rich);
     while (rest.length) {
       var lim = (progressive !== false && lims[out.length] !== undefined) ? lims[out.length] : dflt, fs = [], len = 0;
       if (opt.sentence) fs.push(rest.shift());
       else while (rest.length && (!fs.length || len + rest[0].text.length <= lim)) { if (opt.emo && fs.length && len >= (opt.rich ? 18 : 36) && emoShift(fs, rest[0])) break; var x = rest.shift(); fs.push(x); len += x.text.length; }
-      var ck = { text: fs.map(function (q) { return q.text; }).join('').slice(0, 600), start: fs[0].start, end: fs[fs.length - 1].end, n: fs.length };
+      var ck = { text: fs.map(function (q) { return q.text; }).join('').slice(0, dflt + 100), start: fs[0].start, end: fs[fs.length - 1].end, n: fs.length };
       ck.par = rest.length > 0 && /\n/.test(src.slice(fs[fs.length - 1].end, rest[0].start));   // 這一段後面是換行(換段): 瀏覽器語音多停一下, AI 人聲多停一下並補吸氣聲
       out.push(ck);
     }
@@ -1007,6 +1028,7 @@
     /* ---- 進度: 時間軸(每一句在第幾秒)、拖曳、快轉倒退、時間表 ----
      * AI 人聲: 合成好的聲音檔長度是準的(由檔案大小算), 還沒合成的段落用「每秒念幾個字」估(念過會記住, 越來越準); 瀏覽器語音只能估.
      * 所以時間前面有「約」表示還有估的部分; 整則都合成過就是準的. */
+    var lastHl = -1;
     var tl = null, startPos = null, dragging = false, inStart = false, tickT = null, durSeen = 0, calSeen = {};
     function secOfChunk(c, pl) { return pl.engine === 'ai' ? (durMem[clipKey(aiScript(c), pl.voice, c.style || pl.style, pl.model)] || 0) : 0; }
     function gapEst(c) { var t = String(c.text || ''), commas = (t.match(/[,\u3001\uFF0C]/g) || []).length, ends = (t.match(/[\u3002!?\uFF01\uFF1F]/g) || []).length; return commas * 0.15 + (ends || 1) * 0.42 + (c.par ? 0.38 : 0); }
@@ -1074,7 +1096,16 @@
       var t = dragging ? Number(seek.value) : curT();
       if (!dragging) seek.value = String(Math.round(t));
       tcur.textContent = fmtT(t); markList(t);
+      followHl();
       seek.setAttribute('aria-valuetext', '目前 ' + fmtT(t) + ',全長' + (tl.exact ? '' : '約') + fmtT(tl.total));
+    }
+    function followHl() {   // 一段有好幾句(600 字)時, 內文標記跟著念到的那一句走, 不是整段都亮著
+      if (!reader || reader.state !== 'playing' || reader.engine !== 'ai' || !tl || curPlan !== tl.pl || (mode !== 'body' && mode !== 'sel')) return;
+      var c = reader.o.chunks[reader.i]; if (!c || c.title || c.noHl || (c.end - c.start) < 60) return;
+      var t = curT(), e = null, i; for (i = 0; i < tl.ents.length; i++) if (tl.ents[i].t0 <= t + 0.001) e = tl.ents[i];
+      if (!e || e.off === lastHl) return; lastHl = e.off;
+      if (mode === 'sel') { var rd = sel.read; if (rd) setHighlightC(ctx.contentEl, rd.base + compactIndex(rd.text, e.off), rd.base + compactIndex(rd.text, e.off + e.text.length) - 1); }
+      else setHighlight(ctx.contentEl, curPlan.pst.content, e.off, e.off + e.text.length);
     }
     function tlRefresh() {   // 設定改了(聲音、速度、語氣、語音來源…): 沒在讀的時候, 重算「朗讀內容」的時間軸
       if (reader && reader.state !== 'idle') { tlCompute(); tlLabels(); return; }
@@ -1160,7 +1191,8 @@
       reader = new Reader({
         chunks: chunks, from: from, fromFrac: frac, breath: bk.checked, engine: pl.engine, br: pl.br, voice: pl.voice, style: pl.style, model: pl.model, rate: userRate, onAiFail: aiFail,
         onChunk: function (i, c) {
-          if (i < 0) { cap.textContent = ''; clearHighlight(); return; }
+          if (i < 0) { cap.textContent = ''; clearHighlight(); lastHl = -1; return; }
+          lastHl = -1;
           cap.textContent = (c.reply ? '(回應 ' + c.reply + ')' : '') + c.text; if (rmode === 'sel') setTimeout(selPlace, 0);   // 字幕出現會把內文往下推, 浮動列跟著移
           if (rmode === 'sel') setHighlightC(ctx.contentEl, rd.base + compactIndex(rd.text, c.start), rd.base + compactIndex(rd.text, c.end) - 1);   // 在內文上標出正在讀的位置(位置 = 圈選的起點 + 這段在圈選文字裡的位置)
           else if (c.title || c.noHl) clearHighlight(); else setHighlight(ctx.contentEl, pst.content, c.start, c.end);
@@ -1216,6 +1248,6 @@
   global.KBTts = {
     PERSONAS: PERSONAS, TONES: TONES, STYLES: STYLES, EXPR: EXPR, exprText: exprText, analyze: analyze, splitSentences: splitSentences, groupSentences: groupSentences, forSpeech: forSpeech, withPauses: withPauses,
     mount: mount, stop: stop, pronounce: pronounce, numbersZh: numbersZh, cardinalZh: cardinalZh, genreOf: genreOf, emotionOf: emotionOf, toneForChunk: toneForChunk, browserUnits: browserUnits, brParams: brParams, twVoices: twVoices, exprBrowser: exprBrowser, chunksFor: chunksFor, replyChunks: replyChunks, resumeAt: resumeAt, personaVoice: personaVoice, personaStyle: personaStyle, aiClip: aiClip, voiceList: voiceList, localKey: localKey, Reader: Reader, aiState: aiState,
-    _t: { craftOf: craftOf, keyLinePause: keyLinePause, stats: stats, processWav: processWav, withBreathWav: withBreathWav, wavParse: wavParse, wavBuild: wavBuild, joinGapMs: joinGapMs, durMem: durMem, fmtT: fmtT, effLen: effLen, aiScript: aiScript, H: H, mem: mem, setHighlight: setHighlight, textMap: textMap, hash: hash, resetAi: function () { aiState.v = null; vlist = null; vP = null; } }
+    _t: { chunkCap: chunkCap, craftOf: craftOf, keyLinePause: keyLinePause, stats: stats, processWav: processWav, withBreathWav: withBreathWav, wavParse: wavParse, wavBuild: wavBuild, joinGapMs: joinGapMs, durMem: durMem, fmtT: fmtT, effLen: effLen, aiScript: aiScript, H: H, mem: mem, setHighlight: setHighlight, textMap: textMap, hash: hash, resetAi: function () { aiState.v = null; vlist = null; vP = null; } }
   };
 })(typeof window !== 'undefined' ? window : globalThis);
