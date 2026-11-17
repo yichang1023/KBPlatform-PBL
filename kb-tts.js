@@ -349,7 +349,7 @@
     if (n < 4 || n > 40) return '';
     for (i = 0; i < n; i++) { var x = body[i]; if (!PURE_ZH.test(x.t)) return ''; cnt[x.len] = (cnt[x.len] || 0) + 1; if (cnt[x.len] > best) { best = cnt[x.len]; bl = x.len; } sum += x.len; if (x.len >= 3 && x.len <= 9) mid++; if (x.nl) nl++; if (x.len < 2 || x.len > 11) return ''; }
     if ((bl === 5 || bl === 7) && best >= Math.ceil(n * 0.85)) return bl === 5 ? 'wu' : 'qi';
-    if (n >= 6 && nl >= 3 && body.filter(function (q) { return q.p; }).length >= n * 0.7 && mid >= n * 0.7 && sum / n <= 8 && sum <= 320 && best < n && poemImagery(body.map(function (q) { return q.t; }).join('')).length >= 3) return 'ci';
+    if (n >= 6 && nl >= 2 && body.filter(function (q) { return q.p; }).length >= n * 0.7 && mid >= n * 0.7 && sum / n <= 8 && sum <= 320 && best < n && poemImagery(body.map(function (q) { return q.t; }).join('')).length >= (body.filter(function (q) { return q.p; }).length >= n * 0.9 ? 2 : 3)) return 'ci';
     return '';
   }
   function poemOf(text) {   // 不是詩詞就回 null; 否則 { form, formZh, title, couplets[{ text, start, end, n, role, lines[] }], mood, moodZh, imagery[] }
@@ -573,6 +573,8 @@
     '降龍>翔龍 降魔>翔魔 降妖>翔妖 降服>翔服 降伏>翔伏 投降>投翔 受降>受翔 歸降>歸翔 招降>招翔 勸降>勸翔 迎降>迎翔',
     '令狐>另狐 令尊>另尊 令堂>另堂 令郎>另郎 令嬡>另嬡 令愛>另愛 令兄>另兄 華山論劍>畫山論劍 華山派>畫山派 華山劍宗>畫山劍宗 華山氣宗>畫山氣宗 任我行>人我行 任盈盈>人盈盈 任大小姐>人大小姐 任教主>人教主 單雄信>善雄信 單于>蟬于 尉遲>鬱遲 長孫>掌孫 曾國藩>增國藩 曾祖>增祖 曾孫>增孫 查良鏞>扎良鏞',
     '英雄傳>英雄撰 外傳>外撰 正傳>正撰 前傳>前撰 本傳>本撰 別傳>別撰 傳記>撰記 自傳>自撰 評傳>評撰 列傳>列撰 水滸傳>水滸撰',
+    // 詩詞常見讀音(台灣): 思量(ㄌㄧㄤˊ)、應(ㄧㄥ)、衰(ㄘㄨㄟ)、行(ㄏㄤˊ)、朝(ㄓㄠ)、重陽(ㄔㄨㄥˊ)、數(ㄕㄨˇ)
+    '思量>思良 應不識>英不識 鬢毛衰>鬢毛催 淚千行>淚千航 一行白鷺>一航白鷺 朝辭>招辭 重陽>崇陽 數風流>鼠風流',
     // 行(ㄏㄤˊ)
     '行業>航業 行情>航情 行家>航家 內行>內航 外行>外航 銀行>銀航 排行>排航 行列>航列 各行各業>各航各業 行當>航當',
     // 長(ㄓㄤˇ)
