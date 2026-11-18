@@ -52,6 +52,8 @@
         .node-card.selected-node { box-shadow: 0 0 0 3px #3b82f6, 0 10px 15px -3px rgba(59, 130, 246, 0.2); border-color: #3b82f6; z-index: 60; }
         .promising-node { box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.4), 0 0 25px rgba(249, 115, 22, 0.5); border-color: #f97316 !important; transform: translateY(-2px); z-index: 45; }
         .kb-kbd { display: inline-block; font: 600 10px/1 ui-monospace, Menlo, Consolas, monospace; color: #64748b; background: #f1f5f9; border: 1px solid #e2e8f0; border-bottom-width: 2px; border-radius: 4px; padding: 2px 4px; margin-left: 4px; vertical-align: 1px; }
+        .branch-label { position: absolute; left: 6px; top: -27px; max-width: 90%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 11px; font-weight: 700; color: #4338ca; background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 9999px; padding: 2px 10px; pointer-events: none; }
+        .smart-chip { position: absolute; top: 4.2rem; left: 50%; transform: translateX(-50%); z-index: 41; background: #eef2ff; border: 1px solid #c7d2fe; color: #4338ca; font-size: 12px; font-weight: 700; border-radius: 9999px; padding: 4px 14px; box-shadow: 0 2px 8px rgba(67,56,202,.15); pointer-events: none; }
         .cluster-zone { position: absolute; border: 2px dashed rgba(203, 213, 225, 0.6); border-radius: 24px; display: flex; flex-direction: column; align-items: center; padding-top: 1rem; pointer-events: none; transition: all 0.5s ease-in-out; background: rgba(255, 255, 255, 0.4); }
         .cluster-title { font-weight: 700; font-size: 1rem; padding: 0.5rem 1.5rem; border-radius: 9999px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); background: white; color: #475569; border: 1px solid #e2e8f0; }
         path.connection { fill: none; stroke-width: 2; transition: stroke 0.3s; pointer-events: none; }
@@ -360,7 +362,7 @@
             canvas: {
                 scale: 1, offsetX: 0, offsetY: 0,
                 isDragging: false, lastX: 0, lastY: 0,
-                draggedNodeId: null, isClusterMode: false, clusterMode: null, zones: [], isHeatmapMode: false, heatAi: {}, aiOk: null,
+                draggedNodeId: null, isClusterMode: false, clusterMode: null, zones: [], isHeatmapMode: false, heatAi: {}, aiOk: null, mainIds: null, branchLabels: [], smartTok: 0, smartBusy: false,
                 animFrame: null,
                 isSelecting: false, selectionStart: {x: 0, y: 0}, selectionCurrent: {x: 0, y: 0},
                 isPanMode: false,
@@ -767,6 +769,7 @@
             { g: '編輯', k: 'Ctrl+Enter', zh: '在發言視窗裡發布', run: () => window.app.submitNode(), m: e => ctrlKey(e) && e.key === 'Enter', composer: true },
             { g: '排版', k: 'Alt+L', zh: '最佳化排版: 從左到右', run: () => window.app.canvas.arrange('LR'), m: e => e.altKey && !e.shiftKey && !ctrlKey(e) && e.code === 'KeyL' },
             { g: '排版', k: 'Alt+T', zh: '最佳化排版: 從上到下', run: () => window.app.canvas.arrange('TB'), m: e => e.altKey && !e.shiftKey && !ctrlKey(e) && e.code === 'KeyT' },
+            { g: '排版', k: 'Alt+O', zh: '最佳化排版(AI 協助): 主脈絡排同一排、分支變淡並標主題; 沿用目前的方向, 預設從左到右', run: () => window.app.canvas.optimize(), m: e => e.altKey && !e.shiftKey && !ctrlKey(e) && e.code === 'KeyO' },
             { g: '分析', k: 'Alt+1', zh: '語意聚類: 依內容主題', run: () => window.app.canvas.setCluster('topic'), m: e => e.altKey && !ctrlKey(e) && e.code === 'Digit1' },
             { g: '分析', k: 'Alt+2', zh: '語意聚類: 依想法類型(提問 / 延伸 / 改進 / 反例 / 昇華)', run: () => window.app.canvas.setCluster('type'), m: e => e.altKey && !ctrlKey(e) && e.code === 'Digit2' },
             { g: '分析', k: 'Alt+0', zh: '關閉語意聚類(放回原本的位置)', run: () => window.app.canvas.setCluster(null), m: e => e.altKey && !ctrlKey(e) && e.code === 'Digit0' },
@@ -1662,7 +1665,7 @@
             hist: () => { const c = window.state.canvas, t = window.state.currentTopicId; c._h = c._h || {}; return (c._h[t] = c._h[t] || { u: [], r: [] }); },
             snapshot: (label) => {
                 const pos = {}; window.app.canvas.topicNodes().forEach(n => { pos[n.id] = { x: n.x, y: n.y, sx: n.savedX, sy: n.savedY }; });
-                return { label: label || '', pos: pos, mode: window.state.canvas.clusterMode, zones: (window.state.canvas.zones || []).slice() };
+                return { label: label || '', pos: pos, mode: window.state.canvas.clusterMode, zones: (window.state.canvas.zones || []).slice(), main: window.state.canvas.mainIds ? window.state.canvas.mainIds.slice() : null, labels: (window.state.canvas.branchLabels || []).map(x => Object.assign({}, x)), dir: window.state.canvas.layoutDir || null };
             },
             pushHistory: (label, snap) => {
                 const h = window.app.canvas.hist(); h.u.push(snap || window.app.canvas.snapshot(label)); if (h.u.length > window.app.canvas.HIST_MAX) h.u.shift(); h.r = [];
@@ -1672,6 +1675,7 @@
                 nodes.forEach(n => { delete n.savedX; delete n.savedY; });
                 nodes.forEach(n => { const p = snap.pos[n.id]; if (p) { n.x = p.x; n.y = p.y; if (p.sx !== undefined) { n.savedX = p.sx; n.savedY = p.sy; } } });
                 c.clusterMode = snap.mode || null; c.isClusterMode = !!snap.mode; c.zones = (snap.zones || []).slice();
+                c.mainIds = snap.main ? snap.main.slice() : null; c.branchLabels = (snap.labels || []).map(x => Object.assign({}, x)); c.layoutDir = snap.dir || c.layoutDir || null; c.smartTok = (c.smartTok || 0) + 1;   // 復原時, 還在後台跑的 AI 結果不要再蓋上來
                 setTimeout(() => { try { window.dataManager.save(); } catch (e) {} }, 900);
                 window.ui.renderCanvas();
             },
@@ -1703,6 +1707,7 @@
                 if (!nodes.length) return window.ui.showToast('這個討論區還沒有想法可以排版', 'info');
                 if (!window.KBLayout) return;
                 C.pushHistory(dir === 'TB' ? '排版:從上到下' : '排版:從左到右');
+                c.smartTok++; c.smartBusy = false; c.mainIds = null; c.branchLabels = [];   // 一般排版: 沒有主脈絡標示, 也不要讓還在後台跑的 AI 結果蓋上來
                 if (c.clusterMode) C.clearCluster(true);
                 const sz = C.cardSize(), res = KBLayout.arrange(nodes, dir, { w: sz.w, h: sz.h });
                 c.layoutDir = res.dir;
@@ -1726,6 +1731,7 @@
                 }
                 if (!nodes.length) return window.ui.showToast('這個討論區還沒有想法可以聚類', 'info');
                 C.pushHistory(mode === 'type' ? '語意聚類:依想法類型' : '語意聚類:依內容主題');
+                c.smartTok++; c.smartBusy = false; c.mainIds = null; c.branchLabels = [];
                 nodes.forEach(n => { if (n.savedX === undefined) { n.savedX = n.x; n.savedY = n.y; } });   // 記住原本的位置, 關閉聚類就放回去
                 const sz = C.cardSize(), groups = (mode === 'type' ? KBLayout.clusterTypes(nodes) : KBLayout.clusterTopics(nodes)).groups;
                 const narrow = window.innerWidth < 768;   // 手機: 一區一排往下排(橫的排會縮得太小)
@@ -1736,6 +1742,49 @@
                 window.ui.renderCanvas();
             },
             toggleCluster: () => { window.app.canvas.setCluster(window.state.canvas.clusterMode ? null : 'topic'); },
+            /* ---- 最佳化排版(AI 協助) ----
+               先用規則「立刻」排好(回應依「帶出多少討論」排序, 主脈絡排在同一排、箭頭加粗, 分支變淡), 版面馬上就能看;
+               有 AI 的話, 在後台請 AI 看內容: 找主脈絡、決定回應的先後、替重要分支取主題名, 完成後自動微調(這一步可以單獨復原).
+               AI 只提供「建議」(主脈絡、順序、名稱), 座標由程式精準計算, 建議不合理的部分會被忽略; AI 失敗就保留規則版. */
+            applySmart: (dir, order, labels) => {
+                const C = window.app.canvas, c = window.state.canvas, nodes = C.topicNodes(), sz = C.cardSize();
+                const res = KBLayout.arrange(nodes, dir, { w: sz.w, h: sz.h, order: order });
+                c.layoutDir = res.dir; c.mainIds = KBLayout.mainLine(nodes, order); c.branchLabels = labels || [];
+                C.moveNodes(res.targets); C.viewAfterArrange(res.width, res.height);
+                setTimeout(() => { try { window.dataManager.save(); } catch (e) {} }, 900);
+                window.ui.renderCanvas();
+            },
+            optimize: async (dir) => {
+                const C = window.app.canvas, c = window.state.canvas, nodes = C.topicNodes(); C.closeMenus();
+                if (!nodes.length) return window.ui.showToast('這個討論區還沒有想法可以排版', 'info');
+                if (!window.KBLayout) return;
+                dir = dir === 'TB' ? 'TB' : dir === 'LR' ? 'LR' : (c.layoutDir || 'LR');
+                const topic = window.state.currentTopicId, tok = ++c.smartTok, ids0 = nodes.length;
+                C.pushHistory('最佳化排版(' + (dir === 'TB' ? '從上到下' : '從左到右') + ')');
+                if (c.clusterMode) C.clearCluster(true);
+                const base = KBLayout.rankChildren(nodes);
+                C.applySmart(dir, base, []);   // 規則版: 立刻排好
+                const ai = await C.checkAi();
+                if (tok !== c.smartTok) return;
+                if (!ai) return window.ui.showToast('已最佳化排版: 主脈絡排在同一排、箭頭加粗, 分支變淡。(這裡沒有 AI 金鑰, 所以沒有 AI 協助; 設定 AI 金鑰後會自動加上)', 'success');
+                c.smartBusy = true; window.ui.showToast('已先用規則排好版面; AI 正在後台協助最佳化, 完成後會自動微調…', 'info'); window.ui.renderCanvas();
+                try {
+                    const f = KBLayout.forest(nodes), who = {}; let wn = 0, many = nodes.length > 120;
+                    const list = nodes.slice().sort((a, b) => (a.date || 0) - (b.date || 0)).slice(0, 220).map(n => {
+                        if (!who[n.author]) who[n.author] = '同學' + String.fromCharCode(65 + (wn++ % 26));
+                        return { id: n.id, 類型: (KBLayout.TYPE_ZH[n.type] || n.type), 作者: who[n.author], 回應給: n.parentId || '', 標題: String(n.title || '').slice(0, 30), 內容: String(n.content || '').slice(0, many ? 30 : 60), 後續回應數: (f.kids[n.id] || []).length };
+                    });
+                    const prompt = '你是知識建構論壇的小助教, 正在幫老師整理討論區的版面。下面是這個討論區的想法(JSON, 依發言時間排; 「回應給」是它回應的那一則的 id, 空白的是討論的起點)。\n請幫忙三件事:\n1. main: 找出「主脈絡」——從某個起點出發, 每一步選一則最能代表這個討論主要往哪裡探究的回應, 依序列出 id(每一則都要真的是上一則的回應)。\n2. order: 對有 2 則以上回應的想法, 依「最值得先看、最能把探究往前推」的順序排出它的回應 id(格式: 父想法 id → 回應 id 的陣列)。\n3. labels: 替最多 8 個重要的分支(用該分支第一則想法的 id)取 2~8 個字的主題名稱, 要讓小學生看得懂。\n版面要讓人看起來輕鬆、不累: 主脈絡不要太跳躍, 分支名稱要短。\n只回覆 JSON: {"main":["id",...],"order":{"父id":["id",...]},"labels":[{"id":"...","text":"..."}]}。不要使用「答案」兩個字。\n' + JSON.stringify(list);
+                    const resp = await window.app.kbAiJson(prompt);
+                    if (tok !== c.smartTok || window.state.currentTopicId !== topic) return;   // 使用者已經做了別的排版或換了討論區: 不蓋掉
+                    const clean = KBLayout.sanitizeAi(nodes, resp, base);
+                    C.pushHistory('AI 微調最佳化');
+                    C.applySmart(dir, clean.order, clean.labels);
+                    window.ui.showToast('AI 已協助最佳化: 主脈絡 ' + c.mainIds.length + ' 則, 分支主題 ' + clean.labels.length + ' 個(按 Ctrl+Z 可以回到規則版)', 'success');
+                } catch (e) {
+                    if (tok === c.smartTok) window.ui.showToast('AI 暫時無法協助, 已保留規則版的最佳化排版', 'error');
+                } finally { if (tok === c.smartTok) { c.smartBusy = false; window.ui.renderCanvas(); } }
+            },
             // 潛力熱點: 先用規則算(回應數、回應的人數、延伸幾層、後續有沒有改進/反例/昇華、內容有沒有依據); AI 複核過的分數與規則各占一半
             heatInfo: (nodes) => {
                 const c = window.state.canvas, base = KBLayout.heat(nodes), ai = (c.heatAi || {})[window.state.currentTopicId] || {};
@@ -2174,7 +2223,10 @@
                             <i class="fa-solid fa-diagram-project"></i><span class="text-[10px] md:text-xs">排版</span><i class="fa-solid fa-caret-down text-[9px]"></i>
                         </button>
                         <div id="menu-layout" class="hidden absolute right-0 mt-1 w-64 bg-white border border-slate-200 rounded-lg shadow-lg p-1 z-50 text-xs text-slate-700">
-                            <div class="px-3 pt-2 pb-1 text-[11px] text-slate-400">依回應關係整理: 同一層的想法依發言時間排, 關係線與箭頭會跟著理順</div>
+                            <div class="px-3 pt-2 text-[12px] text-indigo-700"><b><i class="fa-solid fa-wand-magic-sparkles"></i> 最佳化排版(AI 協助)</b> <kbd class="kb-kbd">Alt+O</kbd></div>
+                            <div class="px-3 pb-1 text-[11px] text-slate-500">找出主脈絡排在同一排、箭頭加粗, 分支變淡並標上主題, 看起來更輕鬆。先用規則立刻排好, AI 在後台協助微調, 結果可以復原。</div>
+                            <div class="flex gap-1 px-2 pb-2"><button onclick="window.app.canvas.optimize('LR')" class="flex-1 rounded bg-indigo-50 text-indigo-700 font-bold py-1.5 hover:bg-indigo-100"><i class="fa-solid fa-arrow-right"></i> 從左到右</button><button onclick="window.app.canvas.optimize('TB')" class="flex-1 rounded bg-indigo-50 text-indigo-700 font-bold py-1.5 hover:bg-indigo-100"><i class="fa-solid fa-arrow-down"></i> 從上到下</button></div>
+                            <div class="px-3 pt-1 pb-1 text-[11px] text-slate-400 border-t border-slate-100">只依發言時間排(基本): 同一層依時間先後, 關係線與箭頭會跟著理順</div>
                             <button onclick="window.app.canvas.arrange('LR')" class="w-full text-left px-3 py-2 rounded hover:bg-slate-100"><b><i class="fa-solid fa-arrow-right"></i> 從左到右</b> <kbd class="kb-kbd">Alt+L</kbd><br><span class="text-slate-500">想法往右推進, 第一則回應接在同一排, 其他回應排在上下的空排</span></button>
                             <button onclick="window.app.canvas.arrange('TB')" class="w-full text-left px-3 py-2 rounded hover:bg-slate-100"><b><i class="fa-solid fa-arrow-down"></i> 從上到下</b> <kbd class="kb-kbd">Alt+T</kbd><br><span class="text-slate-500">同樣的排法轉個方向: 往下推進, 其他回應排在左右的空欄</span></button>
                             <div class="border-t border-slate-100 mt-1 pt-1 flex">
@@ -2256,6 +2308,7 @@
             }
 
             window.ui.drawNodes(nodes);
+            try { if (window.state.canvas.smartBusy) { const hp = document.getElementById('canvas-wrapper'); if (hp && hp.parentNode) { const chip = document.createElement('div'); chip.id = 'smart-chip'; chip.className = 'smart-chip'; chip.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles fa-beat"></i> AI 正在後台協助最佳化…'; hp.parentNode.appendChild(chip); } } } catch (e) {}
             try {   // 潛力熱點開著: 在工具列下面放一行說明(怎麼判斷的)與「請 AI 複核」
                 const hostEl = document.getElementById('canvas-wrapper');
                 if (window.state.canvas.isHeatmapMode && hostEl && hostEl.parentNode) {
@@ -2358,6 +2411,7 @@
             const parentSet = new Set(window.state.nodes.map(n => n.parentId).filter(Boolean));
             const canPostNow = window.app.canPost();
             const heatInfoNow = window.state.canvas.isHeatmapMode && window.KBLayout ? window.app.canvas.heatInfo(nodes) : null;
+            const labelMap = {}; (window.state.canvas.branchLabels || []).forEach(x => { labelMap[x.id] = x.text; });
             document.getElementById('nodes-layer').innerHTML = nodes.map(node => {
                 const s = window.SCAFFOLDS[node.type];
                 const user = Object.values(window.state.userList).find(u => u.id === node.author) || {name: '?'};
@@ -2368,6 +2422,7 @@
                 const hs = heatInfoNow && heatInfoNow.scores[node.id], isPromising = !!(window.state.canvas.isHeatmapMode && hs && hs.hot);
                 const heatmapClass = isPromising ? 'promising-node' : '';
                 const heatWhy = hs ? window.app.escH(((hs.ai && hs.ai.why) ? 'AI: ' + hs.ai.why + '。' : '') + (hs.reasons.length ? hs.reasons.join('、') : '還沒有人回應') + '(分數 ' + hs.score + ')') : '';
+                const labelHtml = labelMap[node.id] ? `<div class="branch-label" title="分支主題(AI 協助)">${window.app.escH(labelMap[node.id])}</div>` : '';
                 const flameBadge = isPromising ? `<div title="${heatWhy}" class="absolute -top-3 -right-2 bg-orange-500 text-white text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm animate-bounce-slow z-50"><i class="fa-solid fa-fire"></i> 熱點 ${hs.score}</div>` : '';
                 const isSelected = window.state.selectedNodeIds.includes(node.id) ? 'selected-node' : '';
 
@@ -2379,6 +2434,7 @@
                      ontouchend="window.app.canvas.tapEnd(event, '${node.id}')"
                      ondblclick="event.stopPropagation(); if (Date.now() - (window.state.canvas._tapOpened || 0) > 700) window.app.openNodeDetail('${node.id}')">
                     ${flameBadge}
+                    ${labelHtml}
                     <div class="px-3 py-2 ${s.bgSoft} border-b ${s.border} flex justify-between items-center cursor-move rounded-t-xl">
                         <div class="flex items-center gap-2">
                             <span class="w-5 h-5 rounded-full ${s.color} text-white flex justify-center items-center text-xs"><i class="fa-solid ${s.icon}"></i></span>
@@ -2422,11 +2478,13 @@
             const halfW = cardWidth / 2;
 
             const hOf = (n) => { const el = document.getElementById('node-' + n.id); return (el && el.offsetHeight) || 160; };
+            const mainSet = (window.state.canvas.mainIds && window.state.canvas.mainIds.length) ? new Set(window.state.canvas.mainIds) : null;
             const colorMap = { question: '#3b82f6', extend: '#eab308', improve: '#22c55e', counter: '#ef4444', riseabove: '#a855f7' };
             const paths = nodes.filter(n => n.parentId).map(node => {
                 const parent = window.state.nodes.find(p => p.id === node.parentId);
                 if (!parent) return '';
-                const ph = hOf(parent), nh = hOf(node), stroke = `stroke="${colorMap[node.type]}" fill="none" stroke-width="2" stroke-opacity="0.65" marker-end="url(#arrow-${node.type})"`;
+                const ph = hOf(parent), nh = hOf(node), isMain = mainSet && mainSet.has(parent.id) && mainSet.has(node.id);
+                const stroke = `stroke="${colorMap[node.type]}" fill="none" stroke-width="${mainSet ? (isMain ? 3.4 : 1.6) : 2}" stroke-opacity="${mainSet ? (isMain ? 0.95 : 0.4) : 0.65}" marker-end="url(#arrow-${node.type})"`;   // 最佳化之後: 主脈絡的箭頭加粗, 分支變淡(視覺有重點、不累)
                 if (node.x - (parent.x + cardWidth) > 24) {   // 回應在想法的右邊: 想法右緣中間 → 回應左緣中間
                     const sx = parent.x + cardWidth, sy = parent.y + ph / 2, ex = node.x, ey = node.y + nh / 2;
                     if (Math.abs(ey - sy) < 2) return `<path d="M ${sx} ${sy} L ${ex} ${ey}" ${stroke} />`;   // 同一排: 一條直線

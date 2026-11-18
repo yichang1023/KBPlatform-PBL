@@ -20,7 +20,7 @@
   function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
 
   /* ---------- 回應關係(森林): 沒有上一層的想法是樹根; 上一層找不到或繞圈圈的也當樹根 ---------- */
-  function forest(nodes) {
+  function forest(nodes, order) {
     var byId = {}, kids = {}, roots = [], reach = {};
     nodes.forEach(function (n) { byId[n.id] = n; kids[n.id] = []; });
     nodes.forEach(function (n) { if (n.parentId && n.parentId !== n.id && byId[n.parentId]) kids[n.parentId].push(n); else roots.push(n); });
@@ -32,6 +32,11 @@
       roots.push(n); walk(n);
     });
     roots.sort(byTime); Object.keys(kids).forEach(function (k) { kids[k].sort(byTime); });
+    if (order) Object.keys(order).forEach(function (pid) {   // 指定的回應順序(規則算的或 AI 建議的)蓋過時間順序; 沒被指定到的排在後面, 仍依時間
+      var want = order[pid], idx = {}; if (!kids[pid] || !Array.isArray(want)) return;
+      want.forEach(function (id, i) { if (idx[id] === undefined) idx[id] = i; });
+      kids[pid] = kids[pid].filter(function (c) { return idx[c.id] !== undefined; }).sort(function (a, b) { return idx[a.id] - idx[b.id]; }).concat(kids[pid].filter(function (c) { return idx[c.id] === undefined; }));
+    });
     return { byId: byId, kids: kids, roots: roots };
   }
 
@@ -48,7 +53,7 @@
     var w = opts.w || 288, h = opts.h || 182, x0 = opts.x0 == null ? 80 : opts.x0, y0 = opts.y0 == null ? 80 : opts.y0;
     var gapAlong = opts.gapAlong == null ? (dir === 'LR' ? 72 : 84) : opts.gapAlong, gapAcross = opts.gapAcross == null ? (dir === 'LR' ? 44 : 44) : opts.gapAcross;
     var alongStep = (dir === 'LR' ? w : h) + gapAlong, acrossStep = (dir === 'LR' ? h : w) + gapAcross;
-    var f = forest(nodes), depth = {}, rowOf = {}, bands = [], i;
+    var f = forest(nodes, opts.order), depth = {}, rowOf = {}, bands = [], i;
     // 每個節點的層(深度): 由樹根往下, 不用遞迴(脈絡可能有上百層)
     f.roots.forEach(function (r) { var st = [[r, 0]]; while (st.length) { var it = st.pop(); depth[it[0].id] = it[1]; f.kids[it[0].id].forEach(function (c) { st.push([c, it[1] + 1]); }); } });
     function chainEnd(n) { var d = depth[n.id], cur = n; while (f.kids[cur.id].length) { cur = f.kids[cur.id][0]; d = depth[cur.id]; } return d; }   // 沿著「第一則回應」走到底
@@ -88,6 +93,49 @@
     });
     var cols = dir === 'LR' ? maxDepth : maxRowAll, rows = dir === 'LR' ? maxRowAll : maxDepth;
     return { targets: targets, width: x0 * 2 + cols * (dir === 'LR' ? alongStep : acrossStep) + w, height: y0 * 2 + rows * (dir === 'LR' ? acrossStep : alongStep) + h, dir: dir, trees: f.roots.length, lanes: maxRowAll + 1, alongStep: alongStep, acrossStep: acrossStep };
+  }
+
+  /* ---------- 1b. 最佳化: 主脈絡與回應順序 ----------
+   * 主脈絡 = 從樹根出發, 每一步都走「後面接得最長、最多人回應」的那一則; 它會排在同一排的中間, 箭頭加粗, 看一眼就知道討論主要往哪走.
+   * rankChildren: 每則想法的回應依「後面帶出多少討論(子孫數)」由多到少排, 一樣多就依時間(規則版, 不需要 AI)
+   * sanitizeAi: 檢查 AI 回傳的建議(主脈絡、回應順序、分支主題), 只收合理的; 回傳 { order, main[], labels[] } */
+  function subtreeSizes(f) {
+    var size = {}, order = [], st = f.roots.slice();
+    while (st.length) { var n = st.pop(); order.push(n); f.kids[n.id].forEach(function (c) { st.push(c); }); }
+    for (var i = order.length - 1; i >= 0; i--) { var n2 = order[i], sum = 1; f.kids[n2.id].forEach(function (c) { sum += size[c.id] || 1; }); size[n2.id] = sum; }
+    return size;
+  }
+  function rankChildren(nodes) {
+    var f = forest(nodes), size = subtreeSizes(f), order = {};
+    Object.keys(f.kids).forEach(function (pid) { var ks = f.kids[pid]; if (ks.length > 1) order[pid] = ks.slice().sort(function (a, b) { return size[b.id] - size[a.id] || byTime(a, b); }).map(function (c) { return c.id; }); });
+    return order;
+  }
+  function mainLine(nodes, order) {   // 每棵樹各一條: 從樹根一路走「第一則回應」
+    var f = forest(nodes, order), out = [];
+    f.roots.forEach(function (r) { var cur = r; while (cur) { out.push(cur.id); cur = f.kids[cur.id][0]; } });
+    return out;
+  }
+  function sanitizeAi(nodes, ai, base) {
+    var f = forest(nodes), order = {}, main = [], labels = [], k;
+    Object.keys(base || {}).forEach(function (pid) { order[pid] = base[pid].slice(); });
+    ai = ai && typeof ai === 'object' ? ai : {};
+    if (ai.order && typeof ai.order === 'object') Object.keys(ai.order).forEach(function (pid) {
+      if (!f.kids[pid] || !Array.isArray(ai.order[pid])) return;
+      var ok = {}; f.kids[pid].forEach(function (c) { ok[c.id] = 1; });
+      var seen = {}, list = ai.order[pid].filter(function (id) { if (!ok[id] || seen[id]) return false; seen[id] = 1; return true; });
+      if (list.length) order[pid] = list;
+    });
+    if (Array.isArray(ai.main) && ai.main.length && f.byId[ai.main[0]] && f.roots.indexOf(f.byId[ai.main[0]]) >= 0) {   // 主脈絡必須從樹根出發、每一步都是上一則的回應
+      main.push(ai.main[0]);
+      for (k = 1; k < ai.main.length; k++) { var prev = f.byId[main[main.length - 1]], cur = f.byId[ai.main[k]]; if (!cur || !prev || cur.parentId !== prev.id || main.indexOf(cur.id) >= 0) break; main.push(cur.id); }
+      for (k = 1; k < main.length; k++) { var pid2 = main[k - 1], rest = (order[pid2] || f.kids[pid2].map(function (c) { return c.id; })).filter(function (id) { return id !== main[k]; }); order[pid2] = [main[k]].concat(rest); }   // 主脈絡的每一步排在第一個(留在同一排)
+    }
+    if (Array.isArray(ai.labels)) ai.labels.forEach(function (x) {
+      if (!x || !f.byId[x.id] || labels.length >= 10) return;
+      var tx = String(x.text == null ? '' : x.text).replace(/答案/g, '想法').replace(/\s+/g, '').slice(0, 10); if (tx.length < 2) return;
+      if (labels.some(function (y) { return y.id === x.id; })) return; labels.push({ id: x.id, text: tx });
+    });
+    return { order: order, main: main, labels: labels };
   }
 
   /* ---------- 2. 潛力熱點 ---------- */
@@ -212,5 +260,5 @@
     return { targets: targets, zones: zones, width: totalW, height: y };
   }
 
-  g.KBLayout = { arrange: arrange, heat: heat, pickHot: pickHot, clusterTopics: clusterTopics, clusterTypes: clusterTypes, placeZones: placeZones, forest: forest, TYPES: TYPES, TYPE_ZH: TYPE_ZH, words: words };
+  g.KBLayout = { rankChildren: rankChildren, mainLine: mainLine, sanitizeAi: sanitizeAi, subtreeSizes: function (nodes) { return subtreeSizes(forest(nodes)); }, arrange: arrange, heat: heat, pickHot: pickHot, clusterTopics: clusterTopics, clusterTypes: clusterTypes, placeZones: placeZones, forest: forest, TYPES: TYPES, TYPE_ZH: TYPE_ZH, words: words };
 })(typeof window !== 'undefined' ? window : globalThis);
