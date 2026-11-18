@@ -35,28 +35,59 @@
     return { byId: byId, kids: kids, roots: roots };
   }
 
-  /* ---------- 1. 最佳化排版 ----------
-   * opts = { w: 卡片寬, h: 卡片高, gapX, gapY, x0, y0 }; 回傳 { targets:[{id,x,y}], width, height, dir } */
+  /* ---------- 1. 最佳化排版(脈絡式泳道) ----------
+   * 參考第一到第五組現有的「從左到右」: 一條討論像一條脈絡, 每回應一層就往右一格;
+   *  - 一則想法的「第一則回應」(最早的那則)接在自己的同一排後面, 脈絡才連得起來、箭頭是一條直線;
+   *  - 其他的回應(分支)才拉到上方或下方另一排, 每一排只要中間有空位就重複使用, 所以整張圖很緊湊;
+   *  - 同一排裡不同的脈絡中間至少空一格, 不會看起來像接在一起.
+   * 同一層依發言時間排, 越早的分支越靠近它的上一則. 和現有排法的差別: 卡片之間留足間距(不重疊), 箭頭不會穿過卡片.
+   * dir = 'LR'(從左到右: 層往右、排往下) 或 'TB'(從上到下: 層往下、排往右, 同樣的邏輯轉個方向)
+   * opts = { w, h, x0, y0, gapAlong(層與層的空隙), gapAcross(排與排的空隙) }; 回傳 { targets, width, height, dir, trees, lanes } */
   function arrange(nodes, dir, opts) {
     opts = opts || {}; dir = dir === 'TB' ? 'TB' : 'LR';
-    var w = opts.w || 288, h = opts.h || 170, x0 = opts.x0 == null ? 80 : opts.x0, y0 = opts.y0 == null ? 80 : opts.y0;
-    var colStep = dir === 'LR' ? w + (opts.gapX == null ? 90 : opts.gapX) : w + (opts.gapX == null ? 50 : opts.gapX);   // 同一層相鄰兩張卡的距離
-    var rowStep = dir === 'LR' ? h + (opts.gapY == null ? 40 : opts.gapY) : h + (opts.gapY == null ? 100 : opts.gapY);
-    var f = forest(nodes), pos = {}, depth = {}, next = 0, maxDepth = 0;
-    function place(n, d) {
-      depth[n.id] = d; maxDepth = Math.max(maxDepth, d);
-      var ch = f.kids[n.id];
-      if (!ch.length) { pos[n.id] = next; next += 1; return; }
-      ch.forEach(function (c) { place(c, d + 1); });
-      pos[n.id] = (pos[ch[0].id] + pos[ch[ch.length - 1].id]) / 2;   // 想法放在它所有回應的正中間
-    }
-    f.roots.forEach(function (r, i) { if (i > 0) next += 0.35; place(r, 0); });   // 不同的樹之間空一點
-    var targets = nodes.map(function (n) {
-      var along = depth[n.id], across = pos[n.id];
-      return dir === 'LR' ? { id: n.id, x: Math.round(x0 + along * colStep), y: Math.round(y0 + across * rowStep) } : { id: n.id, x: Math.round(x0 + across * colStep), y: Math.round(y0 + along * rowStep) };
+    var w = opts.w || 288, h = opts.h || 182, x0 = opts.x0 == null ? 80 : opts.x0, y0 = opts.y0 == null ? 80 : opts.y0;
+    var gapAlong = opts.gapAlong == null ? (dir === 'LR' ? 72 : 84) : opts.gapAlong, gapAcross = opts.gapAcross == null ? (dir === 'LR' ? 44 : 44) : opts.gapAcross;
+    var alongStep = (dir === 'LR' ? w : h) + gapAlong, acrossStep = (dir === 'LR' ? h : w) + gapAcross;
+    var f = forest(nodes), depth = {}, rowOf = {}, bands = [], i;
+    // 每個節點的層(深度): 由樹根往下, 不用遞迴(脈絡可能有上百層)
+    f.roots.forEach(function (r) { var st = [[r, 0]]; while (st.length) { var it = st.pop(); depth[it[0].id] = it[1]; f.kids[it[0].id].forEach(function (c) { st.push([c, it[1] + 1]); }); } });
+    function chainEnd(n) { var d = depth[n.id], cur = n; while (f.kids[cur.id].length) { cur = f.kids[cur.id][0]; d = depth[cur.id]; } return d; }   // 沿著「第一則回應」走到底
+    f.roots.forEach(function (root) {
+      // 這棵樹裡所有「脈絡的起點」: 樹根, 加上每個節點的第二則(含)以後的回應; 由淺到深、同層依時間處理
+      var starts = [{ n: root, parent: null, sib: 0 }], st2 = [root];
+      while (st2.length) { var p = st2.pop(); f.kids[p.id].forEach(function (c, k) { if (k > 0) starts.push({ n: c, parent: p, sib: k - 1 }); st2.push(c); }); }
+      starts.sort(function (a, b) { return depth[a.n.id] - depth[b.n.id] || byTime(a.n, b.n); });
+      var occ = {};   // row → [[from, to], ...] 這一排已被占用的層範圍
+      function free(row, a, b) { var list = occ[row] || []; for (var q = 0; q < list.length; q++) if (a <= list[q][1] + 1 && list[q][0] <= b + 1) return false; return true; }   // 前後各留一格空隙
+      var minRow = 0, maxRow = 0;
+      starts.forEach(function (s) {
+        var a = depth[s.n.id], b = chainEnd(s.n), row;
+        if (!s.parent) row = 0;
+        else {
+          var base = rowOf[s.parent.id], pref = s.sib % 2 === 0 ? 1 : -1;   // 第二則回應優先放下方, 第三則放上方, 依序交替; 離上一則最近的空排
+          for (var k = 1; ; k++) {
+            var c1 = base + pref * k, c2 = base - pref * k;
+            if (free(c1, a, b)) { row = c1; break; }
+            if (free(c2, a, b)) { row = c2; break; }
+          }
+        }
+        (occ[row] = occ[row] || []).push([a, b]);
+        var cur = s.n; while (cur) { rowOf[cur.id] = row; cur = f.kids[cur.id][0]; }
+        minRow = Math.min(minRow, row); maxRow = Math.max(maxRow, row);
+      });
+      bands.push({ root: root, minRow: minRow, maxRow: maxRow });
     });
-    var cols = dir === 'LR' ? maxDepth + 1 : next, rows = dir === 'LR' ? next : maxDepth + 1;
-    return { targets: targets, width: x0 * 2 + (cols - 1) * colStep + w, height: y0 * 2 + (rows - 1) * rowStep + h, dir: dir, trees: f.roots.length };
+    // 每棵樹各佔一個區塊, 區塊之間空一排
+    var off = 0, bandOf = {};
+    bands.forEach(function (bd) { bd.off = off - bd.minRow; off += bd.maxRow - bd.minRow + 2; });
+    bands.forEach(function (bd) { var st = [bd.root]; while (st.length) { var n = st.pop(); bandOf[n.id] = bd; f.kids[n.id].forEach(function (c) { st.push(c); }); } });
+    var maxDepth = 0, maxRowAll = 0;
+    var targets = nodes.map(function (n) {
+      var along = depth[n.id], across = rowOf[n.id] + bandOf[n.id].off; maxDepth = Math.max(maxDepth, along); maxRowAll = Math.max(maxRowAll, across);
+      return dir === 'LR' ? { id: n.id, x: Math.round(x0 + along * alongStep), y: Math.round(y0 + across * acrossStep) } : { id: n.id, x: Math.round(x0 + across * acrossStep), y: Math.round(y0 + along * alongStep) };
+    });
+    var cols = dir === 'LR' ? maxDepth : maxRowAll, rows = dir === 'LR' ? maxRowAll : maxDepth;
+    return { targets: targets, width: x0 * 2 + cols * (dir === 'LR' ? alongStep : acrossStep) + w, height: y0 * 2 + rows * (dir === 'LR' ? acrossStep : alongStep) + h, dir: dir, trees: f.roots.length, lanes: maxRowAll + 1, alongStep: alongStep, acrossStep: acrossStep };
   }
 
   /* ---------- 2. 潛力熱點 ---------- */

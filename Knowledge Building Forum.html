@@ -51,6 +51,7 @@
         .node-card:hover { box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); z-index: 50; }
         .node-card.selected-node { box-shadow: 0 0 0 3px #3b82f6, 0 10px 15px -3px rgba(59, 130, 246, 0.2); border-color: #3b82f6; z-index: 60; }
         .promising-node { box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.4), 0 0 25px rgba(249, 115, 22, 0.5); border-color: #f97316 !important; transform: translateY(-2px); z-index: 45; }
+        .kb-kbd { display: inline-block; font: 600 10px/1 ui-monospace, Menlo, Consolas, monospace; color: #64748b; background: #f1f5f9; border: 1px solid #e2e8f0; border-bottom-width: 2px; border-radius: 4px; padding: 2px 4px; margin-left: 4px; vertical-align: 1px; }
         .cluster-zone { position: absolute; border: 2px dashed rgba(203, 213, 225, 0.6); border-radius: 24px; display: flex; flex-direction: column; align-items: center; padding-top: 1rem; pointer-events: none; transition: all 0.5s ease-in-out; background: rgba(255, 255, 255, 0.4); }
         .cluster-title { font-weight: 700; font-size: 1rem; padding: 0.5rem 1.5rem; border-radius: 9999px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); background: white; color: #475569; border: 1px solid #e2e8f0; }
         path.connection { fill: none; stroke-width: 2; transition: stroke 0.3s; pointer-events: none; }
@@ -188,6 +189,18 @@
                 <button onclick="window.ui.closeModal('modal-topic')" class="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg">取消</button>
                 <button id="btn-topic-save" onclick="window.app.saveTopic()" class="px-4 py-2 bg-indigo-600 text-white rounded-lg shadow hover:bg-indigo-700">建立</button>
             </div>
+        </div>
+    </div>
+
+    <!-- 快捷鍵說明 -->
+    <div id="modal-shortcuts" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-[105] hidden flex items-center justify-center p-4" role="dialog" aria-label="快捷鍵說明">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-xl flex flex-col" style="max-height:min(85vh,85dvh)">
+            <div class="px-5 py-3 border-b border-slate-100 flex items-center justify-between shrink-0">
+                <h3 class="font-bold text-slate-800"><i class="fa-regular fa-keyboard"></i> 快捷鍵(參考 Word 的習慣)</h3>
+                <button onclick="window.ui.closeModal('modal-shortcuts')" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-400" aria-label="關閉"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div id="shortcuts-body" class="p-5 overflow-y-auto text-sm text-slate-700"></div>
+            <div class="px-5 py-2 border-t border-slate-100 text-[11px] text-slate-400 shrink-0">在輸入文字的地方(標題、內容)不會觸發快捷鍵。Mac 用 Cmd 代替 Ctrl、Option 代替 Alt。</div>
         </div>
     </div>
 
@@ -742,6 +755,68 @@
             window.state.needsCentering = true;
             window.app.router('canvas');
         };
+
+        /* ---- 快捷鍵(參考 Word): 復原 Ctrl+Z、取消復原 Ctrl+Y、全選 Ctrl+A、Ctrl+Home / Ctrl+End、方向鍵、PageUp / PageDown、F1 說明、Ctrl+Enter 送出;
+           論壇專屬的功能用 Alt + 字母(避開瀏覽器自己的 Ctrl 組合): Alt+L/T 排版、Alt+1/2/0 聚類、Alt+H 熱點、Alt+N 貢獻想法、Alt+M 拖曳/選取 ---- */
+        window.app.SHORTCUTS = [
+            { g: '編輯', k: 'Ctrl+Z', zh: '復原上一步(排版、語意聚類、移動卡片, 每個討論區最多記 20 步)', run: () => window.app.canvas.undoLayout(), m: e => ctrlKey(e) && !e.shiftKey && !e.altKey && e.code === 'KeyZ' },
+            { g: '編輯', k: 'Ctrl+Y / Ctrl+Shift+Z', zh: '取消復原', run: () => window.app.canvas.redoLayout(), m: e => ctrlKey(e) && !e.altKey && (e.code === 'KeyY' || (e.shiftKey && e.code === 'KeyZ')) },
+            { g: '編輯', k: 'Ctrl+A', zh: '選取全部卡片', run: () => window.app.selectAllNodes(), m: e => ctrlKey(e) && !e.shiftKey && !e.altKey && e.code === 'KeyA' },
+            { g: '編輯', k: 'Esc', zh: '取消選取、收起選單、關閉視窗', run: () => { window.app.canvas.closeMenus(); window.app.clearSelection(); }, m: e => e.key === 'Escape' && !ctrlKey(e) && !e.altKey, pass: true },
+            { g: '編輯', k: 'Alt+N', zh: '貢獻想法(開啟發言視窗)', run: () => window.app.openComposer(null), m: e => e.altKey && !e.shiftKey && !ctrlKey(e) && e.code === 'KeyN' },
+            { g: '編輯', k: 'Ctrl+Enter', zh: '在發言視窗裡發布', run: () => window.app.submitNode(), m: e => ctrlKey(e) && e.key === 'Enter', composer: true },
+            { g: '排版', k: 'Alt+L', zh: '最佳化排版: 從左到右', run: () => window.app.canvas.arrange('LR'), m: e => e.altKey && !e.shiftKey && !ctrlKey(e) && e.code === 'KeyL' },
+            { g: '排版', k: 'Alt+T', zh: '最佳化排版: 從上到下', run: () => window.app.canvas.arrange('TB'), m: e => e.altKey && !e.shiftKey && !ctrlKey(e) && e.code === 'KeyT' },
+            { g: '分析', k: 'Alt+1', zh: '語意聚類: 依內容主題', run: () => window.app.canvas.setCluster('topic'), m: e => e.altKey && !ctrlKey(e) && e.code === 'Digit1' },
+            { g: '分析', k: 'Alt+2', zh: '語意聚類: 依想法類型(提問 / 延伸 / 改進 / 反例 / 昇華)', run: () => window.app.canvas.setCluster('type'), m: e => e.altKey && !ctrlKey(e) && e.code === 'Digit2' },
+            { g: '分析', k: 'Alt+0', zh: '關閉語意聚類(放回原本的位置)', run: () => window.app.canvas.setCluster(null), m: e => e.altKey && !ctrlKey(e) && e.code === 'Digit0' },
+            { g: '分析', k: 'Alt+H', zh: '潛力熱點 開 / 關', run: () => window.app.canvas.toggleHeatmap(), m: e => e.altKey && !e.shiftKey && !ctrlKey(e) && e.code === 'KeyH' },
+            { g: '分析', k: 'Alt+Shift+H', zh: '請 AI 複核潛力熱點(有 AI 金鑰時)', run: () => { if (window.state.canvas.isHeatmapMode) window.app.canvas.askAiHeat(); else window.ui.showToast('先按 Alt+H 打開潛力熱點', 'info'); }, m: e => e.altKey && e.shiftKey && !ctrlKey(e) && e.code === 'KeyH' },
+            { g: '檢視', k: '+ / -', zh: '放大 / 縮小', run: null, m: e => !ctrlKey(e) && !e.altKey && (e.key === '+' || e.key === '=' || e.key === '-' || e.key === '_'), z: true },
+            { g: '檢視', k: '0', zh: '符合畫面(回到預設縮放)', run: () => window.app.canvas.fitView(), m: e => !ctrlKey(e) && !e.altKey && e.key === '0' },
+            { g: '檢視', k: '方向鍵', zh: '移動畫面(按住 Shift 移得更快)', run: null, m: e => !ctrlKey(e) && !e.altKey && /^Arrow/.test(e.key), arrows: true },
+            { g: '檢視', k: 'PageUp / PageDown', zh: '往上 / 往下翻一頁', run: null, m: e => !ctrlKey(e) && !e.altKey && (e.key === 'PageUp' || e.key === 'PageDown'), pages: true },
+            { g: '檢視', k: 'Ctrl+Home', zh: '回到起點(第一則想法)', run: () => window.app.centerOnFirstNode(true), m: e => ctrlKey(e) && !e.altKey && e.key === 'Home' },
+            { g: '檢視', k: 'Ctrl+End', zh: '到最新的一則想法', run: () => window.app.centerOnLatestNode(), m: e => ctrlKey(e) && !e.altKey && e.key === 'End' },
+            { g: '檢視', k: 'Alt+M', zh: '切換「拖曳 / 選取」模式', run: () => window.app.canvas.toggleMode(), m: e => e.altKey && !e.shiftKey && !ctrlKey(e) && e.code === 'KeyM' },
+            { g: '說明', k: 'F1 或 ?', zh: '顯示這張快捷鍵說明', run: () => window.app.showShortcuts(), m: e => e.key === 'F1' || (e.key === '?' && !ctrlKey(e) && !e.altKey), any: true }
+        ];
+        const ctrlKey = (e) => e.ctrlKey || e.metaKey;
+        window.app.selectAllNodes = () => {
+            const ids = window.app.canvas.topicNodes().map(n => n.id); window.state.selectedNodeIds = ids;
+            document.querySelectorAll('.node-card').forEach(el => el.classList.add('selected-node'));
+            window.ui.showToast('已選取全部 ' + ids.length + ' 張卡片', 'info');
+        };
+        window.app.clearSelection = () => { window.state.selectedNodeIds = []; document.querySelectorAll('.node-card.selected-node').forEach(el => el.classList.remove('selected-node')); };
+        window.app.centerOnLatestNode = () => {
+            const ns = window.app.canvas.topicNodes(); if (!ns.length) return;
+            const n = ns.reduce((a, b) => ((b.date || 0) >= (a.date || 0) ? b : a), ns[0]), wrap = document.getElementById('canvas-wrapper'), c = window.state.canvas;
+            const cw = wrap ? wrap.clientWidth : 800, ch = wrap ? wrap.clientHeight : 600, sz = window.app.canvas.cardSize();
+            c.offsetX = (cw / 2) - (n.x + sz.w / 2) * c.scale; c.offsetY = (ch / 2) - (n.y + sz.h / 2) * c.scale; window.app.canvas.applyTransform();
+        };
+        window.app.showShortcuts = () => {
+            const groups = {}; window.app.SHORTCUTS.forEach(x => { (groups[x.g] = groups[x.g] || []).push(x); });
+            document.getElementById('shortcuts-body').innerHTML = Object.keys(groups).map(g => `<div class="mb-3"><div class="text-[11px] font-bold text-slate-400 mb-1">${g}</div>${groups[g].map(x => `<div class="flex items-start justify-between gap-3 py-1 border-b border-slate-50"><span>${x.zh}</span><span class="shrink-0 whitespace-nowrap">${x.k.split(' / ').map(k => `<kbd class="kb-kbd">${k}</kbd>`).join(' ')}</span></div>`).join('')}</div>`).join('');
+            document.getElementById('modal-shortcuts').classList.remove('hidden');
+        };
+        window.app.onKey = (e) => {
+            const t = e.target, typing = t && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable);
+            const sc = window.app.SHORTCUTS.find(x => x.m(e)); if (!sc) return;
+            const openModal = [].slice.call(document.querySelectorAll('[id^="modal-"].fixed')).filter(m => !m.classList.contains('hidden'));
+            const composerOpen = openModal.some(m => m.id === 'modal-node');
+            if (sc.composer) { if (composerOpen) { e.preventDefault(); sc.run(); } return; }   // Ctrl+Enter: 在發言視窗(含輸入框裡)發布
+            if (typing) return;
+            if (sc.any) { e.preventDefault(); sc.run(); return; }
+            if (sc.pass) { sc.run(); return; }   // Esc: 照常往下傳(關視窗), 另外收起選單、取消選取
+            if (window.state.currentView !== 'canvas' || openModal.length) return;
+            e.preventDefault();
+            const c = window.state.canvas;
+            if (sc.z) { window.app.canvas.zoom(/^[+=]$/.test(e.key) ? 0.1 : -0.1); return; }
+            if (sc.arrows) { const step = e.shiftKey ? 320 : 80; if (e.key === 'ArrowLeft') c.offsetX += step; if (e.key === 'ArrowRight') c.offsetX -= step; if (e.key === 'ArrowUp') c.offsetY += step; if (e.key === 'ArrowDown') c.offsetY -= step; window.app.canvas.applyTransform(); return; }
+            if (sc.pages) { const wrap = document.getElementById('canvas-wrapper'), step = ((wrap && wrap.clientHeight) || 600) * 0.85; c.offsetY += e.key === 'PageUp' ? step : -step; window.app.canvas.applyTransform(); return; }
+            sc.run();
+        };
+        if (!window.__kbKeysOn) { window.__kbKeysOn = true; document.addEventListener('keydown', (e) => { try { window.app.onKey(e); } catch (x) { console.error(x); } }); }
 
         window.app.kbAiJson = async (prompt) => {
             let init = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.2, responseMimeType: 'application/json' } }) };
@@ -1411,6 +1486,10 @@
                 }
                 if (window.state.canvas.draggedNodeId) {
                     window.state.canvas.draggedNodeId = null;
+                    try {
+                        const pre = window.state.canvas._dragPre; window.state.canvas._dragPre = null;
+                        if (pre && Object.keys(pre.pos).some(id => { const n = window.state.nodes.find(x => x.id === id), p = pre.pos[id]; return n && (Math.abs(n.x - p.x) > 3 || Math.abs(n.y - p.y) > 3); })) window.app.canvas.pushHistory('移動卡片', pre);
+                    } catch (e) {}
                 }
                 if (window.state.canvas.isSelecting) {
                     const start = window.state.canvas.selectionStart;
@@ -1522,6 +1601,7 @@
                 else window.state.canvas._lastTap = { id: id, t: now };
             },
             startDrag: (e, id) => {
+                window.state.canvas._dragPre = window.app.canvas.snapshot('移動卡片');   // 拖曳之前的位置, 放開時有真的移動才記進歷史
                 window.state.canvas.draggedNodeId = id;
                 const c = window.app.canvas.getCoords(e);
                 window.state.canvas.lastX = c.x;
@@ -1544,14 +1624,25 @@
             },
             /* ---- 最佳化排版 / 語意聚類 / 潛力熱點(算法在 kb-layout.js) ---- */
             topicNodes: () => window.state.nodes.filter(n => n.topicId === window.state.currentTopicId),
-            cardSize: () => ({ w: window.innerWidth < 768 ? 256 : 288, h: 170 }),
+            // 卡片大小: 寬度看是不是手機; 高度量現在畫面上最高的那張(排版間距才不會讓卡片重疊)
+            cardSize: () => {
+                let h = 182; try { document.querySelectorAll('.node-card').forEach(e => { h = Math.max(h, e.offsetHeight || 0); }); } catch (e) {}
+                return { w: window.innerWidth < 768 ? 256 : 288, h: Math.min(h, 320) };
+            },
             // 上方工具列的下拉選單: 開一個、其他關起來; 點空白處關閉
             openMenu: (name, e) => {
                 if (e) e.stopPropagation();
                 ['layout', 'cluster'].forEach(k => { const m = document.getElementById('menu-' + k); if (m) { if (k === name) m.classList.toggle('hidden'); else m.classList.add('hidden'); } });
             },
             closeMenus: () => { ['layout', 'cluster'].forEach(k => { const m = document.getElementById('menu-' + k); if (m) m.classList.add('hidden'); }); },
-            // 排好之後把整張圖放進畫面(最小縮到 25%)
+            // 排好之後的視角: 整張圖放得進畫面(縮放不小於 50%)就整張放進去; 太大(脈絡很長)就用 80%(手機 60%)看, 並移到第一則想法, 不要縮到看不清楚
+            viewAfterArrange: (width, height) => {
+                const wrap = document.getElementById('canvas-wrapper'); if (!wrap) return;
+                const cw = wrap.clientWidth || 800, ch = wrap.clientHeight || 600, c = window.state.canvas;
+                const fit = Math.min(1, cw / width, ch / height);
+                if (fit >= 0.5) { c.scale = fit; c.offsetX = Math.round((cw - width * fit) / 2); c.offsetY = Math.round(Math.max(0, (ch - height * fit) / 2)); window.app.canvas.applyTransform(); }
+                else { c.scale = window.innerWidth < 768 ? 0.6 : 0.8; window.app.centerOnFirstNode(false); }
+            },
             fitBounds: (width, height) => {
                 const wrap = document.getElementById('canvas-wrapper'); if (!wrap || !width || !height) return;
                 const cw = wrap.clientWidth || 800, ch = wrap.clientHeight || 600;
@@ -1566,9 +1657,37 @@
                 const byId = {}; window.app.canvas.topicNodes().forEach(n => { byId[n.id] = n; });
                 targets.forEach(t => { const n = byId[t.id]; if (n) { n.x = t.x; n.y = t.y; } });
             },
-            snapshot: () => {
+            /* ---- 歷史: 排版、語意聚類、移動卡片, 每個討論區各記最近 20 步; 可以復原(Ctrl+Z), 也可以取消復原(Ctrl+Y) ---- */
+            HIST_MAX: 20,
+            hist: () => { const c = window.state.canvas, t = window.state.currentTopicId; c._h = c._h || {}; return (c._h[t] = c._h[t] || { u: [], r: [] }); },
+            snapshot: (label) => {
                 const pos = {}; window.app.canvas.topicNodes().forEach(n => { pos[n.id] = { x: n.x, y: n.y, sx: n.savedX, sy: n.savedY }; });
-                return { topic: window.state.currentTopicId, pos: pos, mode: window.state.canvas.clusterMode, zones: (window.state.canvas.zones || []).slice() };
+                return { label: label || '', pos: pos, mode: window.state.canvas.clusterMode, zones: (window.state.canvas.zones || []).slice() };
+            },
+            pushHistory: (label, snap) => {
+                const h = window.app.canvas.hist(); h.u.push(snap || window.app.canvas.snapshot(label)); if (h.u.length > window.app.canvas.HIST_MAX) h.u.shift(); h.r = [];
+            },
+            restoreSnapshot: (snap) => {
+                const C = window.app.canvas, c = window.state.canvas, nodes = C.topicNodes();
+                nodes.forEach(n => { delete n.savedX; delete n.savedY; });
+                nodes.forEach(n => { const p = snap.pos[n.id]; if (p) { n.x = p.x; n.y = p.y; if (p.sx !== undefined) { n.savedX = p.sx; n.savedY = p.sy; } } });
+                c.clusterMode = snap.mode || null; c.isClusterMode = !!snap.mode; c.zones = (snap.zones || []).slice();
+                setTimeout(() => { try { window.dataManager.save(); } catch (e) {} }, 900);
+                window.ui.renderCanvas();
+            },
+            undoLayout: () => {
+                const C = window.app.canvas, h = C.hist(); C.closeMenus();
+                if (!h.u.length) return window.ui.showToast('沒有可以復原的步驟', 'info');
+                const snap = h.u.pop(), cur = C.snapshot(snap.label); h.r.push(cur); if (h.r.length > C.HIST_MAX) h.r.shift();
+                C.restoreSnapshot(snap);
+                window.ui.showToast('已復原「' + (snap.label || '上一步') + '」(還可以復原 ' + h.u.length + ' 步)', 'success');
+            },
+            redoLayout: () => {
+                const C = window.app.canvas, h = C.hist(); C.closeMenus();
+                if (!h.r.length) return window.ui.showToast('沒有可以取消復原的步驟', 'info');
+                const snap = h.r.pop(), cur = C.snapshot(snap.label); h.u.push(cur); if (h.u.length > C.HIST_MAX) h.u.shift();
+                C.restoreSnapshot(snap);
+                window.ui.showToast('已取消復原「' + (snap.label || '這一步') + '」(還可以取消復原 ' + h.r.length + ' 步)', 'success');
             },
             // 回到沒有聚類的狀態(不動畫、不存檔): 讓聚類或排版之前先把卡片放回自己原本的位置
             clearCluster: (restore) => {
@@ -1577,32 +1696,20 @@
                 window.app.canvas.topicNodes().forEach(n => { delete n.savedX; delete n.savedY; });
                 c.clusterMode = null; c.isClusterMode = false; c.zones = [];
             },
-            // 最佳化排版: dir = 'LR'(從左到右) 或 'TB'(從上到下); 排好會存起來(和手動拖曳位置一樣), 並可以「復原上一次排版」
+            // 最佳化排版: dir = 'LR'(從左到右) 或 'TB'(從上到下). 依發言脈絡排(第一則回應接在同一排, 其他回應排在上下的空排), 卡片不重疊; 排好會存起來, 並記進歷史
             arrange: (dir) => {
                 const C = window.app.canvas, c = window.state.canvas, nodes = C.topicNodes();
                 C.closeMenus();
                 if (!nodes.length) return window.ui.showToast('這個討論區還沒有想法可以排版', 'info');
                 if (!window.KBLayout) return;
-                c._undo = C.snapshot();
+                C.pushHistory(dir === 'TB' ? '排版:從上到下' : '排版:從左到右');
                 if (c.clusterMode) C.clearCluster(true);
                 const sz = C.cardSize(), res = KBLayout.arrange(nodes, dir, { w: sz.w, h: sz.h });
                 c.layoutDir = res.dir;
                 C.moveNodes(res.targets);
-                C.fitBounds(res.width, res.height);
+                C.viewAfterArrange(res.width, res.height);
                 setTimeout(() => { try { window.dataManager.save(); } catch (e) {} }, 900);
-                window.ui.showToast(dir === 'TB' ? '已排成「從上到下」: 想法在上方, 回應往下展開, 同一層依發言時間由左到右' : '已排成「從左到右」: 想法在左邊, 回應往右展開, 同一層依發言時間由上到下', 'success');
-                window.ui.renderCanvas();
-            },
-            undoLayout: () => {
-                const C = window.app.canvas, c = window.state.canvas, u = c._undo; C.closeMenus();
-                if (!u || u.topic !== window.state.currentTopicId) return window.ui.showToast('沒有可以復原的排版', 'info');
-                c._undo = null; C.clearCluster(false);
-                const nodes = C.topicNodes(), targets = nodes.filter(n => u.pos[n.id]).map(n => ({ id: n.id, x: u.pos[n.id].x, y: u.pos[n.id].y }));
-                nodes.forEach(n => { const p = u.pos[n.id]; if (p && p.sx !== undefined) { n.savedX = p.sx; n.savedY = p.sy; } });
-                c.clusterMode = u.mode || null; c.isClusterMode = !!u.mode; c.zones = u.zones || [];
-                C.moveNodes(targets);
-                setTimeout(() => { try { window.dataManager.save(); } catch (e) {} }, 900);
-                window.ui.showToast('已復原上一次的排版', 'success');
+                window.ui.showToast(dir === 'TB' ? '已排成「從上到下」: 想法往下推進, 同一串的第一則回應接在正下方, 其他回應排在左右的空欄' : '已排成「從左到右」: 想法往右推進, 同一串的第一則回應接在同一排, 其他回應排在上下的空排', 'success');
                 window.ui.renderCanvas();
             },
             // 語意聚類: mode = 'topic'(依內容主題) | 'type'(依想法類型) | null(關閉, 回到原本的位置)
@@ -1611,12 +1718,14 @@
                 if (!window.KBLayout) return;
                 if (!mode) {
                     if (c.clusterMode) {
+                        C.pushHistory('關閉語意聚類');
                         const targets = nodes.map(n => ({ id: n.id, x: n.savedX !== undefined ? n.savedX : n.x, y: n.savedY !== undefined ? n.savedY : n.y }));
                         C.clearCluster(false); C.moveNodes(targets);
                     }
                     return window.ui.renderCanvas();
                 }
                 if (!nodes.length) return window.ui.showToast('這個討論區還沒有想法可以聚類', 'info');
+                C.pushHistory(mode === 'type' ? '語意聚類:依想法類型' : '語意聚類:依內容主題');
                 nodes.forEach(n => { if (n.savedX === undefined) { n.savedX = n.x; n.savedY = n.y; } });   // 記住原本的位置, 關閉聚類就放回去
                 const sz = C.cardSize(), groups = (mode === 'type' ? KBLayout.clusterTypes(nodes) : KBLayout.clusterTopics(nodes)).groups;
                 const narrow = window.innerWidth < 768;   // 手機: 一區一排往下排(橫的排會縮得太小)
@@ -1775,7 +1884,7 @@
 
             window.addEventListener('keydown', (e) => {
                 if (e.key === 'Escape') {
-                    const modals = ['modal-topic', 'modal-node', 'modal-detail', 'modal-confirm', 'modal-addUser', 'modal-trash', 'modal-analytics-menu'];
+                    const modals = ['modal-shortcuts', 'modal-topic', 'modal-node', 'modal-detail', 'modal-confirm', 'modal-addUser', 'modal-trash', 'modal-analytics-menu'];
                     modals.forEach(id => {
                         const el = document.getElementById(id);
                         if (el && !el.classList.contains('hidden')) {
@@ -2045,7 +2154,7 @@
                     ${window.app.canPost() ? '' : `<span id="readonly-badge" class="bg-amber-100 text-amber-800 px-2 py-0.5 rounded text-[11px] font-bold whitespace-nowrap" title="${window.app.escH(KB.postBlock(topic.id))}"><i class="fa-solid fa-eye"></i> 僅閱讀</span>`}
                 </div>
                 <div class="flex flex-wrap justify-end gap-1.5 md:gap-2 pointer-events-auto max-w-[62%] md:max-w-none">
-                    <button onclick="window.app.canvas.toggleHeatmap()" id="btn-heatmap" class="${window.state.canvas.isHeatmapMode ? 'bg-orange-100 text-orange-600 border-orange-200' : 'bg-white/90 text-slate-500 border-slate-200'} backdrop-blur shadow-sm border rounded-lg px-3 py-1 text-xs font-bold flex items-center gap-1 transition-all hover:scale-105">
+                    <button onclick="window.app.canvas.toggleHeatmap()" id="btn-heatmap" title="潛力熱點 (Alt+H)" class="${window.state.canvas.isHeatmapMode ? 'bg-orange-100 text-orange-600 border-orange-200' : 'bg-white/90 text-slate-500 border-slate-200'} backdrop-blur shadow-sm border rounded-lg px-3 py-1 text-xs font-bold flex items-center gap-1 transition-all hover:scale-105">
                         <i class="fa-solid fa-fire ${window.state.canvas.isHeatmapMode ? 'animate-pulse' : ''}"></i>
                         <span class="text-[10px] md:text-xs">潛力熱點</span>
                     </button>
@@ -2055,9 +2164,9 @@
                             <span class="text-[10px] md:text-xs">語意聚類${window.state.canvas.clusterMode === 'type' ? '・類型' : window.state.canvas.clusterMode === 'topic' ? '・主題' : ''}</span><i class="fa-solid fa-caret-down text-[9px]"></i>
                         </button>
                         <div id="menu-cluster" class="hidden absolute right-0 mt-1 w-60 bg-white border border-slate-200 rounded-lg shadow-lg p-1 z-50 text-xs text-slate-700">
-                            <button onclick="window.app.canvas.setCluster('topic')" class="w-full text-left px-3 py-2 rounded hover:bg-slate-100"><b>依內容主題</b><br><span class="text-slate-500">用貼文裡常出現的詞分群, 區名是這群最常出現的詞</span></button>
-                            <button onclick="window.app.canvas.setCluster('type')" class="w-full text-left px-3 py-2 rounded hover:bg-slate-100"><b>依想法類型</b><br><span class="text-slate-500">提問 / 延伸 / 改進 / 反例 / 昇華 各一區</span></button>
-                            ${window.state.canvas.clusterMode ? `<button onclick="window.app.canvas.setCluster(null)" class="w-full text-left px-3 py-2 rounded hover:bg-slate-100 text-slate-600 border-t border-slate-100 mt-1"><i class="fa-solid fa-rotate-left"></i> 關閉聚類, 放回原本的位置</button>` : ''}
+                            <button onclick="window.app.canvas.setCluster('topic')" class="w-full text-left px-3 py-2 rounded hover:bg-slate-100"><b>依內容主題</b> <kbd class="kb-kbd">Alt+1</kbd><br><span class="text-slate-500">用貼文裡常出現的詞分群, 區名是這群最常出現的詞</span></button>
+                            <button onclick="window.app.canvas.setCluster('type')" class="w-full text-left px-3 py-2 rounded hover:bg-slate-100"><b>依想法類型</b> <kbd class="kb-kbd">Alt+2</kbd><br><span class="text-slate-500">提問 / 延伸 / 改進 / 反例 / 昇華 各一區</span></button>
+                            ${window.state.canvas.clusterMode ? `<button onclick="window.app.canvas.setCluster(null)" class="w-full text-left px-3 py-2 rounded hover:bg-slate-100 text-slate-600 border-t border-slate-100 mt-1"><i class="fa-solid fa-rotate-left"></i> 關閉聚類, 放回原本的位置 <kbd class="kb-kbd">Alt+0</kbd></button>` : ''}
                         </div>
                     </div>
                     <div class="relative">
@@ -2066,12 +2175,16 @@
                         </button>
                         <div id="menu-layout" class="hidden absolute right-0 mt-1 w-64 bg-white border border-slate-200 rounded-lg shadow-lg p-1 z-50 text-xs text-slate-700">
                             <div class="px-3 pt-2 pb-1 text-[11px] text-slate-400">依回應關係整理: 同一層的想法依發言時間排, 關係線與箭頭會跟著理順</div>
-                            <button onclick="window.app.canvas.arrange('LR')" class="w-full text-left px-3 py-2 rounded hover:bg-slate-100"><b><i class="fa-solid fa-arrow-right"></i> 從左到右</b><br><span class="text-slate-500">想法在左邊, 回應往右邊展開</span></button>
-                            <button onclick="window.app.canvas.arrange('TB')" class="w-full text-left px-3 py-2 rounded hover:bg-slate-100"><b><i class="fa-solid fa-arrow-down"></i> 從上到下</b><br><span class="text-slate-500">想法在上面, 回應往下面展開</span></button>
-                            <button onclick="window.app.canvas.undoLayout()" class="w-full text-left px-3 py-2 rounded hover:bg-slate-100 text-slate-600 border-t border-slate-100 mt-1"><i class="fa-solid fa-rotate-left"></i> 復原上一次排版</button>
+                            <button onclick="window.app.canvas.arrange('LR')" class="w-full text-left px-3 py-2 rounded hover:bg-slate-100"><b><i class="fa-solid fa-arrow-right"></i> 從左到右</b> <kbd class="kb-kbd">Alt+L</kbd><br><span class="text-slate-500">想法往右推進, 第一則回應接在同一排, 其他回應排在上下的空排</span></button>
+                            <button onclick="window.app.canvas.arrange('TB')" class="w-full text-left px-3 py-2 rounded hover:bg-slate-100"><b><i class="fa-solid fa-arrow-down"></i> 從上到下</b> <kbd class="kb-kbd">Alt+T</kbd><br><span class="text-slate-500">同樣的排法轉個方向: 往下推進, 其他回應排在左右的空欄</span></button>
+                            <div class="border-t border-slate-100 mt-1 pt-1 flex">
+                                <button onclick="window.app.canvas.undoLayout()" class="flex-1 text-left px-3 py-2 rounded hover:bg-slate-100 text-slate-600"><i class="fa-solid fa-rotate-left"></i> 復原 <span class="text-slate-400">(${window.app.canvas.hist().u.length}/20)</span> <kbd class="kb-kbd">Ctrl+Z</kbd></button>
+                                <button onclick="window.app.canvas.redoLayout()" class="flex-1 text-left px-3 py-2 rounded hover:bg-slate-100 text-slate-600"><i class="fa-solid fa-rotate-right"></i> 取消復原 <span class="text-slate-400">(${window.app.canvas.hist().r.length})</span> <kbd class="kb-kbd">Ctrl+Y</kbd></button>
+                            </div>
                         </div>
                     </div>
                     <div class="bg-white/90 backdrop-blur shadow-sm border rounded-lg p-1 flex items-center">
+                        <button onclick="window.app.showShortcuts()" class="w-8 h-8 hidden md:flex items-center justify-center hover:bg-slate-100 text-slate-500" title="快捷鍵說明 (F1)" aria-label="快捷鍵說明"><i class="fa-regular fa-keyboard"></i></button>
                         <button onclick="window.app.centerOnFirstNode(true)" class="w-8 h-8 flex items-center justify-center hover:bg-slate-100 text-kb-blue" title="回到起點"><i class="fa-solid fa-location-crosshairs"></i></button>
                         <div class="w-px h-5 bg-slate-200 mx-1"></div>
                         <button onclick="window.app.canvas.fitView()" class="w-8 h-8 flex items-center justify-center hover:bg-slate-100"><i class="fa-solid fa-expand"></i></button>
@@ -2308,30 +2421,25 @@
             const cardWidth = window.innerWidth < 768 ? 256 : 288;
             const halfW = cardWidth / 2;
 
+            const hOf = (n) => { const el = document.getElementById('node-' + n.id); return (el && el.offsetHeight) || 160; };
+            const colorMap = { question: '#3b82f6', extend: '#eab308', improve: '#22c55e', counter: '#ef4444', riseabove: '#a855f7' };
             const paths = nodes.filter(n => n.parentId).map(node => {
                 const parent = window.state.nodes.find(p => p.id === node.parentId);
                 if (!parent) return '';
-                const colorMap0 = { question: '#3b82f6', extend: '#eab308', improve: '#22c55e', counter: '#ef4444', riseabove: '#a855f7' };
-                if (node.x - (parent.x + cardWidth) > 24 && Math.abs(node.y - parent.y) <= (node.x - parent.x)) {   // 回應在想法的右邊: 水平連接(想法右邊 → 回應左邊)
-                    const sx = parent.x + cardWidth, sy = parent.y + 70, ex = node.x, ey = node.y + 70, dx = Math.max(40, (ex - sx) * 0.5);
-                    return `<path d="M ${sx} ${sy} C ${sx + dx} ${sy}, ${ex - dx} ${ey}, ${ex} ${ey}" stroke="${colorMap0[node.type]}" fill="none" stroke-width="2" stroke-opacity="0.6" marker-end="url(#arrow-${node.type})" />`;
+                const ph = hOf(parent), nh = hOf(node), stroke = `stroke="${colorMap[node.type]}" fill="none" stroke-width="2" stroke-opacity="0.65" marker-end="url(#arrow-${node.type})"`;
+                if (node.x - (parent.x + cardWidth) > 24) {   // 回應在想法的右邊: 想法右緣中間 → 回應左緣中間
+                    const sx = parent.x + cardWidth, sy = parent.y + ph / 2, ex = node.x, ey = node.y + nh / 2;
+                    if (Math.abs(ey - sy) < 2) return `<path d="M ${sx} ${sy} L ${ex} ${ey}" ${stroke} />`;   // 同一排: 一條直線
+                    const dx = (ex - sx) * 0.5; return `<path d="M ${sx} ${sy} C ${sx + dx} ${sy}, ${ex - dx} ${ey}, ${ex} ${ey}" ${stroke} />`;
                 }
-                const startX = parent.x + halfW;
-                const startY = parent.y + 140;
-                const endX = node.x + halfW;
-                const endY = node.y;
-
-                const dist = Math.sqrt(Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2));
-                let curveFactor = 0.4;
-                if (endY < startY) curveFactor = 0.6;
-
-                const cp1x = startX;
-                const cp1y = startY + dist * curveFactor;
-                const cp2x = endX;
-                const cp2y = endY - dist * curveFactor;
-
-                const colorMap = { question: '#3b82f6', extend: '#eab308', improve: '#22c55e', counter: '#ef4444', riseabove: '#a855f7' };
-                return `<path d="M ${startX} ${startY} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${endX} ${endY}" stroke="${colorMap[node.type]}" fill="none" stroke-width="2" stroke-opacity="0.6" marker-end="url(#arrow-${node.type})" />`;
+                const startX = parent.x + halfW, startY = parent.y + ph, endX = node.x + halfW, endY = node.y;
+                if (endY - startY > 20) {   // 回應在想法的下方: 想法下緣中間 → 回應上緣中間(垂直的 S 形; 同一欄是直線)
+                    if (Math.abs(endX - startX) < 2) return `<path d="M ${startX} ${startY} L ${endX} ${endY}" ${stroke} />`;
+                    const off = (endY - startY) * 0.5; return `<path d="M ${startX} ${startY} C ${startX} ${startY + off}, ${endX} ${endY - off}, ${endX} ${endY}" ${stroke} />`;
+                }
+                const dist = Math.sqrt(Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2));   // 其他位置(手動排的): 保留原本的弧線
+                let curveFactor = 0.4; if (endY < startY) curveFactor = 0.6;
+                return `<path d="M ${startX} ${startY} C ${startX} ${startY + dist * curveFactor}, ${endX} ${endY - dist * curveFactor}, ${endX} ${endY}" ${stroke} />`;
             }).join('');
 
             layer.innerHTML += paths;
