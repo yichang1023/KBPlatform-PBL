@@ -18,6 +18,7 @@
     <script src="kb-voice.js"></script>
     <script src="kb-media.js"></script>
     <script src="kb-tts.js"></script>
+    <script src="kb-nav.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -35,6 +36,7 @@
     </script>
 
     <style>
+        #modal-node.kb-compact .grid.grid-cols-5 { display: none; }
         html, body { height: 100%; width: 100%; overflow: hidden; overscroll-behavior: none; -webkit-tap-highlight-color: transparent; }
         #canvas-bg { background-color: #f8fafc; background-image: radial-gradient(#cbd5e1 1px, transparent 1px); background-size: 20px 20px; width: 100%; height: 100%; position: absolute; top: 0; left: 0; z-index: -1; }
         .custom-scroll { -webkit-overflow-scrolling: touch; }
@@ -159,7 +161,7 @@
     <!-- Modals -->
     <!-- Topic Create Modal -->
     <div id="modal-topic" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] hidden flex items-end md:items-center justify-center p-4">
-        <div class="bg-white rounded-t-xl md:rounded-xl shadow-2xl w-full max-w-lg p-6 transform transition-all scale-100 max-h-[85vh] overflow-y-auto mb-safe md:mb-0">
+        <div class="bg-white rounded-t-xl md:rounded-xl shadow-2xl w-full max-w-lg p-6 transform transition-all scale-100 max-h-[85vh] overflow-y-auto mb-safe md:mb-0" style="max-height:85vh;max-height:85dvh">
             <h3 id="modal-topic-title" class="text-xl font-bold mb-4 flex items-center gap-2"><i class="fa-solid fa-folder-plus text-indigo-600"></i> 開啟探究主題</h3>
             <div class="space-y-4">
                 <div>
@@ -189,7 +191,7 @@
 
     <!-- Node Composer Modal -->
     <div id="modal-node" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] hidden flex items-end md:items-center justify-center sm:p-4">
-        <div class="bg-white rounded-t-xl sm:rounded-xl shadow-2xl w-full max-w-2xl p-4 sm:p-6 relative overflow-hidden flex flex-col mb-safe md:mb-0" style="max-height:min(90vh,94%)">
+        <div class="bg-white rounded-t-xl sm:rounded-xl shadow-2xl w-full max-w-2xl p-4 sm:p-6 relative overflow-hidden flex flex-col mb-safe md:mb-0" style="max-height:min(90vh,94%);max-height:min(90dvh,94%)">
             <div class="flex justify-between items-center mb-4 shrink-0">
                  <h3 class="text-lg md:text-xl font-bold">貢獻想法</h3>
                  <button onclick="window.ui.closeModal('modal-node')" class="text-slate-400 hover:text-slate-600 p-2"><i class="fa-solid fa-xmark text-xl"></i></button>
@@ -221,7 +223,7 @@
 
     <!-- Node Detail Modal -->
     <div id="modal-detail" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-[65] hidden flex items-center justify-center p-4">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[85vh]">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[85vh]" style="max-height:85vh;max-height:85dvh">
             <div class="px-4 py-3 md:px-6 md:py-4 border-b border-slate-100 flex items-center justify-between shrink-0 bg-slate-50 rounded-t-xl">
                 <div class="flex items-center gap-3">
                     <div id="detail-scaffold-icon" class="w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center text-white text-lg"></div>
@@ -284,7 +286,7 @@
 
     <!-- Trash Modal -->
     <div id="modal-trash" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-[70] hidden flex items-center justify-center p-4">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[85vh]">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[85vh]" style="max-height:85vh;max-height:85dvh">
             <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0 bg-red-50 rounded-t-xl">
                 <h3 class="text-lg font-bold text-red-700 flex items-center gap-2"><i class="fa-solid fa-trash-can"></i> 資源回收桶</h3>
                 <button onclick="window.ui.closeModal('modal-trash')" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-red-100 text-red-400"><i class="fa-solid fa-xmark text-lg"></i></button>
@@ -1466,6 +1468,20 @@
                 window.state.canvas.offsetY = 0;
                 window.app.canvas.applyTransform();
             },
+            // 手機: 在想法卡片上「快速點兩下」打開內容(手機瀏覽器在可拖曳的畫布上不會送出 dblclick, 所以自己判斷:
+            // 兩次輕點都沒有移動、間隔 0.45 秒內、在同一張卡片上)
+            tapStart: (e, id) => {
+                const t = e.touches && e.touches[0]; if (!t) return;
+                window.state.canvas._tap = { id: id, x: t.clientX, y: t.clientY, t: Date.now(), n: e.touches.length };
+            },
+            tapEnd: (e, id) => {
+                const tp = window.state.canvas._tap; window.state.canvas._tap = null;
+                const ct = e.changedTouches && e.changedTouches[0];
+                if (!tp || tp.id !== id || !ct || tp.n > 1 || Date.now() - tp.t > 500 || Math.hypot(ct.clientX - tp.x, ct.clientY - tp.y) > 12) { window.state.canvas._lastTap = null; return; }
+                const last = window.state.canvas._lastTap, now = Date.now();
+                if (last && last.id === id && now - last.t < 450) { window.state.canvas._lastTap = null; window.state.canvas._tapOpened = now; window.app.openNodeDetail(id); }
+                else window.state.canvas._lastTap = { id: id, t: now };
+            },
             startDrag: (e, id) => {
                 window.state.canvas.draggedNodeId = id;
                 const c = window.app.canvas.getCoords(e);
@@ -1747,6 +1763,7 @@
         // 手機: 彈出鍵盤、縮放或畫面被推動時, 視窗跟著「真正看得到的範圍」, 上方的 X 和下方的按鈕才不會跑到畫面外
         window.ui.fitModal = (id) => {
             const ov = document.getElementById(id), vv = window.visualViewport; if (!ov || ov.classList.contains('hidden')) return;
+            try { ov.classList.toggle('kb-compact', id === 'modal-node' && !!vv && vv.height < 560 && !!(window.state && window.state.composer && window.state.composer.selectedScaffold)); } catch (e) {}
             const S = ['top', 'left', 'width', 'height', 'right', 'bottom'];
             if (!vv || (Math.abs(vv.offsetTop) < 1 && Math.abs(vv.offsetLeft) < 1 && Math.abs(vv.scale - 1) < 0.01 && Math.abs(vv.height - window.innerHeight) < 2)) { S.forEach(k => { ov.style[k] = ''; }); return; }
             ov.style.top = vv.offsetTop + 'px'; ov.style.left = vv.offsetLeft + 'px'; ov.style.width = vv.width + 'px'; ov.style.height = vv.height + 'px'; ov.style.right = 'auto'; ov.style.bottom = 'auto';
@@ -2087,8 +2104,9 @@
                 <div id="node-${node.id}" class="absolute node-card w-64 md:w-72 bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col overflow-visible ${heatmapClass} ${isSelected}"
                      style="left: ${node.x}px; top: ${node.y}px;"
                      onmousedown="event.stopPropagation(); window.app.canvas.startDrag(event, '${node.id}')"
-                     ontouchstart="event.stopPropagation(); window.app.canvas.startDrag(event, '${node.id}')"
-                     ondblclick="event.stopPropagation(); window.app.openNodeDetail('${node.id}')">
+                     ontouchstart="event.stopPropagation(); window.app.canvas.tapStart(event, '${node.id}'); window.app.canvas.startDrag(event, '${node.id}')"
+                     ontouchend="window.app.canvas.tapEnd(event, '${node.id}')"
+                     ondblclick="event.stopPropagation(); if (Date.now() - (window.state.canvas._tapOpened || 0) > 700) window.app.openNodeDetail('${node.id}')">
                     ${flameBadge}
                     <div class="px-3 py-2 ${s.bgSoft} border-b ${s.border} flex justify-between items-center cursor-move rounded-t-xl">
                         <div class="flex items-center gap-2">

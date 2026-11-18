@@ -911,18 +911,31 @@
    * opts = { chunks:[{ text, start, end }], voice(聲音名), style, rate, model, onChunk(i,chunk), onState(state), onNote(msg) } */
   function Reader(o) {
     o.chunks = o.chunks.slice();   // 自己留一份(失敗時會把一段切成兩段, 不能動到外面的清單)
-    var self = this; this.o = o; this.i = o.from || 0; this.state = 'idle'; this.token = 0; this.audio = null; this.pre = {}; this.engine = o.engine === 'browser' ? 'browser' : 'ai'; this.gapT = null; this.seekFrac = o.fromFrac || 0; this.chunkT0 = 0; this.pausedAt = 0;
+    var self = this; this.o = o; this.i = o.from || 0; this.state = 'idle'; this.token = 0; this.audio = null; this.pre = {}; this.engine = o.engine === 'browser' ? 'browser' : 'ai'; this.gapT = null; this.retries = {}; this.pend = 0; this.lastErr = null; this.seekFrac = o.fromFrac || 0; this.chunkT0 = 0; this.pausedAt = 0;
     function set(s) { self.state = s; if (o.onState) o.onState(s); }
     function say(m) { if (o.onNote) o.onNote(m); }
     function done() { set('idle'); if (o.onChunk) o.onChunk(-1); }
     function clearGap() { if (self.gapT) { clearTimeout(self.gapT); self.gapT = null; } }
     function fail(err, tok) {
+      self.lastErr = err;
       if (tok !== self.token) return; clearWait();
-      if (self.engine === 'ai' && tooBig(err) && splitCurrent()) { run(tok); return; }   // 這一段太大或太久而失敗: 切成兩段再合成
+      if (self.engine === 'ai' && (tooBig(err) || netFail(err) || (err && err.media)) && splitCurrent()) { run(tok); return; }   // 這一段太大、太久、連線中斷或聲音檔壞掉: 切成兩段再合成(比較小, 手機的網路也撐得住)
+      if (self.engine === 'ai' && retryable(err) && retryLater(tok)) return;   // 暫時性的問題(網路不穩、每分鐘限流): 自動等一下再試, 先不要換成瀏覽器語音
       if (self.engine === 'ai' && o.onAiFail) { var h = false; try { h = o.onAiFail(err, self.i); } catch (e) {} if (h) return; }   // AI 人聲出問題(額度用完等): 讓朗讀列改用瀏覽器聲音接著念
       say((err && err.status === 429 ? '' : '朗讀失敗: ') + (err && err.message || '請稍後再試')); done();   // 額度用完(429)不是壞掉, 直接顯示說明
     }
     function tooBig(err) { var st = err && err.status; return st === 413 || st === 504 || st === 500 || st === 502; }
+    function netFail(err) { var st = err && err.status; return !st || st === 408; }   // 沒有狀態碼 = 連線中斷、逾時
+    function waitErr(err) { return !!err && err.status === 429 && /每分鐘|太頻繁|per.?minute/i.test(String(err.message || '')); }   // 每分鐘限流: 等幾秒就好, 不是今天額度用完
+    function retryable(err) { var st = err && err.status; return netFail(err) || st >= 500 || waitErr(err) || !!(err && err.media); }
+    function retryLater(tok) {   // 同一段最多自動重試 2 次; 回傳 true = 已排好重試
+      var n = self.retries[self.i] || 0; if (n >= 2) return false;
+      var w = (self.lastErr && waitErr(self.lastErr)) ? [7000, 14000][n] : [1200, 3500][n], sc = H.retryScale == null ? 1 : H.retryScale;
+      self.retries[self.i] = n + 1; delete self.pre[self.i]; clearGap();
+      say(self.lastErr && waitErr(self.lastErr) ? '現在同時合成語音的人比較多, 稍等幾秒再試…' : '網路不太穩, 正在重新連線…');
+      self.gapT = setTimeout(function () { self.gapT = null; if (tok === self.token && self.state === 'playing') { say(''); run(tok); } }, Math.round(w * sc));
+      return true;
+    }
     function splitCurrent() {   // 把正在合成的這一段從句子中間對半切成兩段(至少 200 字、至少 2 句才切), 並把這台電腦的每段上限調小
       var c = o.chunks[self.i]; if (!c || String(c.text).length < 200) return false;
       var ss = splitSentences(c.text); if (ss.length < 2) return false;
@@ -940,7 +953,20 @@
     function clipFor(i) {
       if (self.pre[i]) return self.pre[i];
       var c = o.chunks[i]; if (!c) return null;
-      return (self.pre[i] = aiClip(aiScript(c), o.voice, c.style || o.style, o.model));
+      var p = aiClip(aiScript(c), o.voice, c.style || o.style, o.model), tk = self.token; self.pre[i] = p; self.pend++;
+      var settle = function () { self.pend = Math.max(0, self.pend - 1); if (tk === self.token && self.state === 'playing' && self.engine === 'ai') pump(); };   // 一個合成完, 就補上下一個(滾動式)
+      p.then(settle, function () { if (self.pre[i] === p) delete self.pre[i]; self.pend = Math.max(0, self.pend - 1); });   // 失敗的不要記住(也不馬上再要, 免得一直失敗一直重試), 輪到那一段、或下一段開始時重新要
+      return p;
+    }
+    // 滾動式預先合成: 播到第 i 段時, 先把後面最多 4 段準備好, 但同時進行的合成最多 3 個(免費版每分鐘有次數限制, 一次丟太多反而被擋); 每完成一個就補下一個
+    var AHEAD = 4, MAXPAR = 3;
+    function pump() {
+      for (var k = 1; k <= AHEAD; k++) {
+        var j = self.i + k; if (j >= o.chunks.length) break;
+        if (self.pre[j]) continue;
+        if (self.pend >= MAXPAR) break;
+        var pf = clipFor(j); if (pf && pf.catch) pf.catch(function () {});
+      }
     }
     // 這一段播完了: 依標點與段落停一下(必要時補吸氣聲), 再接下一段; 停頓期間可以暫停/停止
     function advance(tok) {
@@ -952,13 +978,12 @@
       if (ms <= 0) return run(tok);
       clearGap(); self.gapT = setTimeout(function () { self.gapT = null; run(tok); }, ms);
     }
-    var AHEAD = 3;   // 播這一段時, 同時先把後面 3 段準備好(不然每一段都要等合成, 聲音就會斷斷續續)
     var waitT = null;
     function clearWait() { if (waitT) { clearTimeout(waitT); waitT = null; } if (self.waiting) { self.waiting = false; say(''); } }
     function speakAi(c, tok) {
       waitT = setTimeout(function () { if (tok === self.token && self.state === 'playing') { self.waiting = true; say('正在準備下一段聲音...'); } }, 600);
       var now = clipFor(self.i);   // 先要這一段, 再同時準備後面的
-      for (var k = 1; k <= AHEAD; k++) { if (self.i + k < o.chunks.length) { var pf = clipFor(self.i + k); if (pf && pf.catch) pf.catch(function () {}); } }
+      pump();
       now.then(function (clip) {
         clearWait();
         if (tok !== self.token || self.state !== 'playing') return;
@@ -969,8 +994,12 @@
         if (self.seekFrac > 0) { var sf = self.seekFrac; self.seekFrac = 0; var setT = function () { if (a.duration > 0 && isFinite(a.duration)) { try { a.currentTime = Math.min(a.duration - 0.05, sf * a.duration); } catch (e) {} } }; a.onloadedmetadata = setT; setT(); }   // 拖到這一段中間: 從這段聲音的那個位置開始播
         try { a.playbackRate = Math.max(0.5, Math.min(2, o.rate || 1)); } catch (e) {}
         a.onended = function () { if (tok === self.token && self.state === 'playing') advance(tok); };
-        a.onerror = function () { fail(new Error('聲音檔播放失敗'), tok); };
-        var p = a.play(); if (p && p.catch) p.catch(function (e) { if (tok === self.token && !(e && e.name === 'AbortError')) fail(e, tok); });
+        a.onerror = function () { var me = new Error('聲音檔播放失敗'); me.media = true; fail(me, tok); };
+        var p = a.play(); if (p && p.catch) p.catch(function (e) {
+          if (tok !== self.token || (e && e.name === 'AbortError')) return;
+          if (e && e.name === 'NotAllowedError') { self.token++; clearWait(); set('paused'); say('手機的瀏覽器擋住了自動播放, 請按一下「繼續」就會出聲。'); return; }   // 不是 AI 壞掉, 不要換成瀏覽器語音
+          fail(e, tok);
+        });
       }, function (err) { fail(err, tok); });
     }
     // 瀏覽器聲音: 一句一句、一個分句一個分句念; 每個分句依語氣調整語速與音高, 分句之間依標點停頓(和 AI 人聲同一套人設與語氣)
@@ -1081,6 +1110,12 @@
   }
   function cpsLoad() { try { return JSON.parse(global.localStorage.getItem('kb_tts_cps') || '{}') || {}; } catch (e) { return {}; } }
   function cpsNote(key, v) { try { var o = cpsLoad(); o[key] = o[key] ? Math.round((o[key] * 0.7 + v * 0.3) * 100) / 100 : Math.round(v * 100) / 100; global.localStorage.setItem('kb_tts_cps', JSON.stringify(o)); } catch (e) {} }
+  var SILENT_WAV = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA=';
+  var audioUnlocked = false;
+  function unlockAudio() {   // 要在「按下播放」的那一刻(使用者手勢中)呼叫; 只做一次
+    if (audioUnlocked || H.Audio || typeof global.Audio !== 'function') return;
+    try { if (/jsdom/i.test((global.navigator && global.navigator.userAgent) || '')) return; var a = new global.Audio(SILENT_WAV); a.volume = 0; var p = a.play(); audioUnlocked = true; if (p && p.catch) p.catch(function () { audioUnlocked = false; }); } catch (e) {}
+  }
   var cur = null;   // 目前這個畫面上的朗讀列(同時只會有一個在讀)
   var aiCool = 0;   // 最近一次 AI 人聲出問題(額度用完等)的時間: 30 分鐘內開新的貼文, 先用瀏覽器聲音, 不再一直撞牆
   var selCleanup = null;   // 「播放選取內容」浮動列的收尾(拿掉浮動列和監聽); 關閉貼文或重新載入貼文時才呼叫
@@ -1399,11 +1434,12 @@
     // AI 人聲出問題(額度用完、連不上…)而且這個瀏覽器有聲音: 自動改用瀏覽器聲音, 從同一個地方接著念
     function aiFail(err) {
       if (!synth()) return false;
-      aiCool = Date.now(); engAuto = true; eng.value = 'browser';
+      var st = err && err.status, permanent = st === 429 || st === 401 || st === 403 || st === 404 || st === 400 || st === 503;   // 額度用完、金鑰不行: 之後 30 分鐘開新貼文先用瀏覽器語音; 網路不穩這類暫時的問題不記, 下一則貼文還是用 AI 人聲
+      if (permanent) aiCool = Date.now(); engAuto = true; eng.value = 'browser';
       return retune((err && err.status === 429 ? '今天的 AI 語音額度用完了(免費版 Gemini API 金鑰每天次數很少), ' : 'AI 語音暫時無法使用, ') + '已自動改用瀏覽器語音, 從剛才的地方接著念。想換回 AI 人聲, 可以在「語音來源」選擇。');
     }
     function start(m, opt) {
-      opt = opt || {};
+      opt = opt || {}; unlockAudio();
       mode = m === 'title' ? 'title' : m === 'replies' ? 'replies' : m === 'sel' ? 'sel' : 'body';
       inStart = true; stop(true); inStart = false;
       if (mode === 'sel') { if (!opt.keepSel) { if (!sel.text) { selNote('請先用手指或滑鼠圈選要聽的文字。'); return; } sel.read = { text: sel.text, base: sel.base }; } if (!sel.read) return; }
