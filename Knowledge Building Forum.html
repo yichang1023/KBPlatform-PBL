@@ -19,6 +19,8 @@
     <script src="kb-media.js"></script>
     <script src="kb-tts.js"></script>
     <script src="kb-nav.js"></script>
+    <script src="kb-layout.js"></script>
+    <script src="kb-ai.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -345,7 +347,7 @@
             canvas: {
                 scale: 1, offsetX: 0, offsetY: 0,
                 isDragging: false, lastX: 0, lastY: 0,
-                draggedNodeId: null, isClusterMode: false, isHeatmapMode: false,
+                draggedNodeId: null, isClusterMode: false, clusterMode: null, zones: [], isHeatmapMode: false, heatAi: {}, aiOk: null,
                 animFrame: null,
                 isSelecting: false, selectionStart: {x: 0, y: 0}, selectionCurrent: {x: 0, y: 0},
                 isPanMode: false,
@@ -505,6 +507,7 @@
 
         // 點擊畫面空白處自動收起所有選單的防呆機制
         document.addEventListener('click', (e) => {
+            try { window.app.canvas.closeMenus(); } catch (x) {}   // 排版、語意聚類的下拉選單: 點空白處收起
             const userMenu = document.getElementById('user-menu');
             const analyticsDrop = document.getElementById('analytics-dropdown');
             if (userMenu && !e.target.closest('#user-menu') && !e.target.closest('button[onclick*="toggleUserMenu"]')) {
@@ -738,6 +741,27 @@
             window.state.canvas.scale=1;
             window.state.needsCentering = true;
             window.app.router('canvas');
+        };
+
+        window.app.kbAiJson = async (prompt) => {
+            let init = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.2, responseMimeType: 'application/json' } }) };
+            if (window.KBAI && KBAI.guard) init = KBAI.guard(init);
+            let key = ''; try { key = localStorage.getItem('kb_ai_key') || ''; } catch (e) {}
+            let r;
+            if (key) {
+                let pref = ''; try { pref = ((KB.settings.get().ai || {}).model) || ''; } catch (e) {} if (pref === 'auto') pref = '';
+                const models = [pref, 'gemini-3.8-flash', 'gemini-2.5-flash'].filter((m, i, a) => m && a.indexOf(m) === i);
+                for (const m of models) { r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + m + ':generateContent?key=' + key, init); if (r.status !== 404) break; }
+            } else {
+                const st = window.KBAI ? await KBAI.status() : null;
+                if (!st || !st.configured) throw new Error('這裡沒有設定 AI 金鑰');
+                r = await KBAI.proxyFetch(init);
+            }
+            if (window.KBAI && KBAI.wrap) r = KBAI.wrap(r);
+            if (!r.ok) throw new Error('AI 服務暫時無法使用(' + r.status + ')');
+            const j = await r.json(), t = (((j.candidates || [])[0] || {}).content || {}).parts;
+            const txt = (t || []).map(p => p.text || '').join('');
+            return JSON.parse(window.KBAI && KBAI.cleanJson ? txt.replace(/^```(?:json)?|```$/g, '').trim() : txt);
         };
 
         window.app.centerOnFirstNode = (animate = false) => {
@@ -1236,7 +1260,22 @@
             },
             handleDoubleClick: (e) => {
                 if (e.target.closest('.node-card')) return;
+                if (Date.now() - (window.state.canvas._blankToggled || 0) < 700) return;   // 手機剛用「快速點兩下」切換過, 不要又被 dblclick 切回去
                 window.app.canvas.toggleMode();
+            },
+            // 手機: 在畫布空白處「快速點兩下」切換 拖曳 / 選取(手機瀏覽器在這種畫布上不送 dblclick, 自己判斷: 兩次輕點都沒移動、間隔 0.45 秒內)
+            blankTapStart: (e) => {
+                const t = e.touches && e.touches[0];
+                if (!t || e.touches.length > 1 || (e.target.closest && e.target.closest('.node-card'))) { window.state.canvas._btap = null; return; }
+                window.state.canvas._btap = { x: t.clientX, y: t.clientY, t: Date.now() };
+            },
+            blankTapEnd: (e) => {
+                const tp = window.state.canvas._btap; window.state.canvas._btap = null;
+                const ct = e.changedTouches && e.changedTouches[0];
+                if (!tp || !ct || (e.target.closest && e.target.closest('.node-card')) || Date.now() - tp.t > 500 || Math.hypot(ct.clientX - tp.x, ct.clientY - tp.y) > 12) { window.state.canvas._blankLast = 0; return; }
+                const now = Date.now();
+                if (window.state.canvas._blankLast && now - window.state.canvas._blankLast < 450) { window.state.canvas._blankLast = 0; window.state.canvas._blankToggled = now; window.app.canvas.toggleMode(); }
+                else window.state.canvas._blankLast = now;
             },
             startPan: (e) => {
                 if (e.touches && e.touches.length === 2) {
@@ -1503,44 +1542,126 @@
                 window.state.canvas.isHeatmapMode = !window.state.canvas.isHeatmapMode;
                 window.ui.renderCanvas();
             },
-            toggleCluster: () => {
-                const isCluster = !window.state.canvas.isClusterMode;
-                window.state.canvas.isClusterMode = isCluster;
-                const nodes = window.state.nodes.filter(n => n.topicId === window.state.currentTopicId);
-
-                if (isCluster) {
-                    const clusterGroups = { 'A': [], 'B': [], 'C': [], 'Other': [] };
-                    nodes.forEach(n => {
-                        if (window.CLUSTER_CENTERS[n.cluster]) clusterGroups[n.cluster].push(n);
-                        else clusterGroups['Other'].push(n);
-                    });
-
-                    const targets = [];
-                    const nodeW = 320;
-                    const nodeH = 200;
-                    Object.entries(clusterGroups).forEach(([key, groupNodes]) => {
-                        const center = window.CLUSTER_CENTERS[key] || {x: 0, y: 0, width: 1000, height: 1000};
-                        const cols = Math.max(1, Math.floor(center.width / nodeW));
-                        groupNodes.forEach((n, idx) => {
-                            if (n.savedX === undefined) { n.savedX = n.x; n.savedY = n.y; }
-                            const col = idx % cols;
-                            const row = Math.floor(idx / cols);
-                            const startX = center.x - ((cols * nodeW) / 2) + (nodeW / 2);
-                            const startY = center.y - (center.height / 2) + 100;
-                            const tx = startX + (col * nodeW);
-                            const ty = startY + (row * nodeH);
-                            targets.push({ id: n.id, x: tx, y: ty });
-                        });
-                    });
-                    window.app.canvas.animateNodes(targets);
-                } else {
-                    const targets = nodes.map(n => ({
-                        id: n.id,
-                        x: n.savedX !== undefined ? n.savedX : n.x,
-                        y: n.savedY !== undefined ? n.savedY : n.y
-                    }));
-                    window.app.canvas.animateNodes(targets);
+            /* ---- 最佳化排版 / 語意聚類 / 潛力熱點(算法在 kb-layout.js) ---- */
+            topicNodes: () => window.state.nodes.filter(n => n.topicId === window.state.currentTopicId),
+            cardSize: () => ({ w: window.innerWidth < 768 ? 256 : 288, h: 170 }),
+            // 上方工具列的下拉選單: 開一個、其他關起來; 點空白處關閉
+            openMenu: (name, e) => {
+                if (e) e.stopPropagation();
+                ['layout', 'cluster'].forEach(k => { const m = document.getElementById('menu-' + k); if (m) { if (k === name) m.classList.toggle('hidden'); else m.classList.add('hidden'); } });
+            },
+            closeMenus: () => { ['layout', 'cluster'].forEach(k => { const m = document.getElementById('menu-' + k); if (m) m.classList.add('hidden'); }); },
+            // 排好之後把整張圖放進畫面(最小縮到 25%)
+            fitBounds: (width, height) => {
+                const wrap = document.getElementById('canvas-wrapper'); if (!wrap || !width || !height) return;
+                const cw = wrap.clientWidth || 800, ch = wrap.clientHeight || 600;
+                const sc = Math.max(0.25, Math.min(1, cw / width, ch / height));
+                window.state.canvas.scale = sc;
+                window.state.canvas.offsetX = Math.round((cw - width * sc) / 2);
+                window.state.canvas.offsetY = Math.round(Math.max(0, (ch - height * sc) / 2) + 20);
+                window.app.canvas.applyTransform();
+            },
+            // 把想法放到新的位置: 位置先直接寫進資料(不靠動畫, 切到別的分頁、動畫被暫停也不會卡在半路), 接著呼叫端重畫
+            moveNodes: (targets) => {
+                const byId = {}; window.app.canvas.topicNodes().forEach(n => { byId[n.id] = n; });
+                targets.forEach(t => { const n = byId[t.id]; if (n) { n.x = t.x; n.y = t.y; } });
+            },
+            snapshot: () => {
+                const pos = {}; window.app.canvas.topicNodes().forEach(n => { pos[n.id] = { x: n.x, y: n.y, sx: n.savedX, sy: n.savedY }; });
+                return { topic: window.state.currentTopicId, pos: pos, mode: window.state.canvas.clusterMode, zones: (window.state.canvas.zones || []).slice() };
+            },
+            // 回到沒有聚類的狀態(不動畫、不存檔): 讓聚類或排版之前先把卡片放回自己原本的位置
+            clearCluster: (restore) => {
+                const c = window.state.canvas;
+                if (restore) window.app.canvas.topicNodes().forEach(n => { if (n.savedX !== undefined) { n.x = n.savedX; n.y = n.savedY; } });
+                window.app.canvas.topicNodes().forEach(n => { delete n.savedX; delete n.savedY; });
+                c.clusterMode = null; c.isClusterMode = false; c.zones = [];
+            },
+            // 最佳化排版: dir = 'LR'(從左到右) 或 'TB'(從上到下); 排好會存起來(和手動拖曳位置一樣), 並可以「復原上一次排版」
+            arrange: (dir) => {
+                const C = window.app.canvas, c = window.state.canvas, nodes = C.topicNodes();
+                C.closeMenus();
+                if (!nodes.length) return window.ui.showToast('這個討論區還沒有想法可以排版', 'info');
+                if (!window.KBLayout) return;
+                c._undo = C.snapshot();
+                if (c.clusterMode) C.clearCluster(true);
+                const sz = C.cardSize(), res = KBLayout.arrange(nodes, dir, { w: sz.w, h: sz.h });
+                c.layoutDir = res.dir;
+                C.moveNodes(res.targets);
+                C.fitBounds(res.width, res.height);
+                setTimeout(() => { try { window.dataManager.save(); } catch (e) {} }, 900);
+                window.ui.showToast(dir === 'TB' ? '已排成「從上到下」: 想法在上方, 回應往下展開, 同一層依發言時間由左到右' : '已排成「從左到右」: 想法在左邊, 回應往右展開, 同一層依發言時間由上到下', 'success');
+                window.ui.renderCanvas();
+            },
+            undoLayout: () => {
+                const C = window.app.canvas, c = window.state.canvas, u = c._undo; C.closeMenus();
+                if (!u || u.topic !== window.state.currentTopicId) return window.ui.showToast('沒有可以復原的排版', 'info');
+                c._undo = null; C.clearCluster(false);
+                const nodes = C.topicNodes(), targets = nodes.filter(n => u.pos[n.id]).map(n => ({ id: n.id, x: u.pos[n.id].x, y: u.pos[n.id].y }));
+                nodes.forEach(n => { const p = u.pos[n.id]; if (p && p.sx !== undefined) { n.savedX = p.sx; n.savedY = p.sy; } });
+                c.clusterMode = u.mode || null; c.isClusterMode = !!u.mode; c.zones = u.zones || [];
+                C.moveNodes(targets);
+                setTimeout(() => { try { window.dataManager.save(); } catch (e) {} }, 900);
+                window.ui.showToast('已復原上一次的排版', 'success');
+                window.ui.renderCanvas();
+            },
+            // 語意聚類: mode = 'topic'(依內容主題) | 'type'(依想法類型) | null(關閉, 回到原本的位置)
+            setCluster: (mode) => {
+                const C = window.app.canvas, c = window.state.canvas, nodes = C.topicNodes(); C.closeMenus();
+                if (!window.KBLayout) return;
+                if (!mode) {
+                    if (c.clusterMode) {
+                        const targets = nodes.map(n => ({ id: n.id, x: n.savedX !== undefined ? n.savedX : n.x, y: n.savedY !== undefined ? n.savedY : n.y }));
+                        C.clearCluster(false); C.moveNodes(targets);
+                    }
+                    return window.ui.renderCanvas();
                 }
+                if (!nodes.length) return window.ui.showToast('這個討論區還沒有想法可以聚類', 'info');
+                nodes.forEach(n => { if (n.savedX === undefined) { n.savedX = n.x; n.savedY = n.y; } });   // 記住原本的位置, 關閉聚類就放回去
+                const sz = C.cardSize(), groups = (mode === 'type' ? KBLayout.clusterTypes(nodes) : KBLayout.clusterTopics(nodes)).groups;
+                const narrow = window.innerWidth < 768;   // 手機: 一區一排往下排(橫的排會縮得太小)
+                const res = KBLayout.placeZones(groups, { w: sz.w, h: sz.h, oneRow: mode === 'type' && !narrow, perRow: narrow ? 1 : 3, maxCols: narrow ? 1 : (mode === 'type' ? 1 : 2) });
+                c.clusterMode = mode; c.isClusterMode = true; c.zones = res.zones;
+                C.moveNodes(res.targets); C.fitBounds(res.width, res.height);
+                window.ui.showToast(mode === 'type' ? '已依想法類型分區: 提問 / 延伸 / 改進 / 反例 / 昇華' : '已依內容主題分區(用貼文裡常出現的詞分群, 區名是這群最常出現的詞)', 'success');
+                window.ui.renderCanvas();
+            },
+            toggleCluster: () => { window.app.canvas.setCluster(window.state.canvas.clusterMode ? null : 'topic'); },
+            // 潛力熱點: 先用規則算(回應數、回應的人數、延伸幾層、後續有沒有改進/反例/昇華、內容有沒有依據); AI 複核過的分數與規則各占一半
+            heatInfo: (nodes) => {
+                const c = window.state.canvas, base = KBLayout.heat(nodes), ai = (c.heatAi || {})[window.state.currentTopicId] || {};
+                let any = false;
+                Object.keys(base.scores).forEach(id => { const a = ai[id]; if (a && typeof a.score === 'number') { any = true; base.scores[id].ruleScore = base.scores[id].score; base.scores[id].score = Math.round((base.scores[id].score + a.score) / 2); base.scores[id].ai = a; } });
+                if (any) base.hotIds = KBLayout.pickHot(base.scores, nodes);
+                base.usedAi = any; return base;
+            },
+            checkAi: async () => {
+                const c = window.state.canvas; if (c.aiOk !== null) return c.aiOk;
+                let ok = false;
+                try { if (localStorage.getItem('kb_ai_key')) ok = true; else if (window.KBAI) { const st = await KBAI.status(); ok = !!(st && st.configured); } } catch (e) {}
+                c.aiOk = ok;
+                const b = document.getElementById('btn-heat-ai'); if (b) b.classList.toggle('hidden', !ok);
+                return ok;
+            },
+            // 請 AI 複核: 只送想法的文字(不送姓名; 作者換成代號), 要 AI 依「能不能把討論往前推」給 0~100 分與一句理由
+            askAiHeat: async () => {
+                const C = window.app.canvas, c = window.state.canvas, nodes = C.topicNodes();
+                if (!nodes.length) return;
+                const btn = document.getElementById('btn-heat-ai'), old = btn ? btn.innerHTML : '';
+                if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> AI 複核中…'; }
+                try {
+                    const f = KBLayout.forest(nodes), who = {}; let wn = 0;
+                    const list = nodes.slice().sort((a, b) => (a.date || 0) - (b.date || 0)).slice(0, 60).map(n => {
+                        if (!who[n.author]) who[n.author] = '同學' + String.fromCharCode(65 + (wn++ % 26));
+                        return { id: n.id, 類型: (KBLayout.TYPE_ZH[n.type] || n.type), 作者: who[n.author], 標題: String(n.title || '').slice(0, 40), 內容: String(n.content || '').slice(0, 140), 回應數: (f.kids[n.id] || []).length, 回應給: n.parentId || '' };
+                    });
+                    const prompt = '你是知識建構論壇的小助教。下面是一個討論區的想法(JSON)。請替每一則想法打 0~100 分:看它「有沒有潛力把大家的討論往前推進」——例如提出值得探究的問題、有依據或推理、能連結不同的看法、可能被改進、質疑或整合。回應很多不代表一定好, 回應少的新想法如果很有潛力也可以高分。\n只回覆 JSON 陣列, 每則一筆:[{"id":"想法的id","score":分數,"why":"15 字內的理由"}]。不要使用「答案」兩個字。\n' + JSON.stringify(list);
+                    const arr = await window.app.kbAiJson(prompt);
+                    const out = {}; (Array.isArray(arr) ? arr : []).forEach(x => { if (x && x.id && isFinite(+x.score)) out[x.id] = { score: Math.max(0, Math.min(100, Math.round(+x.score))), why: String(x.why || '').slice(0, 40) }; });
+                    if (!Object.keys(out).length) throw new Error('AI 沒有回傳可以用的結果');
+                    c.heatAi = c.heatAi || {}; c.heatAi[window.state.currentTopicId] = out;
+                    window.ui.showToast('AI 已複核(AI 分數與規則分數各占一半)', 'success');
+                } catch (e) { window.ui.showToast('AI 複核失敗, 先用規則判斷: ' + String(e && e.message || e).slice(0, 60), 'error'); }
                 window.ui.renderCanvas();
             },
             animateNodes: (targets) => {
@@ -1923,15 +2044,33 @@
                     ${KB.topicClass(topic) ? `<span class="hidden md:inline-block bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-[11px] font-bold whitespace-nowrap"><i class="fa-solid fa-people-roof"></i> ${window.app.escH(window.app.className(KB.topicClass(topic)))}</span>` : ''}
                     ${window.app.canPost() ? '' : `<span id="readonly-badge" class="bg-amber-100 text-amber-800 px-2 py-0.5 rounded text-[11px] font-bold whitespace-nowrap" title="${window.app.escH(KB.postBlock(topic.id))}"><i class="fa-solid fa-eye"></i> 僅閱讀</span>`}
                 </div>
-                <div class="flex gap-2 pointer-events-auto">
+                <div class="flex flex-wrap justify-end gap-1.5 md:gap-2 pointer-events-auto max-w-[62%] md:max-w-none">
                     <button onclick="window.app.canvas.toggleHeatmap()" id="btn-heatmap" class="${window.state.canvas.isHeatmapMode ? 'bg-orange-100 text-orange-600 border-orange-200' : 'bg-white/90 text-slate-500 border-slate-200'} backdrop-blur shadow-sm border rounded-lg px-3 py-1 text-xs font-bold flex items-center gap-1 transition-all hover:scale-105">
                         <i class="fa-solid fa-fire ${window.state.canvas.isHeatmapMode ? 'animate-pulse' : ''}"></i>
                         <span class="text-[10px] md:text-xs">潛力熱點</span>
                     </button>
-                    <button onclick="window.app.canvas.toggleCluster()" id="btn-cluster" class="${window.state.canvas.isClusterMode ? 'bg-purple-100 text-purple-600 border-purple-200' : 'bg-white/90 text-slate-500 border-slate-200'} backdrop-blur shadow-sm border rounded-lg px-3 py-1 text-xs font-bold flex items-center gap-1 transition-all hover:scale-105">
-                        <i class="fa-solid fa-sparkles ${window.state.canvas.isClusterMode ? 'text-purple-500' : ''}"></i>
-                        <span class="text-[10px] md:text-xs">語意聚類</span>
-                    </button>
+                    <div class="relative">
+                        <button onclick="window.app.canvas.openMenu('cluster', event)" id="btn-cluster" aria-haspopup="true" class="${window.state.canvas.isClusterMode ? 'bg-purple-100 text-purple-600 border-purple-200' : 'bg-white/90 text-slate-500 border-slate-200'} backdrop-blur shadow-sm border rounded-lg px-3 py-1 text-xs font-bold flex items-center gap-1 transition-all hover:scale-105">
+                            <i class="fa-solid fa-sparkles ${window.state.canvas.isClusterMode ? 'text-purple-500' : ''}"></i>
+                            <span class="text-[10px] md:text-xs">語意聚類${window.state.canvas.clusterMode === 'type' ? '・類型' : window.state.canvas.clusterMode === 'topic' ? '・主題' : ''}</span><i class="fa-solid fa-caret-down text-[9px]"></i>
+                        </button>
+                        <div id="menu-cluster" class="hidden absolute right-0 mt-1 w-60 bg-white border border-slate-200 rounded-lg shadow-lg p-1 z-50 text-xs text-slate-700">
+                            <button onclick="window.app.canvas.setCluster('topic')" class="w-full text-left px-3 py-2 rounded hover:bg-slate-100"><b>依內容主題</b><br><span class="text-slate-500">用貼文裡常出現的詞分群, 區名是這群最常出現的詞</span></button>
+                            <button onclick="window.app.canvas.setCluster('type')" class="w-full text-left px-3 py-2 rounded hover:bg-slate-100"><b>依想法類型</b><br><span class="text-slate-500">提問 / 延伸 / 改進 / 反例 / 昇華 各一區</span></button>
+                            ${window.state.canvas.clusterMode ? `<button onclick="window.app.canvas.setCluster(null)" class="w-full text-left px-3 py-2 rounded hover:bg-slate-100 text-slate-600 border-t border-slate-100 mt-1"><i class="fa-solid fa-rotate-left"></i> 關閉聚類, 放回原本的位置</button>` : ''}
+                        </div>
+                    </div>
+                    <div class="relative">
+                        <button onclick="window.app.canvas.openMenu('layout', event)" id="btn-layout" aria-haspopup="true" aria-label="整理排版" class="bg-white/90 text-slate-500 border-slate-200 backdrop-blur shadow-sm border rounded-lg px-3 py-1 text-xs font-bold flex items-center gap-1 transition-all hover:scale-105">
+                            <i class="fa-solid fa-diagram-project"></i><span class="text-[10px] md:text-xs">排版</span><i class="fa-solid fa-caret-down text-[9px]"></i>
+                        </button>
+                        <div id="menu-layout" class="hidden absolute right-0 mt-1 w-64 bg-white border border-slate-200 rounded-lg shadow-lg p-1 z-50 text-xs text-slate-700">
+                            <div class="px-3 pt-2 pb-1 text-[11px] text-slate-400">依回應關係整理: 同一層的想法依發言時間排, 關係線與箭頭會跟著理順</div>
+                            <button onclick="window.app.canvas.arrange('LR')" class="w-full text-left px-3 py-2 rounded hover:bg-slate-100"><b><i class="fa-solid fa-arrow-right"></i> 從左到右</b><br><span class="text-slate-500">想法在左邊, 回應往右邊展開</span></button>
+                            <button onclick="window.app.canvas.arrange('TB')" class="w-full text-left px-3 py-2 rounded hover:bg-slate-100"><b><i class="fa-solid fa-arrow-down"></i> 從上到下</b><br><span class="text-slate-500">想法在上面, 回應往下面展開</span></button>
+                            <button onclick="window.app.canvas.undoLayout()" class="w-full text-left px-3 py-2 rounded hover:bg-slate-100 text-slate-600 border-t border-slate-100 mt-1"><i class="fa-solid fa-rotate-left"></i> 復原上一次排版</button>
+                        </div>
+                    </div>
                     <div class="bg-white/90 backdrop-blur shadow-sm border rounded-lg p-1 flex items-center">
                         <button onclick="window.app.centerOnFirstNode(true)" class="w-8 h-8 flex items-center justify-center hover:bg-slate-100 text-kb-blue" title="回到起點"><i class="fa-solid fa-location-crosshairs"></i></button>
                         <div class="w-px h-5 bg-slate-200 mx-1"></div>
@@ -1974,7 +2113,8 @@
                  style="cursor: ${isPanMode ? 'grab' : 'default'}"
                  ondblclick="window.app.canvas.handleDoubleClick(event)"
                  onmousedown="window.app.canvas.startPan(event)"
-                 ontouchstart="window.app.canvas.startPan(event)"
+                 ontouchstart="window.app.canvas.blankTapStart(event); window.app.canvas.startPan(event)"
+                 ontouchend="window.app.canvas.blankTapEnd(event)"
                  onmousemove="window.app.canvas.pan(event)"
                  ontouchmove="window.app.canvas.pan(event)"
                  onwheel="window.app.canvas.handleWheel(event)">
@@ -1989,7 +2129,11 @@
             if (window.state.canvas.isClusterMode) {
                 const labelLayer = document.getElementById('cluster-labels-layer');
                 if (labelLayer) {
-                    labelLayer.innerHTML = Object.values(window.CLUSTER_CENTERS).map(c => `
+                    const zs = window.state.canvas.zones || [];
+                    labelLayer.innerHTML = zs.length ? zs.map(z => `
+                        <div class="cluster-zone" style="left: ${z.x}px; top: ${z.y}px; width: ${z.width}px; height: ${z.height}px;${z.color ? ' border-color:' + z.color + '66;' : ''}">
+                            <div class="cluster-title" style="${z.color ? 'color:' + z.color + '; border-color:' + z.color + '55;' : ''}">${window.app.escH(z.title)} <span style="opacity:.6">(${z.count})</span></div>
+                        </div>`).join('') : Object.values(window.CLUSTER_CENTERS).map(c => `
                         <div class="cluster-zone" style="left: ${c.x - c.width/2}px; top: ${c.y - c.height/2}px; width: ${c.width}px; height: ${c.height}px;">
                             <div class="cluster-title">${c.title}</div>
                         </div>`).join('');
@@ -1999,6 +2143,18 @@
             }
 
             window.ui.drawNodes(nodes);
+            try {   // 潛力熱點開著: 在工具列下面放一行說明(怎麼判斷的)與「請 AI 複核」
+                const hostEl = document.getElementById('canvas-wrapper');
+                if (window.state.canvas.isHeatmapMode && hostEl && hostEl.parentNode) {
+                    const hi = window.app.canvas.heatInfo(nodes), box = document.createElement('div');
+                    box.id = 'heat-note'; box.className = 'absolute top-32 md:top-20 right-2 md:right-4 z-40 max-w-[92%] md:max-w-sm bg-white/95 backdrop-blur border border-orange-200 rounded-lg shadow-sm px-3 py-2 text-[11px] text-slate-600 pointer-events-auto';
+                    box.innerHTML = `<div class="font-bold text-orange-600 mb-0.5"><i class="fa-solid fa-fire"></i> 潛力熱點 ${hi.hotIds.length} 則${hi.usedAi ? '(已加入 AI 複核)' : '(依規則判斷)'}</div>
+                        <div class="md:hidden">點卡片上的 🔥 看原因(也可以在電腦上把滑鼠移上去)</div>
+                        <div class="hidden md:block">看這則想法有沒有帶動討論: 回應數、回應的同學人數、延伸了幾層、後續有沒有改進/反例/昇華、內容有沒有依據。分數要夠高且排在前 30% 才算熱點; 把滑鼠移到 🔥 上可以看原因。</div>
+                        <button id="btn-heat-ai" onclick="window.app.canvas.askAiHeat()" class="${window.state.canvas.aiOk ? '' : 'hidden '}mt-1.5 bg-orange-500 text-white rounded px-2 py-1 font-bold"><i class="fa-solid fa-robot"></i> 請 AI 複核</button>`;
+                    hostEl.parentNode.appendChild(box); window.app.canvas.checkAi();
+                }
+            } catch (e) {}
 
             setTimeout(() => {
                 window.ui.drawConnections(nodes);
@@ -2088,6 +2244,7 @@
         window.ui.drawNodes = (nodes) => {
             const parentSet = new Set(window.state.nodes.map(n => n.parentId).filter(Boolean));
             const canPostNow = window.app.canPost();
+            const heatInfoNow = window.state.canvas.isHeatmapMode && window.KBLayout ? window.app.canvas.heatInfo(nodes) : null;
             document.getElementById('nodes-layer').innerHTML = nodes.map(node => {
                 const s = window.SCAFFOLDS[node.type];
                 const user = Object.values(window.state.userList).find(u => u.id === node.author) || {name: '?'};
@@ -2095,9 +2252,10 @@
                 const canEdit = KB.can('forum.editOwn', { author: node.author });
 
                 // Strictly > 70 threshold
-                const isPromising = window.state.canvas.isHeatmapMode && node.promisingness > 70;
+                const hs = heatInfoNow && heatInfoNow.scores[node.id], isPromising = !!(window.state.canvas.isHeatmapMode && hs && hs.hot);
                 const heatmapClass = isPromising ? 'promising-node' : '';
-                const flameBadge = isPromising ? `<div class="absolute -top-3 -right-2 bg-orange-500 text-white text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm animate-bounce-slow z-50"><i class="fa-solid fa-fire"></i> 熱點</div>` : '';
+                const heatWhy = hs ? window.app.escH(((hs.ai && hs.ai.why) ? 'AI: ' + hs.ai.why + '。' : '') + (hs.reasons.length ? hs.reasons.join('、') : '還沒有人回應') + '(分數 ' + hs.score + ')') : '';
+                const flameBadge = isPromising ? `<div title="${heatWhy}" class="absolute -top-3 -right-2 bg-orange-500 text-white text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm animate-bounce-slow z-50"><i class="fa-solid fa-fire"></i> 熱點 ${hs.score}</div>` : '';
                 const isSelected = window.state.selectedNodeIds.includes(node.id) ? 'selected-node' : '';
 
                 return `
@@ -2153,6 +2311,11 @@
             const paths = nodes.filter(n => n.parentId).map(node => {
                 const parent = window.state.nodes.find(p => p.id === node.parentId);
                 if (!parent) return '';
+                const colorMap0 = { question: '#3b82f6', extend: '#eab308', improve: '#22c55e', counter: '#ef4444', riseabove: '#a855f7' };
+                if (node.x - (parent.x + cardWidth) > 24 && Math.abs(node.y - parent.y) <= (node.x - parent.x)) {   // 回應在想法的右邊: 水平連接(想法右邊 → 回應左邊)
+                    const sx = parent.x + cardWidth, sy = parent.y + 70, ex = node.x, ey = node.y + 70, dx = Math.max(40, (ex - sx) * 0.5);
+                    return `<path d="M ${sx} ${sy} C ${sx + dx} ${sy}, ${ex - dx} ${ey}, ${ex} ${ey}" stroke="${colorMap0[node.type]}" fill="none" stroke-width="2" stroke-opacity="0.6" marker-end="url(#arrow-${node.type})" />`;
+                }
                 const startX = parent.x + halfW;
                 const startY = parent.y + 140;
                 const endX = node.x + halfW;
