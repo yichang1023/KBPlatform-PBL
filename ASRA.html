@@ -465,6 +465,16 @@ textarea:focus,select:focus,input[type=text]:focus{border-color:#6366f1}
   var PH_OF = { 1: 'analysis', 2: 'analysis', 3: 'problem', 4: 'plan' }, PH_COL = { analysis: 'background:#e0f2fe;color:#0369a1', problem: 'background:#ffe4e6;color:#be123c', plan: 'background:#d1fae5;color:#047857' };
   function phaseChip(n) { var p = PH_OF[n]; if (!p) return ''; return '<div class="mt-0.5"><span class="phase" style="' + PH_COL[p] + '">' + KBAsra.PHASE[p][0] + ' <span style="opacity:.7">' + KBAsra.PHASE[p][1] + '</span></span></div>'; }
   function qlab(k) { var q = KBAsra.QS[k]; return '<span class="qlab"><span class="qno">' + q.no + '</span><span>' + q.zh + '</span></span>'; }
+  // 匯入進來的 Q3~Q6 回答(掛在「整體回答」這個想法底下)原本只有選到那個想法才看得到; 改成第 3、4 步最上面一定看得到(只顯示最新的一版, 不顯示日期)
+  function importedBlock(kind) {
+    var list = (kind === 'refl' ? S.refl : S.plans).filter(function (r) { return r.imported && !r.open; }).sort(function (a, b) { return b.ts - a.ts; });
+    if (!list.length) return '';
+    var r = list[0], items = kind === 'refl' ? [['第 3 題', '我的想法有越想越深入嗎?為什麼', r.q3], ['第 4 題', '哪些地方要再想深一點', r.q4]] : [['第 5 題', '想深化哪一部分?為什麼', r.q5], ['第 6 題', '我的計畫', r.text]];
+    var inner = items.filter(function (x) { return x[2]; }).map(function (x) { return '<div class="mt-2"><div class="text-[11px] font-black text-indigo-600">' + x[0] + ' · ' + x[1] + '</div><div class="text-sm text-slate-700 whitespace-pre-wrap">' + esc(x[2]) + '</div></div>'; }).join('');
+    if (kind === 'refl' && !inner && r.text) inner = '<div class="mt-2 text-sm text-slate-700 whitespace-pre-wrap">' + esc(r.text) + '</div>';
+    if (!inner) return '';
+    return '<div class="card fade" style="background:#f5f7ff;border:1px solid #c7d2fe"><div class="font-black text-indigo-700 text-sm"><i class="fas fa-clipboard-list"></i> 我之前的回答(' + (kind === 'refl' ? '第 3、4 題' : '第 5、6 題') + ')</div>' + inner + '</div>';
+  }
   function head(n, zh, en, icon, story) {
     return '<div class="card fade"><div class="flex items-center gap-3 mb-2"><span class="w-10 h-10 rounded-full bg-indigo-600 text-white flex items-center justify-center font-black">' + n + '</span><div><h3 class="text-xl font-black text-slate-800">' + zh + ' <span class="text-xs font-bold text-slate-400 tracking-wide">' + en + '</span></h3>' + phaseChip(n) + '</div></div><p class="say">' + story + '</p></div>';
   }
@@ -776,7 +786,7 @@ textarea:focus,select:focus,input[type=text]:focus{border-color:#6366f1}
     var mine = S.refl.filter(function (r) { return r.postId === selIdea && !r.open; }).sort(function (a, b) { return b.ts - a.ts; });
     var history = mine.map(function (r) { return '<div class="rounded-xl bg-indigo-50 border border-indigo-100 px-3 py-2 mb-2"><div class="text-[11px] text-indigo-500 font-bold">' + ftime(r) + '</div><div class="text-sm text-slate-700 whitespace-pre-wrap">' + esc(r.text) + '</div></div>'; }).join('');
     return head(3, '用證據想一想', 'Evidence-based Reflection · 證據支持的反思', '', '挑一個想法,看看當時的討論(證據)。再回答兩個問題:<b>我的想法有越想越深入嗎?還有哪些地方要再想深一點?</b>') +
-      '<div class="card fade"><label class="font-black text-slate-700 text-sm">我要反思哪一個想法?</label><select id="idea-sel">' + opts + '</select>' +
+      importedBlock('refl') + '<div class="card fade"><label class="font-black text-slate-700 text-sm">我要反思哪一個想法?</label><select id="idea-sel">' + opts + '</select>' +
       '<div class="grid md:grid-cols-2 gap-4 mt-4"><div class="idea"><div class="text-xs font-black text-indigo-600 mb-1">我的想法</div><div class="flex gap-2">' + tyDot(i.type) + '<div><div class="font-black text-slate-800">' + esc(i.title) + '</div><p class="text-sm text-slate-600 mt-1">' + esc(i.content) + '</p></div></div><div class="mt-2">' + stPill(i.status) + ' <button type="button" class="text-xs text-indigo-600 underline ml-2" data-view="' + esc(i.id) + '" data-kbhref="' + esc(link(i)) + '">看原文</button></div></div>' +
       '<div class="idea"><div class="text-xs font-black text-indigo-600 mb-1">同學的回應(證據)</div>' + reps + '</div></div>' +
       '<div class="say mt-4"><b>分析小提醒</b><br>' + hints.join('<br>') + '</div>' +
@@ -814,7 +824,7 @@ textarea:focus,select:focus,input[type=text]:focus{border-color:#6366f1}
     var history = mine.map(function (r) { return '<div class="rounded-xl bg-indigo-50 border border-indigo-100 px-3 py-2 mb-2"><div class="text-[11px] text-indigo-500 font-bold">' + ftime(r) + (r.timeMode ? ' · ' + esc(KBSrc.viewText({ mode: r.timeMode, asOf: r.asOf, a: r.cmpA, b: r.cmpB, pairs: r.cmpPairs })) : '') + '</div><div class="text-sm text-slate-700 whitespace-pre-wrap">' + esc(r.text) + '</div></div>'; }).join('');
     var st = ws ? STARTERS_WS : STARTERS;
     return head(3, HD[0], HD[1], '', ws ? '挑一個想法,看看你<b>當時</b>寫過的(證據)。再回答兩個問題:<b>我的想法有越想越深入嗎?還有哪些地方要再想深一點?</b>' : '挑一個想法,看看當時的討論(證據)。再回答兩個問題:<b>我的想法有越想越深入嗎?還有哪些地方要再想深一點?</b>') + srcBar('refl') +
-      '<div class="card fade"><label class="font-black text-slate-700 text-sm">我要反思哪一個想法?</label><select id="idea-sel">' + ideaOptions(sel, cand) + '</select>' + ev +
+      importedBlock('refl') + '<div class="card fade"><label class="font-black text-slate-700 text-sm">我要反思哪一個想法?</label><select id="idea-sel">' + ideaOptions(sel, cand) + '</select>' + ev +
       '<div class="say mt-4"><b>分析小提醒</b><br>' + hints.join('<br>') + '</div>' +
       '<div class="mt-4"><label for="refl-text">' + qlab('q3') + '</label><div class="mt-1 text-xs text-slate-500">不知道怎麼開頭?點一點:</div><div>' + starterRow(st, 'refl-text') + '</div>' +
       guideHtml('q3') + '<textarea id="refl-text" rows="3" maxlength="400" class="mt-1" placeholder="例如:有。一開始我只說結論,後來加了實驗,所以更深入了。"' + (readonly ? ' disabled' : '') + '></textarea></div>' +
@@ -912,7 +922,7 @@ textarea:focus,select:focus,input[type=text]:focus{border-color:#6366f1}
     var plans = S.plans.slice().sort(function (a, b) { return b.ts - a.ts; }).map(function (p) { var t = ideaById(p.postId), nm = t ? t.title : p.ideaTitle; return '<div class="idea mb-2"><div class="flex items-center gap-2"><span class="pill todo">' + actOf(p.act).big + '</span>' + pushChip(p) + '<span class="text-xs text-slate-500">' + ftime(p) + '</span>' + (p.open ? '<span class="pill warn">草稿(還沒按「訂好」)</span>' : '') + '</div>' + (p.q5 ? '<div class="text-xs text-slate-500 mt-1">想深化:' + esc(p.q5) + '</div>' : '') + '<div class="text-sm text-slate-800 mt-1">' + esc(p.text) + '</div>' + (nm ? '<div class="text-xs text-slate-500 mt-1">想法:' + esc(cut(nm, 24)) + '</div>' : '') + '</div>'; }).join('');
     var act = i ? '<a class="btn g" id="plan-forum" href="' + esc(link(i)) + '"><i class="fas fa-comments"></i> 去論壇行動</a>' : '<span class="text-xs text-slate-500 self-center">這個想法不在論壇裡:做完之後,到「回頭再檢查」自己檢查有沒有進步。</span>';
     return head(4, HD[0], HD[1], '', '想完了,就要自己決定接下來怎麼做!你可以<b>補證據</b>、<b>改想法</b>,或<b>找夥伴</b>一起想。選一個,寫下你的小計畫。') + srcBar('plan') +
-      '<div class="card fade"><label class="font-black text-slate-700 text-sm">這個計畫是為了哪一個想法?</label><select id="plan-idea">' + ideaOptions(sel, cand) + '</select><p class="text-xs text-indigo-700 mt-1">💡 ' + planSuggest(i, c) + '</p>' + planPast(c) +
+      importedBlock('plan') + '<div class="card fade"><label class="font-black text-slate-700 text-sm">這個計畫是為了哪一個想法?</label><select id="plan-idea">' + ideaOptions(sel, cand) + '</select><p class="text-xs text-indigo-700 mt-1">💡 ' + planSuggest(i, c) + '</p>' + planPast(c) +
       '<div class="mt-4"><label for="plan-why">' + qlab('q5') + '</label>' + guideHtml('q5') + '<textarea id="plan-why" rows="2" maxlength="300" class="mt-1" placeholder="例如:我想把「影子為什麼會變長」想得更深,因為還沒有實驗證明。"' + (readonly ? ' disabled' : '') + '>' + esc(planWhy) + '</textarea></div>' +
       pushHtml() + '<div class="grid sm:grid-cols-3 gap-3 mt-4">' + cards + '</div>' +
       '<div class="mt-4"><label for="plan-text">' + qlab('q6') + '</label><p class="text-xs text-slate-500">先選上面一個做法,再寫下你要怎麼做。</p></div>' +
@@ -930,7 +940,7 @@ textarea:focus,select:focus,input[type=text]:focus{border-color:#6366f1}
     var cards = Object.keys(ACTS).map(function (k) { var a = ACTS[k]; return '<button type="button" class="act' + (chosenAct === k ? ' on' : '') + '" data-act="' + k + '"><div class="big"><i class="fas ' + a.icon + ' mr-2 text-indigo-500"></i>' + a.big + '</div><div class="text-sm text-slate-600 mt-1">' + a.tip + '</div></button>'; }).join('');
     var plans = S.plans.slice().sort(function (a, b) { return b.ts - a.ts; }).map(function (p) { var t = ideaById(p.postId); return '<div class="idea mb-2"><div class="flex items-center gap-2"><span class="pill todo">' + actOf(p.act).big + '</span>' + pushChip(p) + '<span class="text-xs text-slate-500">' + ftime(p) + '</span>' + (p.open ? '<span class="pill warn">草稿(還沒按「訂好」)</span>' : '') + '</div>' + (p.q5 ? '<div class="text-xs text-slate-500 mt-1">想深化:' + esc(p.q5) + '</div>' : '') + '<div class="text-sm text-slate-800 mt-1">' + esc(p.text) + '</div>' + (t ? '<div class="text-xs text-slate-500 mt-1">想法:' + esc(cut(t.title, 24)) + '</div>' : '') + '</div>'; }).join('');
     return head(4, '決定下一步', 'Self-regulation · 自我調整', '', '想完了,就要自己決定接下來怎麼做!你可以<b>補證據</b>、<b>改想法</b>,或<b>找夥伴</b>一起想。選一個,寫下你的小計畫。') +
-      '<div class="card fade"><label class="font-black text-slate-700 text-sm">這個計畫是為了哪一個想法?</label><select id="plan-idea">' + opts + '</select><p class="text-xs text-indigo-700 mt-1">💡 ' + suggest + '</p>' +
+      importedBlock('plan') + '<div class="card fade"><label class="font-black text-slate-700 text-sm">這個計畫是為了哪一個想法?</label><select id="plan-idea">' + opts + '</select><p class="text-xs text-indigo-700 mt-1">💡 ' + suggest + '</p>' +
       '<div class="mt-4"><label for="plan-why">' + qlab('q5') + '</label>' + guideHtml('q5') + '<textarea id="plan-why" rows="2" maxlength="300" class="mt-1" placeholder="例如:我想把「影子為什麼會變長」想得更深,因為還沒有實驗證明。"' + (readonly ? ' disabled' : '') + '>' + esc(planWhy) + '</textarea></div>' +
       pushHtml() + '<div class="grid sm:grid-cols-3 gap-3 mt-4">' + cards + '</div>' +
       '<div class="mt-4"><label for="plan-text">' + qlab('q6') + '</label><p class="text-xs text-slate-500">先選上面一個做法,再寫下你要怎麼做。</p></div>' +
