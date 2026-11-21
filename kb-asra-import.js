@@ -34,6 +34,7 @@
     m = /第\s*([一二三四五六])\s*題/.exec(h);
     return m ? QWORD.indexOf(m[1]) + 1 : 0;
   }
+  function resultOf(v) { v = norm(v); return !v ? '' : /變好|好了|進步|better/i.test(v) ? 'better' : /還要|努力|再來|more/i.test(v) ? 'more' : ''; }
   function colName(i) { var n = i, s = ''; do { s = String.fromCharCode(65 + n % 26) + s; n = Math.floor(n / 26) - 1; } while (n >= 0); return s; }
 
   /* ---------- 讀表格(matrix = 二維陣列,第一列通常是標題) ---------- */
@@ -57,6 +58,15 @@
       H.forEach(function (h, i) { if (qOfHeader(h)) return; var ok = body.filter(function (row) { return /^[A-Za-z]{0,3}\d{1,9}$/.test(norm(row[i])); }).length; if (body.length && ok / body.length > 0.7 && ok > bestR) { bestR = ok; bestC = i; } });
       idIdx = bestC;
     }
+    // 「變好了 / 還要再努力」判斷欄: 標題可以是空的; 這一欄所有有內容的格子都是這兩種說法才算
+    var RES = /變好|好了|進步|better|還要|努力|再來|more/i;
+    (function () {
+      H.forEach(function (h, i) {
+        if (res.cols.result !== undefined || i === idIdx || qOfHeader(h)) return;
+        var vals = matrix.slice(best + 1).map(function (r) { return norm(r[i]); }).filter(Boolean);
+        if (vals.length && vals.every(function (v) { return RES.test(v); }) && (!h || /結果|判斷|變好|再評估|回頭/.test(h))) res.cols.result = i;
+      });
+    })();
     var find = function (re) { var k = -1; H.forEach(function (h, i) { if (k < 0 && i !== idIdx && !qOfHeader(h) && re.test(h)) k = i; }); return k; };
     res.cols.id = idIdx; res.cols.name = find(/姓名|名字|^name$/i); res.cols.group = find(/組別|^group$/i); res.cols.topic = find(/主題|專題|^topic$/i);
     if (idIdx < 0) { res.problems.push('找不到「編號」欄(學號、全班編號或帳號)。請確認標題列。'); return res; }
@@ -66,6 +76,7 @@
     body.forEach(function (row, i) {
       var id = norm(row[idIdx]); if (!id) return;
       var rec = { line: best + 2 + i, id: id, name: res.cols.name >= 0 ? norm(row[res.cols.name]) : '', group: res.cols.group >= 0 ? norm(row[res.cols.group]) : '', topic: res.cols.topic >= 0 ? norm(row[res.cols.topic]) : '', q: {} };
+      rec.result = res.cols.result === undefined ? '' : resultOf(row[res.cols.result]);
       [1, 2, 3, 4, 5, 6, 7].forEach(function (q) { var ci = res.cols.q[q]; rec.q[q] = ci === undefined ? '' : String(row[ci] == null ? '' : row[ci]).replace(/\r\n?/g, '\n').trim(); });
       var key = id.toLowerCase(); seen[key] = (seen[key] || 0) + 1; rec.key = key;
       res.records.push(rec);
@@ -89,6 +100,7 @@
     if (q[2]) out.push({ key: 'q2', label: 'Q2', kind: 'note', ref: 'q2', text: q[2], hash: h32(q[2]) });
     if (q[3] || q[4]) out.push({ key: 'q34', label: 'Q3+Q4', kind: 'refl', q3: q[3], q4: q[4], text: (q[3] && q[4]) ? '【越想越深入嗎?】' + q[3] + '\n【還要再想深的地方】' + q[4] : (q[3] || '【還要再想深的地方】' + q[4]), hash: h32(q[3] + '\u0001' + q[4]) });
     if (q[7]) out.push({ key: 'q7', label: '回頭檢查', kind: 'note', ref: 'rv:manual:' + ideaId(uid), text: q[7], hash: h32(q[7]) });
+    if (rec.result && (q[5] || q[6])) out.push({ key: 'q7r', label: '回頭結果', kind: 'reeval', result: rec.result, text: rec.result === 'better' ? '變好了' : '還要再努力', hash: h32(rec.result) });
     if (q[5] || q[6]) out.push({ key: 'q56', label: 'Q5+Q6', kind: 'plan', q5: q[5], text: q[6] || '', hash: h32(q[5] + '\u0001' + q[6]) });
     return out;
   }
@@ -142,6 +154,8 @@
       if (s.same) return;
       var ts = Math.max(base + i * 1000, s.prev ? s.prev + 1000 : 0), e = { id: s.id, uid: uid, kind: s.kind, ts: ts, v: 1, imp: Object.assign({ key: s.key }, imp) };
       if (s.kind === 'note') { e.ref = s.key === 'q7' ? 'rv:' + pid : s.ref; e.text = s.text; }
+      else if (s.kind === 'reeval') { var ps = row.slots.filter(function (x) { return x.key === 'q56'; })[0]; if (!ps) return; e.planId = 'imp_' + uid + '_plan';   // 計畫合併後的編號(= 計畫的 draftId), 計畫之後出新版本也對得上
+         e.result = s.result; e.postId = pid; e.ideaTitle = title; }
       else if (s.kind === 'refl') { Object.assign(e, snap); e.text = s.text; if (s.q3) e.q3 = s.q3; if (s.q4) e.q4 = s.q4; e.draftId = 'imp_' + uid + '_refl'; e.final = true; }
       else { Object.assign(e, snap); e.text = s.text; if (s.q5) e.q5 = s.q5; e.draftId = 'imp_' + uid + '_plan'; e.final = true; }
       out.push(e);
