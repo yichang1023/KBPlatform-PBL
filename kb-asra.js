@@ -148,6 +148,7 @@
   // 一筆紀錄的文字說明(畫面與匯出共用)
   function describe(e) {
     var base = { imported: !!(e.imp && !e.imp.undo), importFile: (e.imp && e.imp.f) || '', kind: e.kind, label: KINDS[e.kind] || e.kind, time: fmtTime(e.ts), date: fmtDate(e.ts), idea: e.ideaTitle || '', topic: e.topic || '', text: e.text || '', act: '', result: '', follow: e.follow || null, q3: e.q3 || '', q4: e.q4 || '', q5: e.q5 || '' };
+    if (e.kind === 'note' && /^rv:/.test(e.ref || '')) { base.label = '回頭檢查'; }
     if (e.kind === 'note' && QS[NOTE_Q[e.ref || 'mon']]) { var qq = QS[NOTE_Q[e.ref || 'mon']]; base.label = '第' + qq.no + '題:' + qq.short; }
     if (e.kind === 'plan') { base.act = ACT_NAME[e.act] || e.act || ''; }
     if (e.kind === 'concept') { base.idea = e.term || ''; base.act = (ROLE_NAME[e.role] || '') + (e.choice ? '・' + (CHOICE_NAME[e.choice] || e.choice) : ''); if (!base.text && e.choice) base.text = '選了「' + (CHOICE_NAME[e.choice] || e.choice) + '」'; }

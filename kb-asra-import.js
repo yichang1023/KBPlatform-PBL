@@ -28,6 +28,7 @@
   function h32(str) { var h = 2166136261; str = String(str); for (var i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36); }
   function qOfHeader(h) {
     h = norm(h).replace(/[Ｑｑ]/g, 'Q').replace(/[１-６]/g, function (c) { return String.fromCharCode(c.charCodeAt(0) - 0xFEE0); });
+    if (/^Q\s*7(?!\d)|第\s*7\s*題|做完了嗎|回頭(再)?檢查|再評估/i.test(h)) return 7;   // 第 5 步「回頭再檢查」(選填)
     var m = /^Q\s*([1-6])(?!\d)/i.exec(h) || /第\s*([1-6])\s*題/.exec(h);
     if (m) return +m[1];
     m = /第\s*([一二三四五六])\s*題/.exec(h);
@@ -65,7 +66,7 @@
     body.forEach(function (row, i) {
       var id = norm(row[idIdx]); if (!id) return;
       var rec = { line: best + 2 + i, id: id, name: res.cols.name >= 0 ? norm(row[res.cols.name]) : '', group: res.cols.group >= 0 ? norm(row[res.cols.group]) : '', topic: res.cols.topic >= 0 ? norm(row[res.cols.topic]) : '', q: {} };
-      [1, 2, 3, 4, 5, 6].forEach(function (q) { var ci = res.cols.q[q]; rec.q[q] = ci === undefined ? '' : String(row[ci] == null ? '' : row[ci]).replace(/\r\n?/g, '\n').trim(); });
+      [1, 2, 3, 4, 5, 6, 7].forEach(function (q) { var ci = res.cols.q[q]; rec.q[q] = ci === undefined ? '' : String(row[ci] == null ? '' : row[ci]).replace(/\r\n?/g, '\n').trim(); });
       var key = id.toLowerCase(); seen[key] = (seen[key] || 0) + 1; rec.key = key;
       res.records.push(rec);
     });
@@ -87,6 +88,7 @@
     if (q[1]) out.push({ key: 'q1', label: 'Q1', kind: 'note', ref: 'mon', text: q[1], hash: h32(q[1]) });
     if (q[2]) out.push({ key: 'q2', label: 'Q2', kind: 'note', ref: 'q2', text: q[2], hash: h32(q[2]) });
     if (q[3] || q[4]) out.push({ key: 'q34', label: 'Q3+Q4', kind: 'refl', q3: q[3], q4: q[4], text: (q[3] && q[4]) ? '【越想越深入嗎?】' + q[3] + '\n【還要再想深的地方】' + q[4] : (q[3] || '【還要再想深的地方】' + q[4]), hash: h32(q[3] + '\u0001' + q[4]) });
+    if (q[7]) out.push({ key: 'q7', label: '回頭檢查', kind: 'note', ref: 'rv:manual:' + ideaId(uid), text: q[7], hash: h32(q[7]) });
     if (q[5] || q[6]) out.push({ key: 'q56', label: 'Q5+Q6', kind: 'plan', q5: q[5], text: q[6] || '', hash: h32(q[5] + '\u0001' + q[6]) });
     return out;
   }
@@ -139,7 +141,7 @@
     row.slots.forEach(function (s, i) {
       if (s.same) return;
       var ts = Math.max(base + i * 1000, s.prev ? s.prev + 1000 : 0), e = { id: s.id, uid: uid, kind: s.kind, ts: ts, v: 1, imp: Object.assign({ key: s.key }, imp) };
-      if (s.kind === 'note') { e.ref = s.ref; e.text = s.text; }
+      if (s.kind === 'note') { e.ref = s.key === 'q7' ? 'rv:' + pid : s.ref; e.text = s.text; }
       else if (s.kind === 'refl') { Object.assign(e, snap); e.text = s.text; if (s.q3) e.q3 = s.q3; if (s.q4) e.q4 = s.q4; e.draftId = 'imp_' + uid + '_refl'; e.final = true; }
       else { Object.assign(e, snap); e.text = s.text; if (s.q5) e.q5 = s.q5; e.draftId = 'imp_' + uid + '_plan'; e.final = true; }
       out.push(e);
