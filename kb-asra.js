@@ -41,6 +41,7 @@
     q6: { no: 6, phase: 'plan', short: '我的行動計畫', zh: '我要怎麼做?寫下具體的行動計畫。', step: 4, orig: '延伸與深化探究的具體行動計畫是什麼?' }
   };
   var PHASE = { analysis: ['我們的分析', 'Our Analysis'], problem: ['我們發現的問題', 'Our Problems'], plan: ['我們的計畫', 'Our Plan'] };
+  var SHOW_DATES = global.KB_SHOW_DATES === true;   // ASRA 反思歷程的畫面要不要顯示日期/時間(目前不顯示; 資料裡的時間戳記仍保留, 研究用 CSV 仍有日期時間; 要恢復: 在網頁(或 kb-config.js)設 window.KB_SHOW_DATES = true,或把這裡改成 true)
   var SHOW_IMPORT_TAG = false;   // 老師匯入的紀錄要不要在畫面上標「老師匯入」(目前不標;資料裡仍有 imp 來源記錄)
   var NOTE_Q = { mon: 'q1', q2: 'q2' };   // 「一句話」類紀錄的 ref 對應到第幾題
   var remote = {};            // uid -> { id: entry }(從雲端收到的)
@@ -247,7 +248,7 @@
   }
 
   global.KBAsra = {
-    pendingAll: pendingAll, pushAllLocal: pushAllLocal, SHOW_IMPORT_TAG: SHOW_IMPORT_TAG, KINDS: KINDS, ACT_NAME: ACT_NAME, QS: QS, PHASE: PHASE, ROLE_NAME: ROLE_NAME, CHOICE_NAME: CHOICE_NAME,
+    pendingAll: pendingAll, pushAllLocal: pushAllLocal, SHOW_IMPORT_TAG: SHOW_IMPORT_TAG, SHOW_DATES: SHOW_DATES, KINDS: KINDS, ACT_NAME: ACT_NAME, QS: QS, PHASE: PHASE, ROLE_NAME: ROLE_NAME, CHOICE_NAME: CHOICE_NAME,
     exportAll: exportAll, importAll: importAll, append: append, newId: rid, entries: entries, rawEntries: rawEntries, rawUids: rawUids, entriesCollapsed: entriesCollapsed, uids: uids, derive: derive, describe: describe, pending: pending,
     seenGet: seenGet, seenSet: seenSet, fmtTime: fmtTime, fmtDate: fmtDate, toCSV: toCSV,
     onChange: function (f) { if (typeof f === 'function') listeners.push(f); },

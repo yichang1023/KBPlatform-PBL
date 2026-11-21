@@ -149,7 +149,7 @@ textarea:focus,select:focus,input[type=text]:focus{border-color:#6366f1}
   function nameOf(id) { return names[id] || '同學'; }
   // 老師匯入的計畫沒有「做法」;匯入的紀錄在學生頁不顯示日期(匯入與日期只在老師的設定中心看)
   function actOf(a) { return ACTS[a] || { big: '計畫', icon: 'fa-circle', ph: '' }; }
-  function ftime(x) { return (x && x.imported && !readonly) ? '' : KBAsra.fmtTime(x.ts); }
+  function ftime(x) { return !KBAsra.SHOW_DATES || (x && x.imported && !readonly) ? '' : KBAsra.fmtTime(x.ts); }
   function cut(s, n) { s = String(s || '').replace(/\s+/g, ' '); return s.length > n ? s.slice(0, n) + '…' : s; }
 
   /* ---- 這位學生的反思與計畫:每次存檔都「新增一筆有日期的紀錄」,不覆蓋舊的(見 kb-asra.js) ---- */
@@ -543,7 +543,7 @@ textarea:focus,select:focus,input[type=text]:focus{border-color:#6366f1}
     var tchips = Object.keys(byTopic).sort(function (a, b) { return byTopic[b] - byTopic[a]; }).map(function (k) { return '<span class="pill todo">' + esc(cut(k, 14)) + ' · ' + byTopic[k] + ' 個想法</span>'; }).join(' ');
     var cps = (S.concepts || []).slice().sort(function (a, b) { return b.ts - a.ts; });
     var qc = '<div class="card fade"><h4 class="font-black text-slate-800 mb-1"><i class="fas fa-bullseye mr-1 text-indigo-500"></i>我的概念追問</h4><p class="text-xs text-slate-500 mb-2">在「知識羅盤」的概念雲點一個詞,回答它為什麼在中間(核心)或在邊邊(邊緣)。回應會存在這裡,老師也看得到。</p>' +
-      (cps.length ? cps.slice(0, 6).map(function (x) { return '<div class="py-2 border-t border-slate-100"><div class="flex flex-wrap items-center gap-2"><span class="pill ' + (x.role === 'core' ? 'ok' : 'todo') + '">' + esc(x.term) + ' · ' + esc(KBAsra.ROLE_NAME[x.role] || '') + '</span><span class="text-xs text-slate-500">' + KBAsra.fmtTime(x.ts) + '</span>' + (x.choice ? '<span class="pill warn">' + esc(KBAsra.CHOICE_NAME[x.choice] || x.choice) + '</span>' : '') + '</div>' + (x.text ? '<div class="text-sm text-slate-700 mt-1">' + esc(x.text) + '</div>' : '') + '</div>'; }).join('') : '<p class="text-sm text-slate-400">還沒有追問過。</p>') +
+      (cps.length ? cps.slice(0, 6).map(function (x) { return '<div class="py-2 border-t border-slate-100"><div class="flex flex-wrap items-center gap-2"><span class="pill ' + (x.role === 'core' ? 'ok' : 'todo') + '">' + esc(x.term) + ' · ' + esc(KBAsra.ROLE_NAME[x.role] || '') + '</span><span class="text-xs text-slate-500">' + ftime(x) + '</span>' + (x.choice ? '<span class="pill warn">' + esc(KBAsra.CHOICE_NAME[x.choice] || x.choice) + '</span>' : '') + '</div>' + (x.text ? '<div class="text-sm text-slate-700 mt-1">' + esc(x.text) + '</div>' : '') + '</div>'; }).join('') : '<p class="text-sm text-slate-400">還沒有追問過。</p>') +
       '<p class="mt-3 text-sm"><a class="text-indigo-600 font-bold underline" id="to-concept" href="' + backHref() + '#concept-card"><i class="fas fa-cloud mr-1"></i>去概念雲選一個詞追問</a></p></div>';
     var q2 = '<div class="card fade"><label for="q2-note">' + qlab('q2') + '</label><p class="text-xs text-slate-500 mb-2">看看上面的想法:你在哪些討論區說得最多?哪些很少提到?</p>' + (tchips ? '<div class="flex flex-wrap gap-1 mb-2">' + tchips + '</div>' : '') +
       guideHtml('q2') + '<textarea id="q2-note" rows="2" maxlength="200" placeholder="例如:我講「光」講得最多,「影子」講得很少。"' + (readonly ? ' disabled' : '') + '>' + esc(S.notes.q2 || '') + '</textarea><div id="as-note-q2" class="text-[11px] text-slate-400 mt-1">寫的時候會自動存下(這一題不用按存下)</div></div>';
