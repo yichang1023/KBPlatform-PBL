@@ -466,9 +466,18 @@ textarea:focus,select:focus,input[type=text]:focus{border-color:#6366f1}
   function phaseChip(n) { var p = PH_OF[n]; if (!p) return ''; return '<div class="mt-0.5"><span class="phase" style="' + PH_COL[p] + '">' + KBAsra.PHASE[p][0] + ' <span style="opacity:.7">' + KBAsra.PHASE[p][1] + '</span></span></div>'; }
   function qlab(k) { var q = KBAsra.QS[k]; return '<span class="qlab"><span class="qno">' + q.no + '</span><span>' + q.zh + '</span></span>'; }
   // 匯入進來的 Q3~Q6 回答(掛在「整體回答」這個想法底下)原本只有選到那個想法才看得到; 改成第 3、4 步最上面一定看得到(只顯示最新的一版, 不顯示日期)
+  function impIdeaPid() { var l = (S.ideas || []).filter(function (x) { return x.imported && !x.open; }); return l.length ? 'manual:' + l[l.length - 1].id : null; }   // 匯入的「整體回答」想法
+  // 這個想法底下最新的匯入回答(refl 或 plan); 學生自己已經存過這個想法的反思/計畫, 就不再用匯入的預填
+  function impAnswer(kind, pid) {
+    var list = (kind === 'refl' ? S.refl : S.plans).filter(function (r) { return r.postId === pid && !r.open; });
+    if (list.some(function (r) { return !r.imported; })) return null;
+    var imp = list.filter(function (r) { return r.imported; }).sort(function (a, b) { return b.ts - a.ts; });
+    return imp.length ? imp[0] : null;
+  }
   function importedBlock(kind) {
     var list = (kind === 'refl' ? S.refl : S.plans).filter(function (r) { return r.imported && !r.open; }).sort(function (a, b) { return b.ts - a.ts; });
     if (!list.length) return '';
+    if (selIdea && list[0].postId === selIdea) return '';   // 選的就是這個想法: 答案已經直接填在下面的框裡, 不重複顯示
     var r = list[0], items = kind === 'refl' ? [['第 3 題', '我的想法有越想越深入嗎?為什麼', r.q3], ['第 4 題', '哪些地方要再想深一點', r.q4]] : [['第 5 題', '想深化哪一部分?為什麼', r.q5], ['第 6 題', '我的計畫', r.text]];
     var inner = items.filter(function (x) { return x[2]; }).map(function (x) { return '<div class="mt-2"><div class="text-[11px] font-black text-indigo-600">' + x[0] + ' · ' + x[1] + '</div><div class="text-sm text-slate-700 whitespace-pre-wrap">' + esc(x[2]) + '</div></div>'; }).join('');
     if (kind === 'refl' && !inner && r.text) inner = '<div class="mt-2 text-sm text-slate-700 whitespace-pre-wrap">' + esc(r.text) + '</div>';
@@ -1031,7 +1040,7 @@ textarea:focus,select:focus,input[type=text]:focus{border-color:#6366f1}
   function reflDraft(pid) { var l = S.refl.filter(function (r) { return r.postId === pid && r.open; }); return l.length ? l[l.length - 1] : null; }
   function planDraft(pid) { var l = S.plans.filter(function (p) { return p.postId === pid && p.open; }); return l.length ? l[l.length - 1] : null; }
   function planRestore() {
-    var pd = planDraft(selIdea); if (!pd) return;
+    var pd = planDraft(selIdea); if (!pd) { var ia0 = impAnswer('plan', selIdea); if (ia0 && !planWhy) planWhy = ia0.q5 || ''; return; }
     var a = adGet(adKey('plan', selIdea)); if (!a.gid) { a.gid = pd.id; a.n = pd.versions; a.last = [pd.act, pd.q5 || '', pd.text].join('\u0001'); }
     if (!chosenAct) chosenAct = pd.act; if (!planWhy) planWhy = pd.q5 || '';
   }
@@ -1086,6 +1095,7 @@ textarea:focus,select:focus,input[type=text]:focus{border-color:#6366f1}
       qa('.starter').forEach(function (s) { s.onclick = function () { if (readonly) return; var tt = q('#' + (s.getAttribute('data-for') || 'refl-text')) || tx; tt.value = (tt.value ? tt.value + '\n' : '') + s.getAttribute('data-s'); tt.focus(); }; });
       var t4x = q('#refl-q4'); if (tx && !readonly) { tx.oninput = reflInput; if (t4x) t4x.oninput = reflInput; }
       var rd0 = reflDraft(selIdea); if (rd0 && !readonly) { var ra = adGet(adKey('refl', selIdea)); if (!ra.gid) { ra.gid = rd0.id; ra.n = rd0.versions; ra.last = (rd0.q3 || '') + '\u0001' + (rd0.q4 || ''); } if (tx && !tx.value) tx.value = rd0.q3 || ''; if (t4x && !t4x.value) t4x.value = rd0.q4 || ''; adStatus('as-refl', '↻ 接著上次寫的(已自動存下 ' + hhmm(rd0.ts) + ')'); }
+      if (!rd0) { var ia = impAnswer('refl', selIdea); if (ia) { if (tx && !tx.value) tx.value = ia.q3 || (ia.q4 ? '' : (ia.text || '')); if (t4x && !t4x.value) t4x.value = ia.q4 || ''; if (!readonly) adStatus('as-refl', '這是之前放進來的回答, 可以直接修改; 改好請按「存下我的反思」。'); } }
       var sv = q('#refl-save'); if (sv) sv.onclick = function () { var v = tx.value.trim(), t4 = q('#refl-q4'), v4 = t4 ? t4.value.trim() : ''; if (!v && !v4) { tx.focus(); return; } var txt = (v && v4) ? '【越想越深入嗎?】' + v + '\n【還要再想深的地方】' + v4 : (v || '【還要再想深的地方】' + v4); autoFinish(adKey('refl', selIdea), Object.assign({ kind: 'refl', postId: selIdea, text: txt, q3: v || undefined, q4: v4 || undefined }, ideaSnap(selIdea))); renderStepper(); renderPanel(); toast('已存下你的反思 ✓'); };
       var nx = q('#refl-next'); if (nx) nx.onclick = function () { go(3); };
     }
@@ -1097,6 +1107,7 @@ textarea:focus,select:focus,input[type=text]:focus{border-color:#6366f1}
       var pbz = q('#push-busy'); if (pbz && PS.busy && window.kbAiBusy) kbAiBusy.show(pbz, 'AI 助教正在看你的資料、排計畫…', { expect: 12 });
       var ptx = q('#plan-text'); if (ptx && !readonly) ptx.oninput = planInput;
       var pd0 = planDraft(selIdea); if (pd0 && !readonly) { if (ptx && !ptx.value) ptx.value = pd0.text || ''; adStatus('as-plan', '↻ 接著上次寫的(已自動存下 ' + hhmm(pd0.updTs) + ')'); }
+      if (!pd0) { var ip2 = impAnswer('plan', selIdea); if (ip2) { if (ptx && !ptx.value) ptx.value = ip2.text || ''; if (!readonly) adStatus('as-plan', '這是之前放進來的回答, 可以直接修改; 要先選一個做法, 再按「訂好我的計畫」。'); } }
       qa('[data-act]').forEach(function (b) { b.onclick = function () { if (readonly) return; chosenAct = b.getAttribute('data-act'); var keep = (q('#plan-text') || {}).value; renderPanel(); if (keep) q('#plan-text').value = keep; planInput(); }; });
       var ps = q('#plan-save'); if (ps) ps.onclick = function () {
         var tx2 = q('#plan-text'), v = tx2.value.trim();
@@ -1265,6 +1276,7 @@ textarea:focus,select:focus,input[type=text]:focus{border-color:#6366f1}
     reload();
     // 重新打開頁面時,如果上次有「還在寫」的反思或計畫,就預設選到那個想法,讓學生接著寫
     if (!selIdea) { var od = []; S.refl.forEach(function (r) { if (r.open) od.push({ id: r.postId, ts: r.ts }); }); S.plans.forEach(function (p) { if (p.open) od.push({ id: p.postId, ts: p.updTs || p.ts }); }); od.sort(function (x, y) { return y.ts - x.ts; }); if (od.length) selIdea = od[0].id; }
+    if (!selIdea) { var ip0 = impIdeaPid(); if (ip0) selIdea = ip0; }   // 有老師匯入的回答: 預設就選「整體回答」, 第 3、4 步的框直接看到自己的 Q3~Q6
     $('nav-back').href = backHref();
     renderStepper(); renderPanel();
   }
