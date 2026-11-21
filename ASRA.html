@@ -74,7 +74,7 @@ textarea:focus,select:focus,input[type=text]:focus{border-color:#6366f1}
 </head>
 <body class="pb-24">
 
-<nav class="bg-gradient-to-r from-indigo-700 to-indigo-600 text-white shadow-md sticky top-0 z-40">
+<nav class="bg-gradient-to-r from-indigo-700 to-indigo-600 text-white shadow-md sticky top-0 z-40" style="background:linear-gradient(90deg,#3730a3,#4338ca)">
   <div class="max-w-5xl mx-auto px-4 py-3 flex flex-col sm:flex-row justify-between items-center gap-3">
     <div class="text-center sm:text-left">
       <h1 class="text-lg font-bold tracking-wide">ASRA 反思評量 <span class="font-normal opacity-80 text-sm">| 看見自己的想法,決定下一步</span></h1>
@@ -984,7 +984,7 @@ textarea:focus,select:focus,input[type=text]:focus{border-color:#6366f1}
   }
   // 我的完整紀錄(依日期,舊的不會被改掉)
   function panelLog() {
-    if (!readonly) return '';   // 學生頁不顯示「我的完整紀錄」(減輕頁面負擔); 老師檢視學生時仍看得到
+    return '';   // 不顯示「我的完整紀錄」(減輕頁面負擔; 學生與老師檢視都一樣); 資料與 CSV 匯出不受影響
     var list = KBAsra.entries(uid).slice().reverse();
     if (!list.length) return '';
     var col = { note: 'bg-slate-100 text-slate-600', refl: 'bg-indigo-100 text-indigo-700', plan: 'bg-emerald-100 text-emerald-700', reeval: 'bg-amber-100 text-amber-700', concept: 'bg-sky-100 text-sky-700', idea: 'bg-violet-100 text-violet-700' };
