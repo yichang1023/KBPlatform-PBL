@@ -184,6 +184,28 @@
     return loadLocal(uid).log.filter(function (e) { return !r[e.id]; }).length;
   }
 
+  // 這台電腦存著、雲端還沒有的 ASRA 紀錄筆數(所有學生): 老師匯入的、學生在這台寫的; 沒連雲端回 0
+  function pendingAll() {
+    if (!cloud()) return { students: 0, records: 0 };
+    var n = 0, st = 0;
+    localUids().forEach(function (u) { var r = remote[u] || {}, k = loadLocal(u).log.filter(function (e) { return !r[e.id]; }).length; if (k) { st++; n += k; } });
+    return { students: st, records: n };
+  }
+  // 補送: 把上面那些紀錄送上雲端(一位一位送, 每次最多 300 筆); 回傳 Promise<{ ok, students, records, failed[], error }>
+  function pushAllLocal() {
+    var c = cloud(); if (!c || !c.pushAsra) return Promise.resolve({ ok: false, students: 0, records: 0, failed: [], error: '目前沒有連到雲端(單機或離線)' });
+    var failed = [], students = 0, records = 0, chain = Promise.resolve();
+    localUids().forEach(function (u) {
+      var r = remote[u] || {}, miss = loadLocal(u).log.filter(function (e) { return !r[e.id]; });
+      if (!miss.length) return;
+      for (var i = 0; i < miss.length; i += 300) (function (part) {
+        chain = chain.then(function () { return c.pushAsra(u, part); }).then(function (ok) { if (ok) { records += part.length; } else if (failed.indexOf(u) < 0) failed.push(u); });
+      })(miss.slice(i, i + 300));
+      students++;
+    });
+    return chain.then(function () { return { ok: !failed.length, students: students - failed.length, records: records, failed: failed, error: failed.length ? (c.asraError || '') : '' }; });
+  }
+
   /* ---------- 匯出(給老師/研究者) ---------- */
   function csvCell(v) { var s = String(v == null ? '' : v); return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }
   // opts.info(uid) → { name, className };opts.uids 指定哪些學生
@@ -224,7 +246,7 @@
   }
 
   global.KBAsra = {
-    SHOW_IMPORT_TAG: SHOW_IMPORT_TAG, KINDS: KINDS, ACT_NAME: ACT_NAME, QS: QS, PHASE: PHASE, ROLE_NAME: ROLE_NAME, CHOICE_NAME: CHOICE_NAME,
+    pendingAll: pendingAll, pushAllLocal: pushAllLocal, SHOW_IMPORT_TAG: SHOW_IMPORT_TAG, KINDS: KINDS, ACT_NAME: ACT_NAME, QS: QS, PHASE: PHASE, ROLE_NAME: ROLE_NAME, CHOICE_NAME: CHOICE_NAME,
     exportAll: exportAll, importAll: importAll, append: append, newId: rid, entries: entries, rawEntries: rawEntries, rawUids: rawUids, entriesCollapsed: entriesCollapsed, uids: uids, derive: derive, describe: describe, pending: pending,
     seenGet: seenGet, seenSet: seenSet, fmtTime: fmtTime, fmtDate: fmtDate, toCSV: toCSV,
     onChange: function (f) { if (typeof f === 'function') listeners.push(f); },

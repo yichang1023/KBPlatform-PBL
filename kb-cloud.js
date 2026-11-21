@@ -115,7 +115,9 @@
     dels.forEach(function (id) { args.push(new FP('items', id), FV.delete()); });
     if (!args.length) return Promise.resolve();
     return ref.update.apply(ref, args).catch(function (e) {
-      if (e && e.code === 'not-found') return ref.set({ items: sets }, { merge: true });
+      // 文件還沒建立: 一般文件回 not-found; ASRA 文件的規則在更新時要比對既有內容, 文件不存在就被擋成 permission-denied(不是 not-found).
+      // 以前只處理 not-found, 所以每位學生的第一次寫入都失敗、文件永遠建不起來 → 兩種都改用 set 建立(規則的 create 允許; 既有紀錄仍不能被改)
+      if (e && (e.code === 'not-found' || (e.code === 'permission-denied' && /^asra__/.test(name) && !dels.length))) return ref.set({ items: sets }, { merge: true });
       throw e;
     });
   }

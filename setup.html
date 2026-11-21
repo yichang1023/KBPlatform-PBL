@@ -718,7 +718,9 @@
     var hist = bt.length ? '<div class="overflow-x-auto border border-slate-200 rounded-lg mt-3"><table class="tbl"><thead><tr><th>匯入時間</th><th>檔案</th><th>學生</th><th>筆數</th><th>狀態</th><th></th></tr></thead><tbody>' + bt.map(function (b) {
       return '<tr><td>' + fmt(b.time) + '</td><td>' + esc(b.file || '(未命名)') + '</td><td>' + b.students + '</td><td>' + b.count + '</td><td>' + (b.undone ? '<span class="chip gray">已撤回</span>' : '<span class="chip ok">有效' + (b.alive < b.count ? '(部分已撤回)' : '') + '</span>') + '</td><td>' + (b.undone ? '' : '<button class="btn btn-d btn-sm" data-act="asra-undo" data-id="' + esc(b.id) + '"><i class="fa-solid fa-rotate-left"></i>撤回這批</button>') + '</td></tr>';
     }).join('') + '</tbody></table></div>' : '<div class="text-xs text-slate-400 mt-3">還沒有匯入過。</div>';
-    return '<p class="text-sm text-slate-600 mb-2">用 Excel 或 CSV 一次放進全班學生的 ASRA 回答。每列一位學生,系統<b>用「編號」找帳號</b>(姓名只拿來核對),Q1~Q6 自動放進學生 ASRA 裡對應的位置。學生登入後在自己的 ASRA 頁看得到,老師的「ASRA 反思歷程」也看得到。</p>' +
+    var pa = (window.KBAsra && KBAsra.pendingAll) ? KBAsra.pendingAll() : { students: 0, records: 0 };
+    var cloudBox = pa.records ? '<div class="border border-amber-300 bg-amber-50 rounded-lg p-3 mb-3 text-sm text-amber-900"><b>這台電腦有 ' + pa.records + ' 筆 ASRA 紀錄(' + pa.students + ' 位學生)還沒存到雲端。</b>只存在這台電腦的瀏覽器裡,換電腦或學生用自己的裝置看不到。<div class="mt-2"><button class="btn btn-p" data-act="asra-push"><i class="fa-solid fa-cloud-arrow-up"></i>補送到雲端</button> <span class="text-xs">送出後學生登入就看得到自己的紀錄;雲端資料庫的讀取是公開的(和其他資料一樣)。補送前請不要清除這台電腦的瀏覽器資料。</span></div></div>' : '';
+    return cloudBox + '<p class="text-sm text-slate-600 mb-2">用 Excel 或 CSV 一次放進全班學生的 ASRA 回答。每列一位學生,系統<b>用「編號」找帳號</b>(姓名只拿來核對),Q1~Q6 自動放進學生 ASRA 裡對應的位置。學生登入後在自己的 ASRA 頁看得到,老師的「ASRA 反思歷程」也看得到。</p>' +
       '<div class="flex flex-wrap gap-2"><button class="btn btn-p" data-act="asra-imp"><i class="fa-solid fa-file-import"></i>匯入學生 ASRA 回答…</button><button class="btn btn-g" data-act="asra-tpl"><i class="fa-solid fa-download"></i>下載範本</button></div>' +
       '<p class="text-xs text-slate-500 mt-2">紀錄只增不改:重複匯入同一份不會重複,內容改過再匯會新增新版本(舊的保留)。匯錯了可以「撤回這批」(不是刪除,原始紀錄仍留著可查)。如果學號與姓名有出入,該列預設不匯入,確認後再勾選。</p>' + hist;
   }
@@ -1092,6 +1094,17 @@
       }, function (e) { fail('試聽失敗:' + why(e)); });
     },
     'asra-imp': asraSheetDialog,
+    'asra-push': function (b) {
+      if (!window.KBAsra || !KBAsra.pushAllLocal) return;
+      b.disabled = true; var old = b.innerHTML; b.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>補送中…';
+      KBAsra.pushAllLocal().then(function (r) {
+        b.disabled = false; b.innerHTML = old;
+        if (r.ok && r.records) KBUI.toast('已補送 ' + r.records + ' 筆(' + r.students + ' 位學生)到雲端', 'ok');
+        else if (!r.records && r.ok) KBUI.toast('沒有需要補送的紀錄', 'ok');
+        else KBUI.toast('有 ' + r.failed.length + ' 位學生沒送成' + (r.error ? '(' + r.error + ')' : '') + (r.records ? ';已送 ' + r.records + ' 筆' : '') + '。請確認網路後再按一次。', 'err');
+        setTimeout(function () { R.data(); }, 600);
+      });
+    },
     'asra-tpl': function () { download('ASRA學生回答範本.xlsx', KBXLSX.build([{ name: 'ASRA回答', header: true, widths: [10, 14, 8, 38, 38, 38, 38, 38, 38], textCols: [0, 1, 2], rows: KBAsraImport.templateRows() }]), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'); },
     'asra-undo': function (b) {
       KBUI.confirm({ title: '撤回這批匯入', html: '要撤回批次 <b>' + esc(b.dataset.id) + '</b> 嗎?這批匯入的 ASRA 回答會從學生與老師的畫面消失。<br><span class="text-xs">不是刪除:原始紀錄仍留著可查,之後可以再匯入更正過的檔案。</span>', okText: '撤回' }).then(function (y) {
