@@ -558,7 +558,10 @@
    * 把句子切成小句各念一次, 每個小句的尾音都會「落下去」, 聽起來像一小段一小段背稿, 還要多等一次啟動時間.
    * 做法: 同一段敘述的句子合成一次念(最多約 60 字, 避免瀏覽器念太久被中斷), 句與句之間的短停頓留給標點;
    * 只有「需要真的停一下」的地方才分開念, 停多久看前後文: 問句與驚嘆之後、說話與旁白交界、換人說話、刪節號、開場收場與結尾句、段落結束. */
-  var brFlow = true;   // 自然人聲要不要用「整句念」(可在面板關掉, 回到逐小句念)
+  var brFlow = true;
+  var BR_PRE_GAP = 120, brLatMs = 0;   // 停頓 ≤ BR_PRE_GAP 毫秒的小句提前排隊; brLatMs = 這個聲音從「叫它念」到「真的出聲」大約多久(念的時候邊量邊更新)
+  function noteBrLat(ms) { if (!(ms >= 0) || ms > 3000) return; brLatMs = brLatMs ? brLatMs * 0.6 + ms * 0.4 : ms; }
+  function brLat() { return Math.min(600, Math.round(brLatMs)); }   // 自然人聲要不要用「整句念」(可在面板關掉, 回到逐小句念)
   function flowCut(text, max) {   // 單句太長(> max 字)時在逗號處對半切, 兩半各自再檢查
     var t = String(text), n = t.replace(/\s/g, '').length;
     if (n <= max) return [t];
@@ -577,16 +580,16 @@
     pieces.forEach(function (p, i) {
       var nxt = pieces[i + 1], t = p.text; p.q = Q.test(t); p.ex = EX.test(t); p.trail = TR.test(t); p.dlg = DLG.test(t); p.gap = null;
       if (!nxt) return;
-      if (!p.whole) { p.gap = 120; return; }   // 一個長句被切成兩半: 只換一口氣
-      if (openN && p.si === openN - 1) p.gap = 380;   // 開場白和故事之間
-      else if (c.close && nxt.si === closeStart) p.gap = 380;   // 故事和收場白之間
-      else if (c.ending && nxt.si === endIdx) p.gap = endSp ? 460 : 280;   // 結尾句前面停一拍
-      else if (c.ending && p.si === endIdx) p.gap = endSp ? 620 : 380;
-      else if (p.trail) p.gap = 600;
-      else if (p.q) p.gap = 340;   // 問句之後給聽的人一拍
-      else if (p.ex) p.gap = 300;
-      else if (p.dlg !== DLG.test(nxt.text)) p.gap = 200;   // 旁白 ⇄ 對白的交界
-      else if (p.dlg && /[\u300D\u300F\u201D][\u3002.!?\uFF01\uFF1F\u2026,\uFF0C]*\s*$/.test(t) && /^[\u300C\u300E\u201C]/.test(nxt.text)) p.gap = 260;   // 一人說完、換另一人
+      if (!p.whole) { p.gap = 40; return; }   // 一個長句被切成兩半: 只換一口氣
+      if (openN && p.si === openN - 1) p.gap = 250;   // 開場白和故事之間
+      else if (c.close && nxt.si === closeStart) p.gap = 250;   // 故事和收場白之間
+      else if (c.ending && nxt.si === endIdx) p.gap = endSp ? 320 : 200;   // 結尾句前面停一拍
+      else if (c.ending && p.si === endIdx) p.gap = endSp ? 420 : 260;
+      else if (p.trail) p.gap = 420;
+      else if (p.q) p.gap = 200;   // 問句之後給聽的人一拍
+      else if (p.ex) p.gap = 180;
+      else if (p.dlg !== DLG.test(nxt.text)) p.gap = 120;   // 旁白 ⇄ 對白的交界
+      else if (p.dlg && /[\u300D\u300F\u201D][\u3002.!?\uFF01\uFF1F\u2026,\uFF0C]*\s*$/.test(t) && /^[\u300C\u300E\u201C]/.test(nxt.text)) p.gap = 160;   // 一人說完、換另一人
     });
     var out = [], cur = null, idx = 0;
     function flush(gap) {
@@ -600,7 +603,7 @@
     }
     pieces.forEach(function (p, i) {
       var nxt = pieces[i + 1], t = p.text;
-      if (cur && (cur.len + t.length > CAP)) flush(160);   // 太長就先念一段, 接著念下一段(只換一口氣)
+      if (cur && (cur.len + t.length > CAP)) flush(60);   // 太長就先念一段, 接著念下一段(只換一口氣)
       if (!cur) cur = { text: '', len: 0, last: p, si0: p.si, si1: p.si };
       if (cur.text && !/[,.;:!?\u3002\uFF0C\uFF01\uFF1F\uFF1B\uFF1A\u3001\u2026\u300D\u300F\u201D]$/.test(cur.text)) cur.text += '\uFF0C';   // 句子結尾沒標點: 補個逗號, 才不會和下一句黏在一起
       cur.text += t; cur.len += t.length; cur.last = p; cur.si1 = p.si;
@@ -609,11 +612,11 @@
     });
     // 最後一組: 一個小段結束的停頓(段落結束停久一點; 段落中間切開的小段只停一下; 下一小段是對白時更緊)
     if (cur) {
-      var lastP = cur.last, gapEnd = lastP.trail ? 650 : (lastP.q || lastP.ex) ? 380 : 420;
-      if (!c.par) gapEnd = lastP.trail ? 600 : (lastP.q || lastP.ex) ? 340 : 300;
-      if (c.par) gapEnd += 380;
-      if (opt.next && lastP.dlg && /^[\s]*[\u300C\u300E\u201C]/.test(String(opt.next.text || ''))) gapEnd = Math.min(gapEnd, 260);
-      if (c.ending) gapEnd += c.ending && /^(rhetorical|vow|farewell)$/.test(c.ending) ? 420 : 200;
+      var lastP = cur.last, gapEnd = lastP.trail ? 450 : (lastP.q || lastP.ex) ? 240 : 300;
+      if (!c.par) gapEnd = lastP.trail ? 400 : (lastP.q || lastP.ex) ? 160 : 120;
+      if (c.par) gapEnd += 150;
+      if (opt.next && lastP.dlg && /^[\s]*[\u300C\u300E\u201C]/.test(String(opt.next.text || ''))) gapEnd = Math.min(gapEnd, 140);
+      if (c.ending) gapEnd += c.ending && /^(rhetorical|vow|farewell)$/.test(c.ending) ? 280 : 140;
       flush(gapEnd);
     }
     return out;
@@ -1103,24 +1106,35 @@
     // 瀏覽器聲音: 一句一句、一個分句一個分句念; 每個分句依語氣調整語速與音高, 分句之間依標點停頓(和 AI 人聲同一套人設與語氣)
     function speakBrowser(c, tok) {
       var s = synth(); if (!s) { say('這個瀏覽器不支援朗讀。'); return done(); }
-      var br = o.br || {}, units = browserUnits(c, o.rate, { flow: brFlow, natural: !!br.voice && voiceTier(br.voice) >= 150, next: o.chunks[self.i + 1] }), k = 0;
-      function next() {
-        if (tok !== self.token || self.state !== 'playing') return;
-        if (k >= units.length) { self.i++; run(tok); return; }
-        var un = units[k++], u = Utter(un.text), v = br.voice;
+      var br = o.br || {}, units = browserUnits(c, o.rate, { flow: brFlow, natural: !!br.voice && voiceTier(br.voice) >= 150, next: o.chunks[self.i + 1] }), fired = [], us = [];
+      function live() { return tok === self.token && self.state === 'playing'; }
+      // 把第 i 個小句交給瀏覽器. 停頓很短(≤ 0.12 秒)的小句會在「前一個還在念」的時候就先排進瀏覽器的佇列, 瀏覽器念完上一句會馬上接著念, 沒有空白;
+      // 需要停的地方用計時器, 並扣掉這個聲音「叫它念 → 真的出聲」的啟動延遲(雲端聲音常要 0.2~0.8 秒), 實際聽到的空白才會接近我們要的長度
+      function fire(i, queuedBehind) {
+        if (i >= units.length || fired[i] || !live()) return;
+        fired[i] = true;
+        var un = units[i], u = Utter(un.text), v = br.voice, t0 = Date.now(), finished = false, wd = null;
         if (v) { u.voice = v; u.lang = v.lang || 'zh-TW'; } else u.lang = 'zh-TW';
         u.rate = Math.max(0.5, Math.min(2, (o.rate || 1) * (br.rate || 1) * (1 + un.dr * (v && v.localService === false ? 1.5 : 1))));   // 雲端聲音(Google、微軟自然人聲)多半不理音高, 語速的起伏加大一點補上
         var pt = Math.max(0.1, Math.min(2, (br.pitch || 1) + un.dp)); if (Math.abs(pt - 1) > 0.005) u.pitch = pt;
         if (un.dv) u.volume = Math.max(0.25, Math.min(1, 1 + un.dv));   // 耳語、低沉的地方小聲一點(大聲的地方維持最大)
-        var finished = false, wd = null;
-        function ended() { if (finished) return; finished = true; if (wd) { clearTimeout(wd); wd = null; } if (tok !== self.token || self.state !== 'playing') return; clearGap(); self.gapT = setTimeout(function () { self.gapT = null; next(); }, un.gap); }
+        function after(gap, fn) { clearGap(); self.gapT = setTimeout(function () { self.gapT = null; if (live()) fn(); }, Math.max(0, gap - brLat())); }
+        function ended() {
+          if (finished) return; finished = true; if (wd) { clearTimeout(wd); wd = null; }
+          if (!live()) return;
+          if (i + 1 >= units.length) { after(un.gap, function () { self.i++; run(tok); }); return; }
+          if (fired[i + 1]) return;   // 下一句已經排在佇列裡, 瀏覽器會自己接著念
+          after(un.gap, function () { fire(i + 1); });
+        }
+        u.onstart = function () { if (!queuedBehind) noteBrLat(Date.now() - t0); if (un.gap <= BR_PRE_GAP) fire(i + 1, true); };
         u.onend = ended;
         u.onerror = function (e) { if (tok !== self.token) return; if (e && (e.error === 'interrupted' || e.error === 'canceled')) return; if (wd) { clearTimeout(wd); wd = null; } finished = true; say('朗讀失敗: ' + (e && e.error || '瀏覽器聲音無法播放')); done(); };
-        self.u = u;   // 留著參照: Chrome 會把沒人參照的語音物件回收掉, onend 就永遠不會來
-        wd = setTimeout(function () { if (finished || tok !== self.token) return; try { s.cancel(); } catch (e) {} ended(); }, Math.round(un.text.length * 450 / Math.max(0.5, u.rate || 1)) + 5000);   // 保險: 有些瀏覽器的 onend 不會來, 超過預估時間就接著念下一個
+        us.push(u); self.u = us;   // 留著參照: Chrome 會把沒人參照的語音物件回收掉, onend 就永遠不會來
+        var est = Math.round(un.text.length * 450 / Math.max(0.5, u.rate || 1)) + 5000;   // 保險: 有些瀏覽器的 onend 不會來, 超過預估時間就接著念下一個(排在別人後面的要多等前面那一句)
+        wd = setTimeout(function () { if (finished || tok !== self.token) return; try { s.cancel(); } catch (e) {} for (var j = i + 1; j < units.length; j++) fired[j] = false; ended(); }, queuedBehind ? est + 20000 : est);
         s.speak(u);
       }
-      next();
+      fire(0, false);
     }
     function run(tok) {
       if (tok !== self.token || self.state !== 'playing') return;
