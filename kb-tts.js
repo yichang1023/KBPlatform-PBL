@@ -559,6 +559,7 @@
    * 做法: 同一段敘述的句子合成一次念(最多約 60 字, 避免瀏覽器念太久被中斷), 句與句之間的短停頓留給標點;
    * 只有「需要真的停一下」的地方才分開念, 停多久看前後文: 問句與驚嘆之後、說話與旁白交界、換人說話、刪節號、開場收場與結尾句、段落結束. */
   var brFlow = true;
+  var BR_MUL_MIN = 0.9, BR_MUL_MAX = 1.1, BR_SLEW = 0.05;   // 瀏覽器語音語速的相對起伏範圍(±10%)與相鄰兩次的最大變化(5%)
   var BR_PRE_GAP = 120, brLatMs = 0;   // 停頓 ≤ BR_PRE_GAP 毫秒的小句提前排隊; brLatMs = 這個聲音從「叫它念」到「真的出聲」大約多久(念的時候邊量邊更新)
   function noteBrLat(ms) { if (!(ms >= 0) || ms > 3000) return; brLatMs = brLatMs ? brLatMs * 0.6 + ms * 0.4 : ms; }
   function brLat() { return Math.min(600, Math.round(brLatMs)); }   // 自然人聲要不要用「整句念」(可在面板關掉, 回到逐小句念)
@@ -1115,7 +1116,10 @@
         fired[i] = true;
         var un = units[i], u = Utter(un.text), v = br.voice, t0 = Date.now(), finished = false, wd = null;
         if (v) { u.voice = v; u.lang = v.lang || 'zh-TW'; } else u.lang = 'zh-TW';
-        u.rate = Math.max(0.5, Math.min(2, (o.rate || 1) * (br.rate || 1) * (1 + un.dr * (v && v.localService === false ? 1.5 : 1))));   // 雲端聲音(Google、微軟自然人聲)多半不理音高, 語速的起伏加大一點補上
+        // 語速: 情緒造成的起伏(憤怒、緊迫加快; 悲傷、溫柔放慢)只留 ±10%, 而且和上一個小句比最多差 5%(以前最多差一倍, 聽起來忽快忽慢); 情緒主要靠音高、停頓、音量表現
+        var mul = Math.max(BR_MUL_MIN, Math.min(BR_MUL_MAX, 1 + un.dr)), prevMul = self.brMul == null ? 1 : self.brMul;
+        mul = prevMul + Math.max(-BR_SLEW, Math.min(BR_SLEW, mul - prevMul)); self.brMul = mul;
+        u.rate = Math.max(0.5, Math.min(2, (o.rate || 1) * (br.rate || 1) * mul));
         var pt = Math.max(0.1, Math.min(2, (br.pitch || 1) + un.dp)); if (Math.abs(pt - 1) > 0.005) u.pitch = pt;
         if (un.dv) u.volume = Math.max(0.25, Math.min(1, 1 + un.dv));   // 耳語、低沉的地方小聲一點(大聲的地方維持最大)
         function after(gap, fn) { clearGap(); self.gapT = setTimeout(function () { self.gapT = null; if (live()) fn(); }, Math.max(0, gap - brLat())); }
