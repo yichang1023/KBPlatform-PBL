@@ -552,6 +552,72 @@
       return /laugh/.test(tag) ? '哈哈, ' : /cough/.test(tag) ? '咳咳, ' : /sigh/.test(tag) ? '唉, ' : /long pause/.test(tag) ? '\u2026\u2026 ' : ', ';
     });
   }
+
+  /* ---------- 接續更順(自然人聲): 整句、多句一起念 ----------
+   * 自然人聲(微軟自然人聲、Google 國語、Apple 進階/美佳)自己會處理逗號與句號的停頓、語調與問句上揚;
+   * 把句子切成小句各念一次, 每個小句的尾音都會「落下去」, 聽起來像一小段一小段背稿, 還要多等一次啟動時間.
+   * 做法: 同一段敘述的句子合成一次念(最多約 60 字, 避免瀏覽器念太久被中斷), 句與句之間的短停頓留給標點;
+   * 只有「需要真的停一下」的地方才分開念, 停多久看前後文: 問句與驚嘆之後、說話與旁白交界、換人說話、刪節號、開場收場與結尾句、段落結束. */
+  var brFlow = true;   // 自然人聲要不要用「整句念」(可在面板關掉, 回到逐小句念)
+  function flowCut(text, max) {   // 單句太長(> max 字)時在逗號處對半切, 兩半各自再檢查
+    var t = String(text), n = t.replace(/\s/g, '').length;
+    if (n <= max) return [t];
+    var best = -1, mid = t.length / 2, re = /[,\u3001\uFF0C;\uFF1B:\uFF1A]/g, m;
+    while ((m = re.exec(t))) { if (m.index >= 6 && t.length - m.index >= 6 && (best < 0 || Math.abs(m.index - mid) < Math.abs(best - mid))) best = m.index; }
+    if (best < 0) return [t];
+    return flowCut(t.slice(0, best + 1), max).concat(flowCut(t.slice(best + 1), max));
+  }
+  function flowUnits(sents, c, baseRate, k, endIdx, endSp, closeN, opt) {
+    var CAP = 60, DLG = /[\u300C\u300E\u201C\u300D\u300F\u201D]/, Q = /[?\uFF1F]\s*[\u300D\u300F\u201D"]?$/, EX = /[!\uFF01]\s*[\u300D\u300F\u201D"]?$/, TR = /\u2026\s*[\u300D\u300F\u201D"]?$/;
+    var openN = c.open ? splitSentences(exprBrowser(pronounce(forSpeech(c.open)))).length : 0, closeStart = c.close ? sents.length - closeN : -1;
+    var scale = function (g) { return Math.round(g / Math.max(0.6, baseRate || 1) * (H.gapScale == null ? 1 : H.gapScale)); };
+    // 先把每個句子(太長的在逗號處對半切)排成一串「句子片段」, 記下每一片段後面接下來要停多久(null = 不停, 和下一片段併在同一次念)
+    var pieces = [];
+    sents.forEach(function (sn, si) { flowCut(sn.text, 70).forEach(function (txt, pj, arr) { pieces.push({ si: si, text: txt, whole: pj === arr.length - 1 }); }); });
+    pieces.forEach(function (p, i) {
+      var nxt = pieces[i + 1], t = p.text; p.q = Q.test(t); p.ex = EX.test(t); p.trail = TR.test(t); p.dlg = DLG.test(t); p.gap = null;
+      if (!nxt) return;
+      if (!p.whole) { p.gap = 120; return; }   // 一個長句被切成兩半: 只換一口氣
+      if (openN && p.si === openN - 1) p.gap = 380;   // 開場白和故事之間
+      else if (c.close && nxt.si === closeStart) p.gap = 380;   // 故事和收場白之間
+      else if (c.ending && nxt.si === endIdx) p.gap = endSp ? 460 : 280;   // 結尾句前面停一拍
+      else if (c.ending && p.si === endIdx) p.gap = endSp ? 620 : 380;
+      else if (p.trail) p.gap = 600;
+      else if (p.q) p.gap = 340;   // 問句之後給聽的人一拍
+      else if (p.ex) p.gap = 300;
+      else if (p.dlg !== DLG.test(nxt.text)) p.gap = 200;   // 旁白 ⇄ 對白的交界
+      else if (p.dlg && /[\u300D\u300F\u201D][\u3002.!?\uFF01\uFF1F\u2026,\uFF0C]*\s*$/.test(t) && /^[\u300C\u300E\u201C]/.test(nxt.text)) p.gap = 260;   // 一人說完、換另一人
+    });
+    var out = [], cur = null, idx = 0;
+    function flush(gap) {
+      if (!cur) return;
+      var last = cur.last, dr = c.dr || 0, dp = c.dp || 0, dvu = c.dv || 0, isEnd = c.ending && cur.si0 === endIdx && cur.si1 === endIdx;
+      if (idx === 0) dp += 0.02 * k;
+      if (last.q) { dp += 0.05 * k; dr += 0.01; } if (last.ex) { dp += 0.04 * k; dr += 0.04 * k; }
+      if (isEnd) { dr -= (endSp ? 0.06 : 0.03) * k; if (endSp) { dp -= 0.02 * k; dvu -= 0.04; if (c.ending === 'rhetorical' && last.q) dp -= 0.05 * k; } }
+      var jt = jitter(cur.text); dp += jt[0] * 0.012; dr += jt[1] * 0.02;
+      out.push({ text: cur.text, dr: dr, dp: dp, dv: dvu, gap: scale(gap) }); idx++; cur = null;
+    }
+    pieces.forEach(function (p, i) {
+      var nxt = pieces[i + 1], t = p.text;
+      if (cur && (cur.len + t.length > CAP)) flush(160);   // 太長就先念一段, 接著念下一段(只換一口氣)
+      if (!cur) cur = { text: '', len: 0, last: p, si0: p.si, si1: p.si };
+      if (cur.text && !/[,.;:!?\u3002\uFF0C\uFF01\uFF1F\uFF1B\uFF1A\u3001\u2026\u300D\u300F\u201D]$/.test(cur.text)) cur.text += '\uFF0C';   // 句子結尾沒標點: 補個逗號, 才不會和下一句黏在一起
+      cur.text += t; cur.len += t.length; cur.last = p; cur.si1 = p.si;
+      if (!nxt) return;
+      if (p.gap !== null) flush(p.gap);
+    });
+    // 最後一組: 一個小段結束的停頓(段落結束停久一點; 段落中間切開的小段只停一下; 下一小段是對白時更緊)
+    if (cur) {
+      var lastP = cur.last, gapEnd = lastP.trail ? 650 : (lastP.q || lastP.ex) ? 380 : 420;
+      if (!c.par) gapEnd = lastP.trail ? 600 : (lastP.q || lastP.ex) ? 340 : 300;
+      if (c.par) gapEnd += 380;
+      if (opt.next && lastP.dlg && /^[\s]*[\u300C\u300E\u201C]/.test(String(opt.next.text || ''))) gapEnd = Math.min(gapEnd, 260);
+      if (c.ending) gapEnd += c.ending && /^(rhetorical|vow|farewell)$/.test(c.ending) ? 420 : 200;
+      flush(gapEnd);
+    }
+    return out;
+  }
   // 很長的小句(超過 14 個字)在連接詞前斷成兩半: 兩邊各至少 4 個字, 找最靠近中間的連接詞
   var SOFT_RE = /\u4f46\u662f|\u53ef\u662f|\u4e0d\u904e|\u7136\u800c|\u56e0\u70ba|\u6240\u4ee5|\u5982\u679c|\u5047\u5982|\u800c\u4e14|\u4e26\u4e14|\u7136\u5f8c|\u6216\u8005|\u9084\u662f|\u96d6\u7136|\u56e0\u6b64|\u65bc\u662f|\u63a5\u8457|\u540c\u6642|\u4f8b\u5982/g;
   function softSplit(p, depth) {
@@ -565,10 +631,11 @@
   }
   function jitter(t) { var h = 7, i, s = String(t); for (i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 9973; return [((h % 201) - 100) / 100, (((h * 7) % 201) - 100) / 100]; }   // 兩個 -1~1 之間、依文字固定的數
   // 把一個小段拆成「分句」(逗號分開), 每個分句各自設語速/音高/停頓; c = { text, dr, dp, rich, par }
-  function browserUnits(c, baseRate) {
+  function browserUnits(c, baseRate, opt) {
     var sents = splitSentences(exprBrowser(pronounce(forSpeech((c.open ? c.open + '\n' : '') + String(c.speak || c.text || '') + (c.close ? '\n' + c.close : ''))))), out = [], k = (c.rich ? 2 : 1) * (c.live ? 1.3 : 1) * (c.poem ? 1.3 : 1) * (c.pk === 2 ? 1.8 : c.pk === 1 ? 1.35 : 1);
     if (!sents.length) sents = [{ text: exprBrowser(pronounce(forSpeech(c.text))) }];
     var closeN = c.close ? splitSentences(exprBrowser(pronounce(forSpeech(c.close)))).length : 0, endIdx = Math.max(0, sents.length - 1 - closeN), endSp = /^(rhetorical|vow|farewell)$/.test(c.ending || '');
+    if (opt && opt.flow && opt.natural && !c.poem) return flowUnits(sents, c, baseRate, k, endIdx, endSp, closeN, opt);   // 自然人聲: 整句念(詩詞、機械聲音仍逐小句)
     sents.forEach(function (sn, si) {
       var parts0 = String(sn.text).match(/[^,;:\u3001\uFF0C\uFF1B\uFF1A]+[,;:\u3001\uFF0C\uFF1B\uFF1A]*/g) || [sn.text], parts = [], soft = [];
       parts0.forEach(function (p0) { var pcs = c.poem ? [p0] : softSplit(p0); pcs.forEach(function (x, xi) { parts.push(x); soft.push(xi < pcs.length - 1); }); });   // 很長的小句在連接詞處斷開, 讓音高重新起頭, 不會一路平平念到底
@@ -1036,7 +1103,7 @@
     // 瀏覽器聲音: 一句一句、一個分句一個分句念; 每個分句依語氣調整語速與音高, 分句之間依標點停頓(和 AI 人聲同一套人設與語氣)
     function speakBrowser(c, tok) {
       var s = synth(); if (!s) { say('這個瀏覽器不支援朗讀。'); return done(); }
-      var br = o.br || {}, units = browserUnits(c, o.rate), k = 0;
+      var br = o.br || {}, units = browserUnits(c, o.rate, { flow: brFlow, natural: !!br.voice && voiceTier(br.voice) >= 150, next: o.chunks[self.i + 1] }), k = 0;
       function next() {
         if (tok !== self.token || self.state !== 'playing') return;
         if (k >= units.length) { self.i++; run(tok); return; }
@@ -1220,7 +1287,7 @@
     var prefs = loadPrefs(), reader = null, mode = 'body', curPlan = null, aiOk = false, engAuto = false;   // engAuto: 語音來源是自動切換的(不是使用者自己選的), 不存成偏好
     host.innerHTML = '<div class="kbt" role="group" aria-label="朗讀這則貼文"><div class="kbt-row"><button type="button" class="kbt-btn" data-k="play" aria-label="朗讀內容">🔊 朗讀內容</button><button type="button" class="kbt-btn alt" data-k="stop" hidden aria-label="停止朗讀">⏹ 停止</button>' +
       '<select data-k="engine" aria-label="語音來源"><option value="ai">AI 人聲(較自然)</option><option value="browser">瀏覽器語音(免費、不耗額度)</option></select><select data-k="voice" aria-label="選擇聲音">' + PERSONAS.map(function (p) { return '<option value="ai:' + p.id + '">' + esc(p.name) + '</option>'; }).join('') + '</select><select data-k="brvoice" aria-label="瀏覽器聲音(台灣中文)" hidden></select><select data-k="rate" aria-label="朗讀速度"><option value="0.8">慢一點</option><option value="0.9">稍慢(預設)</option><option value="1">正常</option><option value="1.15">稍快</option><option value="1.3">快</option></select>' +
-      '<select data-k="prosody" aria-label="抑揚頓挫"><option value="0">抑揚頓挫:標準</option><option value="1">抑揚頓挫:加強</option><option value="2">抑揚頓挫:戲劇</option></select><select data-k="tone" aria-label="語氣"><option value="auto">語氣:自動判斷</option>' + STYLES.map(function (x) { return '<option value="' + x.id + '">' + esc(x.zh) + '</option>'; }).join('') + '</select><label><input type="checkbox" data-k="auto" checked> 自動語氣</label><label data-k="flourL" hidden><input type="checkbox" data-k="flour" checked> 說書開場與收場</label><label data-k="breathL" title="段與段之間的換氣: 輕輕的一聲吸氣, 聽起來像真人在說話"><input type="checkbox" data-k="breath" checked> 自然換氣</label></div>' +
+      '<select data-k="prosody" aria-label="抑揚頓挫"><option value="0">抑揚頓挫:標準</option><option value="1">抑揚頓挫:加強</option><option value="2">抑揚頓挫:戲劇</option></select><select data-k="tone" aria-label="語氣"><option value="auto">語氣:自動判斷</option>' + STYLES.map(function (x) { return '<option value="' + x.id + '">' + esc(x.zh) + '</option>'; }).join('') + '</select><label><input type="checkbox" data-k="auto" checked> 自動語氣</label><label data-k="flourL" hidden><input type="checkbox" data-k="flour" checked> 說書開場與收場</label><label data-k="brflowL" title="自然人聲一次念整句(最多約 60 字), 句與句的停頓交給標點和前後文, 接續比較順; 關掉就回到一個小句一個小句念" hidden><input type="checkbox" data-k="brflow" checked> 接續更順(整句念)</label><label data-k="breathL" title="段與段之間的換氣: 輕輕的一聲吸氣, 聽起來像真人在說話"><input type="checkbox" data-k="breath" checked> 自然換氣</label></div>' +
       '<div class="kbt-prog" data-k="prog" role="group" aria-label="朗讀進度"><button type="button" class="kbt-mini" data-k="back" aria-label="倒退 10 秒">&#9194; 10</button><span class="kbt-t" data-k="tcur" aria-hidden="true">0:00</span><input type="range" data-k="seek" min="0" max="1" value="0" step="1" aria-label="朗讀進度,可拖曳到想聽的地方"><span class="kbt-t" data-k="ttot" aria-hidden="true">0:00</span><button type="button" class="kbt-mini" data-k="fwd" aria-label="快轉 10 秒">10 &#9193;</button></div>' +
       '<details class="kbt-tl" data-k="tl"><summary>時間表(每一句在幾分幾秒; 點一句就從那裡開始念)</summary><div data-k="tlist"></div></details><div class="kbt-info" data-k="info"></div><div class="kbt-cap" data-k="cap" aria-live="polite"></div><div class="kbt-note" data-k="note" role="status"></div></div>';
     var $ = function (k) { return host.querySelector('[data-k="' + k + '"]'); };
@@ -1228,7 +1295,7 @@
     var rb = doc.createElement('button'); rb.type = 'button'; rb.className = 'kbt-btn kbt-replies'; rb.setAttribute('data-k', 'playr'); rb.setAttribute('aria-label', '朗讀其他人的全部回應'); rb.textContent = '🔊 朗讀全部回應(0)';
     if (ctx.repliesHost) { ctx.repliesHost.style.display = ''; ctx.repliesHost.appendChild(rb); } else host.querySelector('.kbt-row').appendChild(rb);
     if (ctx.titleHost) { ctx.titleHost.style.display = ''; ctx.titleHost.appendChild(tb); } else { var rowEl = host.querySelector('.kbt-row'); rowEl.insertBefore(tb, rowEl.firstChild); }
-    var play = $('play'), playt = tb, playr = rb, stopB = $('stop'), eng = $('engine'), vs = $('voice'), rs = $('rate'), au = $('auto'), fl = $('flour'), flL = $('flourL'), bk = $('breath'), bkL = $('breathL'), tn = $('tone'), ps = $('prosody'), bv = $('brvoice'), prog = $('prog'), seek = $('seek'), tcur = $('tcur'), ttot = $('ttot'), backB = $('back'), fwdB = $('fwd'), tlBox = $('tl'), tlist = $('tlist'), info = $('info'), cap = $('cap'), note = $('note');
+    var play = $('play'), playt = tb, playr = rb, stopB = $('stop'), eng = $('engine'), vs = $('voice'), rs = $('rate'), au = $('auto'), fl = $('flour'), flL = $('flourL'), bk = $('breath'), bkL = $('breathL'), tn = $('tone'), ps = $('prosody'), bv = $('brvoice'), bfL = $('brflowL'), bf = $('brflow'), prog = $('prog'), seek = $('seek'), tcur = $('tcur'), ttot = $('ttot'), backB = $('back'), fwdB = $('fwd'), tlBox = $('tl'), tlist = $('tlist'), info = $('info'), cap = $('cap'), note = $('note');
     rs.value = prefs.rate || '0.9'; if (prefs.tone && tn.querySelector('option[value="' + prefs.tone + '"]')) tn.value = prefs.tone;
     au.checked = prefs.auto !== false; fl.checked = prefs.flour !== false; bk.checked = prefs.breath !== false; ps.value = prefs.prosody != null && ps.querySelector('option[value="' + String(prefs.prosody).replace(/"/g, '') + '"]') ? String(prefs.prosody) : '1';
     eng.value = prefs.engine === 'browser' || Date.now() - aiCool < 1800000 ? 'browser' : 'ai';
@@ -1237,7 +1304,7 @@
     function preset() { return STYLES.filter(function (x) { return x.id === tn.value; })[0] || null; }
     function post() { var p = ctx.getPost() || {}; return { type: p.type, title: p.title || '', content: p.content || '' }; }
     function replies() { try { var l = ctx.getReplies && ctx.getReplies(); return Array.isArray(l) ? l.filter(function (r) { return r && (String(r.content || '').trim() || String(r.title || '').trim()); }) : []; } catch (e) { return []; } }
-    brPick = prefs.brVoice || '';
+    brPick = prefs.brVoice || ''; brFlow = prefs.brFlow !== false; bf.checked = brFlow;
     function brLabel(v) { return String(v.name || '').replace(/^Microsoft\s+/i, '').replace(/\s*-\s*Chinese.*$/i, '') + (voiceTier(v) >= 250 ? '(自然人聲)' : ''); }
     function fillBrVoices() {   // 列出這台電腦上所有台灣中文聲音, 讓使用者挑最順耳的; 預設「自動」= 挑最自然的
       var list = twVoices(), cur = prefs.brVoice || '';
@@ -1248,6 +1315,7 @@
     function showInfo() {
       bkL.hidden = eng.value === 'browser';   // 吸氣聲只有 AI 人聲有
       bv.hidden = eng.value !== 'browser' || bv.options.length < 2;
+      bfL.hidden = eng.value !== 'browser';
       flL.hidden = !(PERSONAS.filter(function (x) { return x.id === vs.value.replace(/^ai:/, ''); })[0] || {}).rich;
       var t = analyze(post()), pr = preset(), pdef = PERSONAS.filter(function (x) { return x.id === vs.value.replace(/^ai:/, ''); })[0] || {};
       info.textContent = (pr ? '語氣(手動選擇): ' + pr.zh : au.checked ? '語氣(依這則貼文自動判斷): ' + t.label + (pdef.rich ? '; 說書人會每一小段依情節與情緒再變化' : '; 每一小段也會依自己的情緒、對話再微調') : '語氣: 自然、清楚(已關閉自動語氣)') + (eng.value === 'browser' ? ' ‧ 瀏覽器語音: 用語速、音高和停頓模擬語氣' + (function () { var bp = brParams(vs.value.replace(/^ai:/, '')); return bp.voice && voiceTier(bp.voice) < 250 ? '。這台電腦上的瀏覽器聲音比較機械; 用 Microsoft Edge 開啟會有更自然的台灣中文聲音(曉臻、曉雨、雲哲), 或改選「AI 人聲」' : ''; })() : '');
@@ -1535,6 +1603,7 @@
     bk.onchange = function () { prefs.breath = bk.checked; savePrefs(prefs); if (reader) reader.o.breath = bk.checked; tlRefresh(); };
     fl.onchange = function () { prefs.flour = fl.checked; savePrefs(prefs); if (!retune()) tlRefresh(); };   // 讀到一半換聲音/語氣: 從現在讀到的地方接著讀
     eng.onchange = function () { engAuto = false; prefs.engine = eng.value; savePrefs(prefs); showInfo(); if (!retune()) tlRefresh(); };
+    bf.onchange = function () { prefs.brFlow = bf.checked; brFlow = bf.checked; savePrefs(prefs); tlRefresh(); };   // 下一小段開始套用
     bv.onchange = function () { prefs.brVoice = bv.value; brPick = bv.value; savePrefs(prefs); showInfo(); if (!retune()) tlRefresh(); };
     fillBrVoices();
     (function () { var s0 = synth(); if (s0) { try { s0.onvoiceschanged = function () { fillBrVoices(); showInfo(); }; } catch (e) {} } })();   // 瀏覽器常常晚一點才載入聲音清單
@@ -1564,7 +1633,7 @@
 
   global.KBTts = {
     PERSONAS: PERSONAS, TONES: TONES, STYLES: STYLES, EXPR: EXPR, exprText: exprText, analyze: analyze, splitSentences: splitSentences, groupSentences: groupSentences, forSpeech: forSpeech, withPauses: withPauses,
-    mount: mount, stop: stop, pronounce: pronounce, numbersZh: numbersZh, cardinalZh: cardinalZh, genreOf: genreOf, emotionOf: emotionOf, toneForChunk: toneForChunk, endingOf: endingOf, endMood: endMood, poemOf: poemOf, poemChunks: poemChunks, poemImagery: poemImagery, browserUnits: browserUnits, brParams: brParams, twVoices: twVoices, voiceTier: voiceTier, setBrowserVoice: function (n) { brPick = String(n || ''); }, exprBrowser: exprBrowser, chunksFor: chunksFor, replyChunks: replyChunks, resumeAt: resumeAt, personaVoice: personaVoice, personaStyle: personaStyle, aiClip: aiClip, voiceList: voiceList, localKey: localKey, Reader: Reader, aiState: aiState,
+    mount: mount, stop: stop, pronounce: pronounce, numbersZh: numbersZh, cardinalZh: cardinalZh, genreOf: genreOf, emotionOf: emotionOf, toneForChunk: toneForChunk, endingOf: endingOf, endMood: endMood, poemOf: poemOf, poemChunks: poemChunks, poemImagery: poemImagery, browserUnits: browserUnits, brParams: brParams, twVoices: twVoices, voiceTier: voiceTier, setBrowserVoice: function (n) { brPick = String(n || ''); }, setBrowserFlow: function (b) { brFlow = !!b; }, exprBrowser: exprBrowser, chunksFor: chunksFor, replyChunks: replyChunks, resumeAt: resumeAt, personaVoice: personaVoice, personaStyle: personaStyle, aiClip: aiClip, voiceList: voiceList, localKey: localKey, Reader: Reader, aiState: aiState,
     _t: { tailSplit: tailSplit, endPause: endPause, flourishFor: flourishFor, factsOf: factsOf, moodOf: moodOf, speechOf: speechOf, chunkCap: chunkCap, craftOf: craftOf, keyLinePause: keyLinePause, stats: stats, processWav: processWav, withBreathWav: withBreathWav, wavParse: wavParse, wavBuild: wavBuild, joinGapMs: joinGapMs, durMem: durMem, fmtT: fmtT, effLen: effLen, aiScript: aiScript, H: H, mem: mem, setHighlight: setHighlight, textMap: textMap, hash: hash, resetAi: function () { aiState.v = null; vlist = null; vP = null; } }
   };
 })(typeof window !== 'undefined' ? window : globalThis);
