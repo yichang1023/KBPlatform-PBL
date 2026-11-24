@@ -941,7 +941,7 @@
         };
 
         window.app.submitNode = () => {
-            if(!window.state.composer.selectedScaffold) return window.ui.showToast('請選擇意圖', 'error');
+            if(!window.state.composer.selectedScaffold) return window.ui.showToast('你忘了選擇貢獻想法的目的是哪一個了唷', 'error');
             const title = document.getElementById('node-title').value;
             const content = document.getElementById('node-content').value;
             if(!title) return window.ui.showToast('請輸入標題', 'error');
