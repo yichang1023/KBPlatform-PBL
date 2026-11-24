@@ -2238,9 +2238,6 @@
                             <div class="px-3 pt-2 text-[12px] text-indigo-700"><b><i class="fa-solid fa-wand-magic-sparkles"></i> 最佳化排版(AI 協助)</b> <kbd class="kb-kbd">Alt+O</kbd></div>
                             <div class="px-3 pb-1 text-[11px] text-slate-500">找出主脈絡排在同一排、箭頭加粗, 分支變淡並標上主題, 看起來更輕鬆。先用規則立刻排好, AI 在後台協助微調, 結果可以復原。</div>
                             <div class="flex gap-1 px-2 pb-2"><button onclick="window.app.canvas.optimize('LR')" class="flex-1 rounded bg-indigo-50 text-indigo-700 font-bold py-1.5 hover:bg-indigo-100"><i class="fa-solid fa-arrow-right"></i> 從左到右</button><button onclick="window.app.canvas.optimize('TB')" class="flex-1 rounded bg-indigo-50 text-indigo-700 font-bold py-1.5 hover:bg-indigo-100"><i class="fa-solid fa-arrow-down"></i> 從上到下</button></div>
-                            <div class="px-3 pt-1 pb-1 text-[11px] text-slate-400 border-t border-slate-100">只依發言時間排(基本): 同一層依時間先後, 關係線與箭頭會跟著理順</div>
-                            <button onclick="window.app.canvas.arrange('LR')" class="w-full text-left px-3 py-2 rounded hover:bg-slate-100"><b><i class="fa-solid fa-arrow-right"></i> 從左到右</b> <kbd class="kb-kbd">Alt+L</kbd><br><span class="text-slate-500">想法往右推進, 第一則回應接在同一排, 其他回應排在上下的空排</span></button>
-                            <button onclick="window.app.canvas.arrange('TB')" class="w-full text-left px-3 py-2 rounded hover:bg-slate-100"><b><i class="fa-solid fa-arrow-down"></i> 從上到下</b> <kbd class="kb-kbd">Alt+T</kbd><br><span class="text-slate-500">同樣的排法轉個方向: 往下推進, 其他回應排在左右的空欄</span></button>
                             <div class="border-t border-slate-100 mt-1 pt-1 flex">
                                 <button onclick="window.app.canvas.undoLayout()" class="flex-1 text-left px-3 py-2 rounded hover:bg-slate-100 text-slate-600"><i class="fa-solid fa-rotate-left"></i> 復原 <span class="text-slate-400">(${window.app.canvas.hist().u.length}/20)</span> <kbd class="kb-kbd">Ctrl+Z</kbd></button>
                                 <button onclick="window.app.canvas.redoLayout()" class="flex-1 text-left px-3 py-2 rounded hover:bg-slate-100 text-slate-600"><i class="fa-solid fa-rotate-right"></i> 取消復原 <span class="text-slate-400">(${window.app.canvas.hist().r.length})</span> <kbd class="kb-kbd">Ctrl+Y</kbd></button>
@@ -2251,9 +2248,9 @@
                         <button onclick="window.app.showShortcuts()" class="w-8 h-8 hidden md:flex items-center justify-center hover:bg-slate-100 text-slate-500" title="快捷鍵說明 (F1)" aria-label="快捷鍵說明"><i class="fa-regular fa-keyboard"></i></button>
                         <button onclick="window.app.centerOnFirstNode(true)" class="w-8 h-8 flex items-center justify-center hover:bg-slate-100 text-kb-blue" title="回到起點"><i class="fa-solid fa-location-crosshairs"></i></button>
                         <div class="w-px h-5 bg-slate-200 mx-1"></div>
-                        <button onclick="window.app.canvas.fitView()" class="w-8 h-8 flex items-center justify-center hover:bg-slate-100"><i class="fa-solid fa-expand"></i></button>
-                        <button onclick="window.app.canvas.zoom(0.1)" class="w-8 h-8 flex items-center justify-center hover:bg-slate-100 hidden md:flex"><i class="fa-solid fa-plus"></i></button>
-                        <button onclick="window.app.canvas.zoom(-0.1)" class="w-8 h-8 flex items-center justify-center hover:bg-slate-100 hidden md:flex"><i class="fa-solid fa-minus"></i></button>
+                        <button onclick="window.app.canvas.fitView()" class="w-8 h-8 flex items-center justify-center hover:bg-slate-100" title="符合畫面(全部想法一次看到)" aria-label="符合畫面"><i class="fa-solid fa-expand"></i></button>
+                        <button onclick="window.app.canvas.zoom(0.1)" class="w-8 h-8 flex items-center justify-center hover:bg-slate-100 hidden md:flex" title="放大" aria-label="放大"><i class="fa-solid fa-plus"></i></button>
+                        <button onclick="window.app.canvas.zoom(-0.1)" class="w-8 h-8 flex items-center justify-center hover:bg-slate-100 hidden md:flex" title="縮小" aria-label="縮小"><i class="fa-solid fa-minus"></i></button>
                     </div>
                 </div>
             </div>
